@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/tokens.g.dart';
+import 'evo_pressable.dart';
 
-/// Botão de ação principal com estado de carregamento.
+/// Botão de ação em pílula, com estado de carregamento e resposta ao toque.
 ///
-/// Enquanto [isLoading] for verdadeiro o botão fica desabilitado, evitando envios duplicados.
+/// Enquanto [isLoading] for verdadeiro o botão fica desabilitado, evitando envios
+/// duplicados. O conteúdo troca com um cruzamento suave entre texto e indicador.
 class EvoButton extends StatelessWidget {
   const EvoButton({
     super.key,
     required this.label,
     required this.onPressed,
     this.icon,
+    this.trailingIcon,
     this.isLoading = false,
     this.variant = EvoButtonVariant.primary,
   });
@@ -18,6 +21,9 @@ class EvoButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
+
+  /// Ícone depois do texto (ex.: seta de "continuar").
+  final IconData? trailingIcon;
   final bool isLoading;
   final EvoButtonVariant variant;
 
@@ -28,29 +34,54 @@ class EvoButton extends StatelessWidget {
         ? EvoColors.onAccent
         : EvoColors.textPrimary;
 
-    final Widget content = isLoading
-        ? SizedBox.square(
-            dimension: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: foreground,
-              semanticsLabel: 'Carregando',
-            ),
-          )
-        : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 20),
-                const SizedBox(width: EvoSpace.sm),
+    final Widget content = AnimatedSwitcher(
+      duration: EvoMotion.fast,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.85, end: 1).animate(animation),
+          child: child,
+        ),
+      ),
+      child: isLoading
+          ? SizedBox.square(
+              key: const ValueKey('loading'),
+              dimension: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                color: variant == EvoButtonVariant.primary
+                    ? EvoColors.onAccent
+                    : foreground,
+                semanticsLabel: 'Carregando',
+              ),
+            )
+          : Row(
+              key: const ValueKey('label'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 20),
+                  const SizedBox(width: EvoSpace.sm),
+                ],
+                Text(label),
+                if (trailingIcon != null) ...[
+                  const SizedBox(width: EvoSpace.sm),
+                  Icon(trailingIcon, size: 20),
+                ],
               ],
-              Text(label),
-            ],
-          );
+            ),
+    );
 
-    return switch (variant) {
+    final button = switch (variant) {
       EvoButtonVariant.primary => FilledButton(
         onPressed: enabled ? onPressed : null,
+        // Durante o carregamento mantém o preto (desabilitado, mas sem "apagar").
+        style: isLoading
+            ? FilledButton.styleFrom(
+                disabledBackgroundColor: EvoColors.accent,
+                disabledForegroundColor: EvoColors.onAccent,
+              )
+            : null,
         child: content,
       ),
       EvoButtonVariant.secondary => OutlinedButton(
@@ -58,6 +89,8 @@ class EvoButton extends StatelessWidget {
         child: content,
       ),
     };
+
+    return EvoPressable(enabled: enabled, child: button);
   }
 }
 

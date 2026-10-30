@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mesmos valores de packages/design-tokens/tokens.json (bg-base e accent). -->
+    <color name="evo_bg_base">#F6F5F1</color>
+    <color name="evo_accent">#0C0C0D</color>
+</resources>

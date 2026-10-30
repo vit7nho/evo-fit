@@ -1,11 +1,13 @@
 import 'package:evofit/app/theme/app_theme.dart';
 import 'package:evofit/shared/widgets/evo_button.dart';
+import 'package:evofit/shared/widgets/evo_entrance.dart';
+import 'package:evofit/shared/widgets/evo_form_error.dart';
 import 'package:evofit/shared/widgets/evo_state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget _host(Widget child) => MaterialApp(
-  theme: AppTheme.dark(),
+  theme: AppTheme.light(),
   home: Scaffold(body: child),
 );
 
@@ -90,5 +92,69 @@ void main() {
       findsNothing,
     );
     expect(find.bySemanticsLabel('Carregando'), findsOneWidget);
+  });
+
+  group('movimento', () {
+    double opacityOf(WidgetTester tester, Finder finder) => tester
+        .widget<Opacity>(
+          find.ancestor(of: finder, matching: find.byType(Opacity)).first,
+        )
+        .opacity;
+
+    testWidgets('EvoEntrance começa invisível e termina visível', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          EvoEntrance(delay: EvoEntrance.stagger(2), child: const Text('Oi')),
+        ),
+      );
+      expect(opacityOf(tester, find.text('Oi')), 0);
+
+      await tester.pumpAndSettle();
+      expect(opacityOf(tester, find.text('Oi')), 1);
+    });
+
+    testWidgets('EvoEntrance aparece na hora com redução de movimento', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: _host(
+            EvoEntrance(delay: EvoEntrance.stagger(5), child: const Text('Oi')),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(opacityOf(tester, find.text('Oi')), 1);
+    });
+
+    testWidgets('EvoButton encolhe ao ser pressionado e volta ao soltar', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(EvoButton(label: 'Ok', onPressed: () {})));
+      double scale() =>
+          tester.widget<AnimatedScale>(find.byType(AnimatedScale)).scale;
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(FilledButton)),
+      );
+      await tester.pump();
+      expect(scale(), lessThan(1));
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(scale(), 1);
+    });
+
+    testWidgets('EvoFormError sem mensagem não mostra nada', (tester) async {
+      await tester.pumpWidget(_host(const EvoFormError(message: null)));
+      expect(find.byIcon(Icons.error_outline_rounded), findsNothing);
+
+      await tester.pumpWidget(_host(const EvoFormError(message: 'Falhou')));
+      await tester.pumpAndSettle();
+      expect(find.text('Falhou'), findsOneWidget);
+    });
   });
 }

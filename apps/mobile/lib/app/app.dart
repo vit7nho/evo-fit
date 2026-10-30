@@ -13,8 +13,8 @@ class EvoFitApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'EvoFit',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(),
-      themeMode: ThemeMode.dark,
+      theme: AppTheme.light(),
+      themeMode: ThemeMode.light,
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [Locale('pt', 'BR')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,

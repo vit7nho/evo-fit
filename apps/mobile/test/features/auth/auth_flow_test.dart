@@ -61,9 +61,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('E-mail ou senha incorretos.'), findsOneWidget);
 
-    // Editar o campo limpa o erro anterior.
+    // Editar o campo limpa o erro anterior (o aviso sai com animação).
     await tester.enterText(_field('Senha'), FakeAuthServer.password);
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.text('E-mail ou senha incorretos.'), findsNothing);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Entrar'));
@@ -72,7 +72,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Sair'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Sair'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Sair'));
     await tester.pumpAndSettle();
     expect(find.text('Entre para acompanhar sua evolução.'), findsOneWidget);
   });
@@ -104,7 +104,7 @@ void main() {
 
   group('cadastro', () {
     Future<void> openRegister(WidgetTester tester) async {
-      await tester.tap(find.text('Ainda não tem conta? Criar conta'));
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Criar conta'));
       await tester.pumpAndSettle();
     }
 
@@ -115,6 +115,12 @@ void main() {
       await tester.enterText(_field('Como quer ser chamado'), 'Ana');
       await tester.enterText(_field('E-mail'), FakeAuthServer.email);
       await tester.enterText(_field('Senha'), password);
+    }
+
+    Future<void> acceptTerms(WidgetTester tester) async {
+      await tester.ensureVisible(find.byType(Checkbox));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(Checkbox));
     }
 
     Future<void> submit(WidgetTester tester) async {
@@ -142,7 +148,7 @@ void main() {
       await _pumpApp(tester);
       await openRegister(tester);
       await fillForm(tester, password: '1234567890');
-      await tester.tap(find.byType(Checkbox));
+      await acceptTerms(tester);
 
       await submit(tester);
 
@@ -156,7 +162,7 @@ void main() {
       await _pumpApp(tester);
       await openRegister(tester);
       await fillForm(tester, password: FakeAuthServer.password);
-      await tester.tap(find.byType(Checkbox));
+      await acceptTerms(tester);
 
       await submit(tester);
 

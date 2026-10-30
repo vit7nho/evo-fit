@@ -33,7 +33,7 @@ Future<void> _pump(WidgetTester tester, HealthRepository repository) async {
       retry: noAutomaticRetry,
       overrides: [healthRepositoryProvider.overrideWithValue(repository)],
       child: MaterialApp(
-        theme: AppTheme.dark(),
+        theme: AppTheme.light(),
         home: const SystemStatusPage(),
       ),
     ),

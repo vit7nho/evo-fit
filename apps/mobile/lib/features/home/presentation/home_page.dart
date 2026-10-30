@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../app/routes.dart';
 import '../../../app/theme/tokens.g.dart';
 import '../../../shared/widgets/evo_card.dart';
+import '../../../shared/widgets/evo_entrance.dart';
+import '../../../shared/widgets/evo_logo.dart';
 import '../../auth/application/auth_controller.dart';
 
 /// Tela inicial de quem entrou. Ganha o painel e a navegação inferior nas próximas etapas.
@@ -22,65 +24,97 @@ class HomePage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: EvoColors.bgBase,
-        title: const Text('EvoFit'),
+        titleSpacing: EvoSpace.xl,
+        title: const EvoLogo(size: 30),
         actions: [
           IconButton(
             tooltip: 'Sair',
             icon: const Icon(Icons.logout_rounded),
             onPressed: () => _confirmLogout(context, ref),
           ),
+          const SizedBox(width: EvoSpace.sm),
         ],
       ),
       body: SafeArea(
+        top: false,
         child: ListView(
-          padding: const EdgeInsets.all(EvoSpace.xl),
+          padding: const EdgeInsets.fromLTRB(
+            EvoSpace.xl,
+            EvoSpace.xl,
+            EvoSpace.xl,
+            EvoSpace.xl,
+          ),
           children: [
-            Text(
-              'Olá, ${user.displayName}!',
-              style: theme.textTheme.displaySmall,
+            EvoEntrance(
+              child: Text(
+                'Olá, ${user.displayName}!',
+                style: theme.textTheme.displayMedium,
+              ),
             ),
-            const SizedBox(height: EvoSpace.sm),
-            Text(
-              'Sua conta está pronta. Perfil, metas e treinos chegam nas '
-              'próximas etapas do projeto.',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: EvoColors.textSecondary,
+            const SizedBox(height: EvoSpace.md),
+            EvoEntrance(
+              delay: EvoEntrance.stagger(1),
+              child: Text(
+                'Sua conta está pronta. Perfil, metas e treinos chegam nas '
+                'próximas etapas do projeto.',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: EvoColors.textSecondary,
+                ),
               ),
             ),
             const SizedBox(height: EvoSpace.x2xl),
-            EvoCard(
-              onTap: () => context.push(AppRoutes.status),
-              child: Row(
-                children: [
-                  const Icon(Icons.dns_outlined, color: EvoColors.accent),
-                  const SizedBox(width: EvoSpace.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Status do servidor',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        Text(
-                          'Conexão com a API e o banco de dados',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ],
+            EvoEntrance(
+              delay: EvoEntrance.stagger(2),
+              child: EvoCard(
+                onTap: () => context.push(AppRoutes.status),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: const BoxDecoration(
+                        color: EvoColors.bgElevated,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.dns_outlined,
+                        color: EvoColors.textPrimary,
+                        size: 22,
+                      ),
                     ),
-                  ),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: EvoColors.textSecondary,
-                  ),
-                ],
+                    const SizedBox(width: EvoSpace.lg),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Status do servidor',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Conexão com a API e o banco de dados',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: EvoColors.textPrimary,
+                      size: 20,
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: EvoSpace.lg),
-            Text(
-              'Conectado como ${user.email}',
-              style: theme.textTheme.bodyMedium,
+            const SizedBox(height: EvoSpace.xl),
+            EvoEntrance(
+              delay: EvoEntrance.stagger(3),
+              child: Text(
+                'Conectado como ${user.email}',
+                style: theme.textTheme.bodyMedium,
+              ),
             ),
           ],
         ),
@@ -101,8 +135,9 @@ class HomePage extends ConsumerWidget {
             onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancelar'),
           ),
-          TextButton(
+          FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(minimumSize: const Size(88, 44)),
             child: const Text('Sair'),
           ),
         ],

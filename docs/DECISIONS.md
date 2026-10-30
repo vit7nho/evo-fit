@@ -128,3 +128,11 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 **Decisão:** o logout revoga o refresh token; um access token já emitido continua válido até expirar (no máximo 15 min). Desativar a conta, porém, bloqueia o access token na hora (o `/me` e as rotas protegidas conferem o status do usuário a cada requisição).
 **Consequência:** evita uma consulta extra de lista de bloqueio a cada requisição; o risco fica limitado à validade curta.
 
+### ADR-025 — Identidade monocromática clara
+**Status:** Aceita · Fase 2 (antes da 2.2) · substitui a paleta escura com acento azul da Fase 0
+**Decisão:** fundo off-white, superfícies brancas e preto como cor de ação, no app e no site (tokens compartilhados). Cores só para estados (erro, sucesso, aviso) e para as faixas do Meu Corpo, que são dados.
+**Consequências:**
+- O tema do app passou a ser claro (`AppTheme.light`), com a abertura nativa do Android na mesma cor de fundo (sem piscar na troca para o Flutter).
+- O ícone do app virou o monograma da marca (adaptativo a partir do Android 8; PNG nos anteriores).
+- Contrastes verificados (tabela em `UX_FLOWS.md` §4). O modo escuro fica para depois da v1.
+

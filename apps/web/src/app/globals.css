@@ -6,8 +6,29 @@
   --font-display: var(--font-space-grotesk);
 }
 
+/* Curva "emphasized decelerate" do Material 3, a mesma das transições do app. */
+@theme {
+  --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --animate-enter: enter var(--duration-slow) var(--ease-emphasized) both;
+
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -16,16 +37,26 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+::selection {
+  background: var(--color-text-primary);
+  color: var(--color-bg-surface);
+}
+
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 3px;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
   }
 }

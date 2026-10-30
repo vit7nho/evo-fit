@@ -1,19 +1,20 @@
 /* GERADO por scripts/generate_tokens.py a partir de packages/design-tokens/tokens.json. Não edite. */
 
 @theme {
-  --color-bg-base: #0A0D14;
-  --color-bg-surface: #121722;
-  --color-bg-elevated: #1A2030;
-  --color-border-subtle: #262E40;
-  --color-text-primary: #E8ECF4;
-  --color-text-secondary: #9AA4B8;
-  --color-accent: #4C7DFF;
-  --color-accent-pressed: #3A66DB;
+  --color-bg-base: #F6F5F1;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-elevated: #ECEBE6;
+  --color-border-subtle: #E3E2DC;
+  --color-border-strong: #8A8983;
+  --color-text-primary: #0C0C0D;
+  --color-text-secondary: #5E5E63;
+  --color-accent: #0C0C0D;
+  --color-accent-pressed: #2B2B2E;
   --color-on-accent: #FFFFFF;
-  --color-success: #3CCB8B;
-  --color-warning: #F2A93B;
-  --color-danger: #F0566A;
-  --color-stimulus-none: #3A4253;
+  --color-success: #1E7F4F;
+  --color-warning: #A35F00;
+  --color-danger: #C62D2D;
+  --color-stimulus-none: #DCDBD5;
   --color-stimulus-low: #3D7BFF;
   --color-stimulus-mid: #F28C28;
   --color-stimulus-high: #E5484D;
@@ -24,17 +25,18 @@
   --spacing-xl: 1.5rem;
   --spacing-2xl: 2.0rem;
   --spacing-3xl: 3.0rem;
-  --radius-input: 8px;
-  --radius-card: 14px;
+  --radius-input: 14px;
+  --radius-card: 22px;
   --radius-pill: 999px;
   --text-caption: 0.75rem;
   --text-body-sm: 0.875rem;
   --text-body: 1.0rem;
   --text-title-sm: 1.25rem;
   --text-title: 1.5rem;
-  --text-display-sm: 2.0rem;
-  --text-display: 2.5rem;
+  --text-display-sm: 2.125rem;
+  --text-display: 2.75rem;
   --duration-fast: 150ms;
-  --duration-base: 200ms;
-  --duration-slow: 250ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+  --duration-page: 420ms;
 }

@@ -8,6 +8,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/evo_button.dart';
 import '../../../shared/widgets/evo_form_error.dart';
 import '../application/auth_controller.dart';
+import 'auth_layout.dart';
 import 'form_validators.dart';
 import 'password_field.dart';
 import 'terms_summary_dialog.dart';
@@ -69,117 +70,103 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final fieldErrors = _error?.fieldErrors ?? const <String, String>{};
     // Erros de campo aparecem no próprio campo; o aviso do topo mostra o resumo.
     final termsError = _showTermsError
         ? 'É preciso aceitar para criar a conta.'
         : fieldErrors['accept_terms'];
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: EvoColors.bgBase,
-        leading: IconButton(
-          tooltip: 'Voltar para o login',
-          icon: const Icon(Icons.arrow_back),
-          onPressed: _submitting ? null : () => context.go(AppRoutes.login),
-        ),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              EvoSpace.xl,
-              0,
-              EvoSpace.xl,
-              EvoSpace.xl,
+    return Form(
+      key: _formKey,
+      child: AutofillGroup(
+        child: AuthLayout(
+          title: 'Crie sua\nconta.',
+          subtitle:
+              'Leva menos de um minuto. O restante do perfil você completa '
+              'depois.',
+          leading: IconButton.outlined(
+            tooltip: 'Voltar para o login',
+            icon: const Icon(Icons.arrow_back_rounded),
+            style: IconButton.styleFrom(
+              side: const BorderSide(color: EvoColors.borderSubtle),
+              backgroundColor: EvoColors.bgSurface,
             ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: AutofillGroup(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text('Criar conta', style: theme.textTheme.displaySmall),
-                      const SizedBox(height: EvoSpace.sm),
-                      Text(
-                        'Leva menos de um minuto. O restante do perfil você '
-                        'completa depois.',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: EvoColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: EvoSpace.xl),
-                      if (_error != null) ...[
-                        EvoFormError(message: _error!.message),
-                        const SizedBox(height: EvoSpace.lg),
-                      ],
-                      TextFormField(
-                        controller: _name,
-                        textCapitalization: TextCapitalization.words,
-                        autofillHints: const [AutofillHints.givenName],
-                        textInputAction: TextInputAction.next,
-                        maxLength: 60,
-                        validator: AuthValidators.displayName,
-                        onChanged: _clearServerError,
-                        forceErrorText: fieldErrors['display_name'],
-                        decoration: const InputDecoration(
-                          labelText: 'Como quer ser chamado',
-                          counterText: '',
-                        ),
-                      ),
-                      const SizedBox(height: EvoSpace.lg),
-                      TextFormField(
-                        controller: _email,
-                        keyboardType: TextInputType.emailAddress,
-                        autocorrect: false,
-                        autofillHints: const [AutofillHints.email],
-                        textInputAction: TextInputAction.next,
-                        validator: AuthValidators.email,
-                        onChanged: _clearServerError,
-                        forceErrorText: fieldErrors['email'],
-                        decoration: const InputDecoration(labelText: 'E-mail'),
-                      ),
-                      const SizedBox(height: EvoSpace.lg),
-                      PasswordField(
-                        controller: _password,
-                        label: 'Senha',
-                        helperText:
-                            'Mínimo de ${AuthValidators.passwordMinLength} '
-                            'caracteres. Uma frase com algumas palavras é '
-                            'forte e fácil de lembrar.',
-                        validator: AuthValidators.newPassword,
-                        serverError: fieldErrors['password'],
-                        autofillHints: const [AutofillHints.newPassword],
-                        onChanged: _clearServerError,
-                        onSubmitted: _submit,
-                      ),
-                      const SizedBox(height: EvoSpace.lg),
-                      _TermsCheckbox(
-                        value: _acceptTerms,
-                        errorText: termsError,
-                        onChanged: (value) => setState(() {
-                          _acceptTerms = value;
-                          if (value) _showTermsError = false;
-                        }),
-                      ),
-                      const SizedBox(height: EvoSpace.xl),
-                      EvoButton(
-                        label: 'Criar conta',
-                        isLoading: _submitting,
-                        onPressed: _submit,
-                      ),
-                    ],
-                  ),
-                ),
+            onPressed: _submitting ? null : _back,
+          ),
+          children: [
+            EvoFormError(message: _error?.message),
+            TextFormField(
+              controller: _name,
+              textCapitalization: TextCapitalization.words,
+              autofillHints: const [AutofillHints.givenName],
+              textInputAction: TextInputAction.next,
+              maxLength: 60,
+              validator: AuthValidators.displayName,
+              onChanged: _clearServerError,
+              forceErrorText: fieldErrors['display_name'],
+              decoration: const InputDecoration(
+                labelText: 'Como quer ser chamado',
+                prefixIcon: Icon(Icons.person_outline_rounded),
+                counterText: '',
               ),
             ),
-          ),
+            const SizedBox(height: EvoSpace.lg),
+            TextFormField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              autofillHints: const [AutofillHints.email],
+              textInputAction: TextInputAction.next,
+              validator: AuthValidators.email,
+              onChanged: _clearServerError,
+              forceErrorText: fieldErrors['email'],
+              decoration: const InputDecoration(
+                labelText: 'E-mail',
+                prefixIcon: Icon(Icons.alternate_email_rounded),
+              ),
+            ),
+            const SizedBox(height: EvoSpace.lg),
+            PasswordField(
+              controller: _password,
+              label: 'Senha',
+              helperText:
+                  'Mínimo de ${AuthValidators.passwordMinLength} caracteres. '
+                  'Uma frase com algumas palavras é forte e fácil de lembrar.',
+              validator: AuthValidators.newPassword,
+              serverError: fieldErrors['password'],
+              autofillHints: const [AutofillHints.newPassword],
+              onChanged: _clearServerError,
+              onSubmitted: _submit,
+            ),
+            const SizedBox(height: EvoSpace.md),
+            _TermsCheckbox(
+              value: _acceptTerms,
+              errorText: termsError,
+              onChanged: (value) => setState(() {
+                _acceptTerms = value;
+                if (value) _showTermsError = false;
+              }),
+            ),
+            const SizedBox(height: EvoSpace.xl),
+            EvoButton(
+              label: 'Criar conta',
+              trailingIcon: Icons.arrow_forward_rounded,
+              isLoading: _submitting,
+              onPressed: _submit,
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  /// Volta com a transição reversa quando veio do login; senão, abre o login.
+  void _back() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.login);
+    }
   }
 }
 
@@ -207,7 +194,9 @@ class _TermsCheckbox extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           title: Text(
             'Li e aceito os Termos de Uso e a Política de Privacidade',
-            style: theme.textTheme.bodyLarge,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: EvoColors.textPrimary,
+            ),
           ),
         ),
         Align(

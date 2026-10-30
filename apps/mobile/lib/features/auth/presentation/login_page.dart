@@ -8,6 +8,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/evo_button.dart';
 import '../../../shared/widgets/evo_form_error.dart';
 import '../application/auth_controller.dart';
+import 'auth_layout.dart';
 import 'form_validators.dart';
 import 'password_field.dart';
 
@@ -58,76 +59,63 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(EvoSpace.xl),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: AutofillGroup(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text('EvoFit', style: theme.textTheme.displaySmall),
-                      const SizedBox(height: EvoSpace.sm),
-                      Text(
-                        'Entre para acompanhar sua evolução.',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: EvoColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: EvoSpace.x2xl),
-                      if (_error != null) ...[
-                        EvoFormError(message: _error!.message),
-                        const SizedBox(height: EvoSpace.lg),
-                      ],
-                      TextFormField(
-                        controller: _email,
-                        keyboardType: TextInputType.emailAddress,
-                        autocorrect: false,
-                        autofillHints: const [AutofillHints.email],
-                        textInputAction: TextInputAction.next,
-                        validator: AuthValidators.email,
-                        onChanged: _clearServerError,
-                        forceErrorText: _error?.fieldErrors['email'],
-                        decoration: const InputDecoration(labelText: 'E-mail'),
-                      ),
-                      const SizedBox(height: EvoSpace.lg),
-                      PasswordField(
-                        controller: _password,
-                        label: 'Senha',
-                        validator: AuthValidators.loginPassword,
-                        serverError: _error?.fieldErrors['password'],
-                        onChanged: _clearServerError,
-                        onSubmitted: _submit,
-                      ),
-                      const SizedBox(height: EvoSpace.xl),
-                      EvoButton(
-                        label: 'Entrar',
-                        isLoading: _submitting,
-                        onPressed: _submit,
-                      ),
-                      const SizedBox(height: EvoSpace.md),
-                      TextButton(
-                        onPressed: _submitting
-                            ? null
-                            : () => context.go(AppRoutes.register),
-                        child: const Text('Ainda não tem conta? Criar conta'),
-                      ),
-                      TextButton(
-                        onPressed: () => context.push(AppRoutes.status),
-                        child: const Text('Status do servidor'),
-                      ),
-                    ],
-                  ),
-                ),
+    return Form(
+      key: _formKey,
+      child: AutofillGroup(
+        child: AuthLayout(
+          title: 'Bem-vindo\nde volta.',
+          subtitle: 'Entre para acompanhar sua evolução.',
+          footer: Center(
+            child: TextButton.icon(
+              onPressed: () => context.push(AppRoutes.status),
+              icon: const Icon(Icons.dns_outlined, size: 18),
+              label: const Text('Status do servidor'),
+              style: TextButton.styleFrom(
+                foregroundColor: EvoColors.textSecondary,
               ),
             ),
           ),
+          children: [
+            EvoFormError(message: _error?.message),
+            TextFormField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              autofillHints: const [AutofillHints.email],
+              textInputAction: TextInputAction.next,
+              validator: AuthValidators.email,
+              onChanged: _clearServerError,
+              forceErrorText: _error?.fieldErrors['email'],
+              decoration: const InputDecoration(
+                labelText: 'E-mail',
+                prefixIcon: Icon(Icons.alternate_email_rounded),
+              ),
+            ),
+            const SizedBox(height: EvoSpace.lg),
+            PasswordField(
+              controller: _password,
+              label: 'Senha',
+              validator: AuthValidators.loginPassword,
+              serverError: _error?.fieldErrors['password'],
+              onChanged: _clearServerError,
+              onSubmitted: _submit,
+            ),
+            const SizedBox(height: EvoSpace.xl),
+            EvoButton(
+              label: 'Entrar',
+              trailingIcon: Icons.arrow_forward_rounded,
+              isLoading: _submitting,
+              onPressed: _submit,
+            ),
+            const OrDivider(),
+            EvoButton(
+              label: 'Criar conta',
+              variant: EvoButtonVariant.secondary,
+              onPressed: _submitting
+                  ? null
+                  : () => context.push(AppRoutes.register),
+            ),
+          ],
         ),
       ),
     );

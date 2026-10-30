@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,6 +9,8 @@ import '../features/auth/presentation/splash_page.dart';
 import '../features/home/presentation/home_page.dart';
 import '../features/system_status/presentation/system_status_page.dart';
 import 'routes.dart';
+import 'theme/motion.dart';
+import 'theme/tokens.g.dart';
 
 export 'routes.dart';
 
@@ -33,6 +35,21 @@ String? authRedirect(AsyncValue<AuthState> auth, String location) {
   };
 }
 
+/// Página com a transição padrão do app (sobe e aparece; a anterior recua).
+CustomTransitionPage<void> _page(GoRouterState state, Widget child) =>
+    CustomTransitionPage<void>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: EvoMotion.page,
+      reverseTransitionDuration: EvoMotion.base,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          EvoPageTransition(
+            animation: animation,
+            secondaryAnimation: secondaryAnimation,
+            child: child,
+          ),
+    );
+
 final routerProvider = Provider<GoRouter>((ref) {
   // O GoRouter reavalia o redirect quando a sessão muda (login, logout, expiração).
   final authChanges = ValueNotifier<int>(0);
@@ -46,23 +63,23 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: AppRoutes.splash,
-        builder: (context, state) => const SplashPage(),
+        pageBuilder: (context, state) => _page(state, const SplashPage()),
       ),
       GoRoute(
         path: AppRoutes.login,
-        builder: (context, state) => const LoginPage(),
+        pageBuilder: (context, state) => _page(state, const LoginPage()),
       ),
       GoRoute(
         path: AppRoutes.register,
-        builder: (context, state) => const RegisterPage(),
+        pageBuilder: (context, state) => _page(state, const RegisterPage()),
       ),
       GoRoute(
         path: AppRoutes.home,
-        builder: (context, state) => const HomePage(),
+        pageBuilder: (context, state) => _page(state, const HomePage()),
       ),
       GoRoute(
         path: AppRoutes.status,
-        builder: (context, state) => const SystemStatusPage(),
+        pageBuilder: (context, state) => _page(state, const SystemStatusPage()),
       ),
     ],
   );
