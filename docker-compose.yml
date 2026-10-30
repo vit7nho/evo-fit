@@ -1,0 +1,54 @@
+name: evofit
+
+services:
+  db:
+    # Mesma versão maior do PostgreSQL local usado no modo DB_MODE=local.
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-evofit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evofit_dev_only}
+      POSTGRES_DB: ${POSTGRES_DB:-evofit}
+    ports:
+      - "${POSTGRES_PORT:-5442}:5432"
+    volumes:
+      # A partir da imagem 18 o volume é montado em /var/lib/postgresql (PGDATA fica em 18/docker).
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Banco descartável para testes: dados em memória, apagados ao parar o container.
+  db-test:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-evofit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evofit_dev_only}
+      POSTGRES_DB: evofit_test
+    ports:
+      - "${POSTGRES_TEST_PORT:-5443}:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d evofit_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./services/api
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-evofit}:${POSTGRES_PASSWORD:-evofit_dev_only}@db:5432/${POSTGRES_DB:-evofit}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["full"]
+
+volumes:
+  db-data:

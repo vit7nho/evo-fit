@@ -1,0 +1,40 @@
+/* GERADO por scripts/generate_tokens.py a partir de packages/design-tokens/tokens.json. Não edite. */
+
+@theme {
+  --color-bg-base: #0A0D14;
+  --color-bg-surface: #121722;
+  --color-bg-elevated: #1A2030;
+  --color-border-subtle: #262E40;
+  --color-text-primary: #E8ECF4;
+  --color-text-secondary: #9AA4B8;
+  --color-accent: #4C7DFF;
+  --color-accent-pressed: #3A66DB;
+  --color-on-accent: #FFFFFF;
+  --color-success: #3CCB8B;
+  --color-warning: #F2A93B;
+  --color-danger: #F0566A;
+  --color-stimulus-none: #3A4253;
+  --color-stimulus-low: #3D7BFF;
+  --color-stimulus-mid: #F28C28;
+  --color-stimulus-high: #E5484D;
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 0.75rem;
+  --spacing-lg: 1.0rem;
+  --spacing-xl: 1.5rem;
+  --spacing-2xl: 2.0rem;
+  --spacing-3xl: 3.0rem;
+  --radius-input: 8px;
+  --radius-card: 14px;
+  --radius-pill: 999px;
+  --text-caption: 0.75rem;
+  --text-body-sm: 0.875rem;
+  --text-body: 1.0rem;
+  --text-title-sm: 1.25rem;
+  --text-title: 1.5rem;
+  --text-display-sm: 2.0rem;
+  --text-display: 2.5rem;
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 250ms;
+}
