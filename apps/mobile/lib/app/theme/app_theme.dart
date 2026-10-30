@@ -86,6 +86,46 @@ abstract final class AppTheme {
           ),
         ),
       ),
+      inputDecorationTheme: const InputDecorationTheme(
+        filled: true,
+        fillColor: EvoColors.bgSurface,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: EvoSpace.lg,
+          vertical: EvoSpace.md,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(EvoRadius.input)),
+          borderSide: BorderSide(color: EvoColors.borderSubtle),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(EvoRadius.input)),
+          borderSide: BorderSide(color: EvoColors.borderSubtle),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(EvoRadius.input)),
+          borderSide: BorderSide(color: EvoColors.accent, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(EvoRadius.input)),
+          borderSide: BorderSide(color: EvoColors.danger),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(EvoRadius.input)),
+          borderSide: BorderSide(color: EvoColors.danger, width: 2),
+        ),
+        labelStyle: TextStyle(color: EvoColors.textSecondary),
+        floatingLabelStyle: TextStyle(color: EvoColors.accent),
+        helperStyle: TextStyle(color: EvoColors.textSecondary),
+        errorStyle: TextStyle(color: EvoColors.danger),
+        errorMaxLines: 3,
+        helperMaxLines: 2,
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: EvoColors.accent,
+          minimumSize: const Size(evoTouchTargetMin, evoTouchTargetMin),
+        ),
+      ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),

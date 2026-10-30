@@ -42,6 +42,7 @@ services:
       APP_ENV: ${APP_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-evofit}:${POSTGRES_PASSWORD:-evofit_dev_only}@db:5432/${POSTGRES_DB:-evofit}
     ports:
       - "${API_PORT:-8000}:8000"

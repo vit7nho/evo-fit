@@ -1,6 +1,6 @@
 # API — convenções e endpoints planejados
 
-> **Planejamento.** Nenhum endpoint existe ainda. A fonte da verdade, depois de implementada, será o OpenAPI gerado (`/docs`, `/openapi.json`) e exportado para `docs/openapi.json` (ADR-008). Este arquivo registra as convenções e o mapa previsto.
+> **Implementados:** `/health`, `/auth/*` e `GET /me` (Fase 2.1). O restante do mapa ainda é planejamento. A fonte da verdade, depois de implementada, será o OpenAPI gerado (`/docs`, `/openapi.json`) e exportado para `docs/openapi.json` (ADR-008). Este arquivo registra as convenções e o mapa previsto.
 
 ## Convenções
 
@@ -23,11 +23,11 @@
 | Método | Caminho | Descrição |
 |---|---|---|
 | GET | `/health` | liveness + verificação do banco |
-| POST | `/auth/register` | cadastro + consentimento `terms_privacy` |
-| POST | `/auth/login` | access + refresh |
-| POST | `/auth/refresh` | rotação do refresh |
-| POST | `/auth/logout` | revoga a família |
-| GET/PATCH | `/me` | conta + perfil |
+| POST | `/auth/register` ✅ | cadastro + consentimento `terms_privacy`; `201` com o par de tokens |
+| POST | `/auth/login` ✅ | access + refresh |
+| POST | `/auth/refresh` ✅ | rotação do refresh |
+| POST | `/auth/logout` ✅ | revoga a família; `204` (idempotente) |
+| GET ✅ / PATCH | `/me` | conta + perfil + consentimentos ativos (PATCH na etapa 2.2) |
 | PUT/DELETE | `/me/consents/{kind}` | conceder/revogar consentimento |
 | GET/POST | `/goals` · GET/PATCH/DELETE `/goals/{id}` | metas |
 | GET | `/muscle-groups` | catálogo de grupos |
@@ -77,3 +77,26 @@
 |---|---|---|
 | GET | `/me/export` | exportação completa (JSON) |
 | DELETE | `/me` | exclusão da conta (exige a senha) |
+
+## Autenticação (implementada na etapa 2.1)
+
+Resposta de `register`, `login` e `refresh`:
+
+```json
+{ "access_token": "<JWT>", "refresh_token": "<opaco>", "token_type": "bearer",
+  "expires_in": 900, "refresh_expires_in": 2592000 }
+```
+
+| Situação | Status | `code` |
+|---|---|---|
+| Sem `Authorization` | 401 | `not_authenticated` |
+| Access token inválido, expirado, de conta desativada ou refresh usado como access | 401 | `invalid_token` |
+| E-mail inexistente **ou** senha errada (resposta idêntica) | 401 | `invalid_credentials` |
+| Conta desativada (só depois da senha correta) | 403 | `account_disabled` |
+| E-mail já cadastrado | 409 | `email_already_registered` |
+| Senha fora da política, termos não aceitos, campo extra | 422 | `validation_error` (com `errors[].field`) |
+| Refresh desconhecido, expirado ou revogado | 401 | `invalid_refresh_token` |
+| Refresh já rotacionado reapresentado (a família é revogada) | 401 | `refresh_token_reused` |
+| Limite de tentativas | 429 | `too_many_requests` + `Retry-After` |
+
+Todo 401 traz `WWW-Authenticate: Bearer`. O access token contém apenas `sub` (id), `jti`, `iss`, `typ`, `iat` e `exp` — nenhum dado pessoal.

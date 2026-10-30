@@ -7,6 +7,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
+from app.modules.auth.rate_limit import RateLimiter
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -32,6 +33,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Adicionado por último = mais externo: o request_id existe para todos os demais.
     app.add_middleware(RequestContextMiddleware)
     register_error_handlers(app)
+    # Um limitador por instância do app (em memória; ver app/modules/auth/rate_limit.py).
+    app.state.rate_limiter = RateLimiter()
     app.include_router(api_router)
     return app
 

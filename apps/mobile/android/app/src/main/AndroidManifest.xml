@@ -4,7 +4,11 @@
     <application
         android:label="EvoFit"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false">
+        <!-- Sem backup automático: o refresh token fica cifrado com uma chave do Keystore
+             deste aparelho e não deve ser copiado para outro (nem funcionaria lá). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -28,6 +28,8 @@ TEST_DATABASE_URL = _TestEnv().test_database_url
 # Antes de importar o app: os testes nunca usam o banco de desenvolvimento.
 os.environ["APP_ENV"] = "test"
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+# Segredo fixo e exclusivo dos testes (não depende do .env).
+os.environ["JWT_SECRET"] = "segredo-de-teste-somente-para-pytest-0123456789"
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
 
 from app.core.config import get_settings  # noqa: E402

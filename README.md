@@ -2,7 +2,7 @@
 
 Plataforma de acompanhamento de atividade física, nutrição e evolução pessoal com IA contextual — projeto de TCC de Engenharia de Software.
 
-**Estado atual:** Fase 1 (fundação técnica) concluída. API, banco com migrações, app Android e site funcionando e testados (ver [ROADMAP](docs/ROADMAP.md#fase-1--fundação-técnica)). Próxima: Fase 2 (autenticação, perfil e musculação).
+**Estado atual:** Fase 2 em andamento — 2.1 (autenticação) concluída: cadastro, login, sessão persistente com renovação segura e logout, na API e no app Android (ver [ROADMAP](docs/ROADMAP.md)). Próxima: 2.2 (onboarding e perfil).
 
 ## Início rápido (Windows)
 

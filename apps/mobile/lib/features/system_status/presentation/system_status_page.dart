@@ -13,7 +13,7 @@ final healthStatusProvider = FutureProvider.autoDispose<HealthStatus>(
   (ref) => ref.watch(healthRepositoryProvider).fetch(),
 );
 
-/// Tela inicial da Fase 1: confirma que o app alcança a API e o banco.
+/// Diagnóstico: confirma que o app alcança a API e o banco.
 class SystemStatusPage extends ConsumerWidget {
   const SystemStatusPage({super.key});
 
@@ -24,22 +24,24 @@ class SystemStatusPage extends ConsumerWidget {
     void retry() => ref.invalidate(healthStatusProvider);
 
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: EvoColors.bgBase,
+        title: const Text('Status do servidor'),
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () => ref.refresh(healthStatusProvider.future),
           child: ListView(
             padding: const EdgeInsets.all(EvoSpace.xl),
             children: [
-              const SizedBox(height: EvoSpace.x2xl),
-              Text('EvoFit', style: theme.textTheme.displaySmall),
-              const SizedBox(height: EvoSpace.sm),
               Text(
-                'Treino, cardio e nutrição com uma IA que conhece a sua evolução.',
+                'Verifica se o app alcança a API e se a API alcança o banco '
+                'de dados. Puxe para baixo para atualizar.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: EvoColors.textSecondary,
                 ),
               ),
-              const SizedBox(height: EvoSpace.x2xl),
+              const SizedBox(height: EvoSpace.xl),
               EvoCard(
                 child: AnimatedSwitcher(
                   duration: EvoMotion.base,

@@ -27,6 +27,12 @@ Copy-Item .env.example .env
 
 O `.env` fica na raiz e é lido pela API, pelos scripts e pelo Docker Compose. Ele nunca é versionado.
 
+`JWT_SECRET` é obrigatório (mínimo 32 caracteres). Gere um valor próprio e substitua o de exemplo:
+
+```powershell
+py -3.14 -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
 `DB_MODE` escolhe de onde vem o banco:
 
 - `docker` (padrão do `.env.example`): os scripts sobem o PostgreSQL 18 pelo Compose. Portas **5442** (dev) e **5443** (testes).

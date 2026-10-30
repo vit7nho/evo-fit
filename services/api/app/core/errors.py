@@ -24,6 +24,7 @@ class AppError(Exception):
         title: str,
         detail: str | None = None,
         errors: list[dict[str, str]] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         super().__init__(detail or title)
         self.status = status
@@ -31,11 +32,34 @@ class AppError(Exception):
         self.title = title
         self.detail = detail
         self.errors = errors or []
+        self.headers = headers
 
 
 class NotFoundError(AppError):
     def __init__(self, detail: str = "Recurso não encontrado.") -> None:
         super().__init__(404, "not_found", "Não encontrado", detail)
+
+
+class UnauthorizedError(AppError):
+    """401 com o cabeçalho exigido pela RFC 6750 para autenticação Bearer."""
+
+    def __init__(self, code: str, detail: str) -> None:
+        super().__init__(
+            401, code, "Não autenticado", detail, headers={"WWW-Authenticate": "Bearer"}
+        )
+
+
+class FieldValidationError(AppError):
+    """422 gerado por regras do serviço, no mesmo formato da validação do Pydantic."""
+
+    def __init__(self, field: str, message: str) -> None:
+        super().__init__(
+            422,
+            "validation_error",
+            "Dados inválidos",
+            "Verifique os campos informados.",
+            [{"field": field, "message": message}],
+        )
 
 
 def problem_response(
@@ -73,11 +97,57 @@ def internal_error_response() -> JSONResponse:
 
 
 async def _app_error_handler(_: Request, exc: AppError) -> JSONResponse:
-    return problem_response(exc.status, exc.code, exc.title, exc.detail, exc.errors)
+    return problem_response(
+        exc.status, exc.code, exc.title, exc.detail, exc.errors, headers=exc.headers
+    )
+
+
+# Mensagens em PT-BR para os erros de validação mais comuns do Pydantic; os demais
+# mantêm a mensagem original. `ctx` traz os limites (min_length, ge, ...).
+_VALIDATION_MESSAGES_PT = {
+    "missing": "Campo obrigatório.",
+    "string_type": "Deve ser um texto.",
+    "string_too_short": "Deve ter pelo menos {min_length} caractere(s).",
+    "string_too_long": "Deve ter no máximo {max_length} caracteres.",
+    "int_type": "Deve ser um número inteiro.",
+    "int_parsing": "Deve ser um número inteiro.",
+    "float_type": "Deve ser um número.",
+    "float_parsing": "Deve ser um número.",
+    "bool_type": "Deve ser verdadeiro ou falso.",
+    "bool_parsing": "Deve ser verdadeiro ou falso.",
+    "greater_than_equal": "Deve ser maior ou igual a {ge}.",
+    "less_than_equal": "Deve ser menor ou igual a {le}.",
+    "greater_than": "Deve ser maior que {gt}.",
+    "less_than": "Deve ser menor que {lt}.",
+    "enum": "Valor inválido. Opções: {expected}.",
+    "literal_error": "Valor inválido. Opções: {expected}.",
+    "uuid_parsing": "Identificador inválido.",
+    "json_invalid": "JSON inválido.",
+    "model_attributes_type": "Formato inválido.",
+    "dict_type": "Formato inválido.",
+    "list_type": "Deve ser uma lista.",
+    "extra_forbidden": "Campo não permitido.",
+}
+
+
+def _validation_message(error: dict[str, Any]) -> str:
+    ctx = error.get("ctx") or {}
+    if error["type"] == "value_error" and "error" in ctx:
+        # Mensagem escrita por nós em um validador (ValueError).
+        return str(ctx["error"])
+    template = _VALIDATION_MESSAGES_PT.get(error["type"])
+    if template is None:
+        return str(error["msg"])
+    try:
+        return template.format(**ctx)
+    except KeyError:
+        return str(error["msg"])
 
 
 async def _validation_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
-    errors = [{"field": _field_path(e["loc"]), "message": e["msg"]} for e in exc.errors()]
+    errors = [
+        {"field": _field_path(e["loc"]), "message": _validation_message(e)} for e in exc.errors()
+    ]
     return problem_response(
         422, "validation_error", "Dados inválidos", "Verifique os campos informados.", errors
     )

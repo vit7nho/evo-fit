@@ -111,3 +111,20 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 **Contexto:** nesta máquina o WSL2 não inicia (virtualização desabilitada) e o Docker Desktop cai no backend Docker VMM, que não consegue iniciar containers.
 **Decisão:** variável `DB_MODE` (`docker` | `local`). No modo local, os scripts não chamam o Docker e usam o PostgreSQL da máquina (aqui, 18.6 na porta 5433, com usuário e bancos próprios do projeto). O Compose foi fixado em `postgres:18-alpine`, a mesma versão maior, para que os dois caminhos testem o mesmo banco.
 **Consequências:** o desenvolvimento não depende do Docker; o caminho com Docker continua documentado como padrão reproduzível (ADR-014 continua valendo: os testes usam PostgreSQL real em ambos os modos). Substitui a versão 17 prevista na Fase 0.
+
+### ADR-022 — Limite de tentativas em memória
+**Status:** Aceita · Fase 2.1
+**Decisão:** janela deslizante em memória (`app/modules/auth/rate_limit.py`), uma instância por processo da API.
+**Consequências:** sem dependência nova (Redis) para um TCC com um único processo. Com várias instâncias ou workers, cada um teria o próprio contador: antes de escalar, mover o estado para um armazenamento compartilhado. O IP vem da conexão; atrás de um proxy reverso será preciso configurar os cabeçalhos confiáveis.
+
+### ADR-023 — Cadastro informa e-mail já existente
+**Status:** Aceita · Fase 2.1
+**Contexto:** responder `409` no cadastro revela que um e-mail tem conta. A alternativa (sempre responder "verifique seu e-mail") exige envio de e-mail, que a v1 não tem.
+**Decisão:** `409 email_already_registered` no cadastro, com limite de 5 cadastros/h por IP. O **login** continua sem revelar contas (mesma resposta e mesmo tempo).
+**Revisão:** quando houver confirmação de e-mail, trocar pelo fluxo que não revela.
+
+### ADR-024 — Access token não revogável antes de expirar
+**Status:** Aceita · Fase 2.1
+**Decisão:** o logout revoga o refresh token; um access token já emitido continua válido até expirar (no máximo 15 min). Desativar a conta, porém, bloqueia o access token na hora (o `/me` e as rotas protegidas conferem o status do usuário a cada requisição).
+**Consequência:** evita uma consulta extra de lista de bloqueio a cada requisição; o risco fica limitado à validade curta.
+
