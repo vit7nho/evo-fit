@@ -3,11 +3,13 @@
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.errors import AppError, FieldValidationError
+from app.modules.goals.kinds import HEALTH_KINDS
+from app.modules.goals.models import Goal
 from app.modules.users.models import ConsentKind, User, UserConsent, UserProfile
 from app.modules.users.schemas import ProfileUpdate
 
@@ -137,7 +139,7 @@ class ProfileService:
         return consent
 
     def revoke(self, user: User, kind: ConsentKind) -> None:
-        """Revoga (idempotente). Revogar health_data apaga os dados de saúde do perfil."""
+        """Revoga (idempotente). Revogar health_data apaga os dados de saúde (perfil e peso)."""
         if kind is ConsentKind.TERMS_PRIVACY:
             raise ConsentNotRevocableError
         consent = active_consent(self.db, user.id, kind)
@@ -147,5 +149,10 @@ class ProfileService:
             # Sem base legal para mantê-los (LGPD art. 11): saem junto com o consentimento.
             user.profile.limitation_tags = []
             user.profile.limitations_note = None
+        if kind is ConsentKind.HEALTH_DATA:
+            # Metas de peso também são dados de saúde.
+            self.db.execute(
+                delete(Goal).where(Goal.user_id == user.id, Goal.kind.in_(HEALTH_KINDS))
+            )
         self.db.commit()
         logger.info("consent_revoked", extra={"user_id": str(user.id), "kind": kind.value})

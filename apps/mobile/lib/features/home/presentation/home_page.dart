@@ -9,6 +9,8 @@ import '../../../shared/widgets/evo_card.dart';
 import '../../../shared/widgets/evo_entrance.dart';
 import '../../../shared/widgets/evo_logo.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../goals/application/goals_controller.dart';
+import '../../goals/domain/goal.dart';
 
 /// Tela inicial de quem entrou. Ganha o painel e a navegação inferior nas próximas etapas.
 class HomePage extends ConsumerWidget {
@@ -22,6 +24,7 @@ class HomePage extends ConsumerWidget {
     if (auth is! Authenticated) return const Scaffold();
     final user = auth.user;
     final theme = Theme.of(context);
+    final goals = ref.watch(goalsProvider);
     // Quem pulou passos do onboarding é convidado a completar o perfil.
     final profile = user.profile;
     final incomplete =
@@ -81,7 +84,7 @@ class HomePage extends ConsumerWidget {
                 incomplete
                     ? 'Complete seu perfil para receber sugestões que '
                           'combinam com você.'
-                    : 'Tudo pronto. Metas e treinos chegam em breve.',
+                    : 'Tudo pronto. Os treinos chegam em breve.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: EvoColors.textSecondary,
                 ),
@@ -101,52 +104,30 @@ class HomePage extends ConsumerWidget {
             const SizedBox(height: EvoSpace.x2xl),
             EvoEntrance(
               delay: EvoEntrance.stagger(2),
-              child: EvoCard(
+              child: _LinkCard(
+                icon: Icons.flag_outlined,
+                title: 'Metas',
+                subtitle: switch (goals) {
+                  AsyncData(:final value) => _goalsSummary(value),
+                  AsyncError() => 'Não foi possível carregar. Toque para ver.',
+                  _ => 'Carregando…',
+                },
+                onTap: () => context.push(AppRoutes.goals),
+              ),
+            ),
+            const SizedBox(height: EvoSpace.md),
+            EvoEntrance(
+              delay: EvoEntrance.stagger(3),
+              child: _LinkCard(
+                icon: Icons.dns_outlined,
+                title: 'Status do servidor',
+                subtitle: 'Conexão com a API e o banco de dados',
                 onTap: () => context.push(AppRoutes.status),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: const BoxDecoration(
-                        color: EvoColors.bgElevated,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.dns_outlined,
-                        color: EvoColors.textPrimary,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: EvoSpace.lg),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Status do servidor',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Conexão com a API e o banco de dados',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.arrow_forward_rounded,
-                      color: EvoColors.textPrimary,
-                      size: 20,
-                    ),
-                  ],
-                ),
               ),
             ),
             const SizedBox(height: EvoSpace.xl),
             EvoEntrance(
-              delay: EvoEntrance.stagger(3),
+              delay: EvoEntrance.stagger(4),
               child: Text(
                 'Conectado como ${user.email}',
                 style: theme.textTheme.bodyMedium,
@@ -154,6 +135,67 @@ class HomePage extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  static String _goalsSummary(List<Goal> goals) {
+    final active = goals.where((g) => g.isActive).length;
+    return switch (active) {
+      0 => 'Defina o que quer alcançar',
+      1 => '1 meta ativa',
+      _ => '$active metas ativas',
+    };
+  }
+}
+
+/// Cartão de atalho do início: ícone, título, resumo e seta.
+class _LinkCard extends StatelessWidget {
+  const _LinkCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return EvoCard(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: EvoColors.bgElevated,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: EvoColors.textPrimary, size: 22),
+          ),
+          const SizedBox(width: EvoSpace.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: theme.textTheme.titleMedium),
+                const SizedBox(height: 2),
+                Text(subtitle, style: theme.textTheme.bodyMedium),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.arrow_forward_rounded,
+            color: EvoColors.textPrimary,
+            size: 20,
+          ),
+        ],
       ),
     );
   }

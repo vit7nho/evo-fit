@@ -30,7 +30,7 @@
 
 ## 3. Consentimentos
 
-**Implementado (2.2):** `health_data` e `ai_processing` são concedidos e revogados pelo usuário (`PUT`/`DELETE /me/consents/{kind}`); `terms_privacy` só no cadastro. Dados de saúde (`limitation_tags`, `limitations_note`) são recusados sem `health_data` ativo, e **revogar `health_data` apaga esses dados** (ADR-026). O app pede o consentimento em um cartão próprio, destacado, antes de mostrar os campos de saúde.
+**Implementado (2.2):** `health_data` e `ai_processing` são concedidos e revogados pelo usuário (`PUT`/`DELETE /me/consents/{kind}`); `terms_privacy` só no cadastro. Dados de saúde (`limitation_tags`, `limitations_note`) são recusados sem `health_data` ativo, e **revogar `health_data` apaga esses dados** (ADR-026). O app pede o consentimento em um cartão próprio, destacado, antes de mostrar os campos de saúde. **(2.3)** Metas de peso (`weight_loss`, `weight_gain`, `weight_maintenance`) também exigem `health_data` e são apagadas na revogação; o formulário da meta pede a autorização antes de enviar.
 
 Registrados em `user_consents` (tipo, versão do texto, data, revogação):
 

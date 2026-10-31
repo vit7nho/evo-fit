@@ -34,8 +34,8 @@ stimulus_methodologies                              (configuração versionada, 
 
 **refresh_tokens**: `user_id`, `family_id`, `token_hash` (único), `expires_at`, `rotated_at`, `revoked_at`, `user_agent` (truncado).
 
-**goals**: `user_id`, `kind` (`strength|hypertrophy|weight_loss|weight_maintenance|weight_gain|run_distance|run_time|frequency|habit|custom`), `title`, `target` (JSONB validado pelo `kind`, ex.: `{distance_m: 5000}` ou `{sessions_per_week: 3, modality: "walk"}`), `start_date`, `target_date`, `status` (`active|achieved|abandoned`), `priority`.
-> Um JSONB tipado por `kind` (validado por Pydantic com união discriminada) evita uma tabela por tipo de meta, que seriam todas pequenas.
+**goals** (migração 0003): `user_id`, `kind` (texto com o código de `app/modules/goals/kinds.py`: `strength|hypertrophy|weight_loss|weight_maintenance|weight_gain|run_distance|run_time|frequency|habit|custom` — texto e não enum, para um tipo novo não exigir migração), `title`, `target` (JSONB validado pelos campos do `kind`, ex.: `{distance_km: 5}` ou `{sessions_per_week: 3, modality: "walk"}`), `start_date`, `target_date` (≥ `start_date`, CHECK), `status` (`active|achieved|abandoned`), `priority` (1–3, CHECK), `closed_at`. Índice `(user_id, status)`.
+> Um JSONB tipado por `kind` evita uma tabela por tipo de meta, que seriam todas pequenas. A validação é feita a partir de uma definição de campos por tipo (a mesma que o app usa para montar o formulário), em vez de uma classe Pydantic por tipo. Metas de peso são dado de saúde e saem junto com o consentimento `health_data`. O progresso automático depende dos registros de treino e de medidas (Fases 3 e 5).
 
 ## 3. Musculação
 

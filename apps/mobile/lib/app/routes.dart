@@ -11,6 +11,15 @@ abstract final class AppRoutes {
   /// Edição de uma seção do perfil (ver ProfileSection).
   static String profileEdit(String section) => '/perfil/$section';
 
+  static const goals = '/metas';
+  static const goalNew = '/metas/nova';
+
+  /// Formulário de uma meta nova do tipo [kind].
+  static String goalNewOfKind(String kind) => '/metas/nova/$kind';
+
+  /// Edição de uma meta existente.
+  static String goalEdit(String id) => '/metas/$id';
+
   /// Telas abertas a quem não entrou.
   static const public = {login, register};
 }

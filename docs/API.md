@@ -30,7 +30,8 @@
 | GET ✅ / PATCH ✅ | `/me` | conta + perfil + consentimentos ativos; PATCH parcial (só os campos enviados) |
 | PUT ✅ / DELETE ✅ | `/me/consents/{kind}` | conceder (idempotente) / revogar; `health_data` revogado apaga os dados de saúde |
 | GET ✅ | `/profile-options` | vocabulários do perfil com rótulos PT-BR (público, cache 1 h) |
-| GET/POST | `/goals` · GET/PATCH/DELETE `/goals/{id}` | metas |
+| GET ✅ / POST ✅ | `/goals` · GET/PATCH/DELETE `/goals/{id}` ✅ | metas; `?status=` filtra; metas de peso exigem `health_data` |
+| GET ✅ | `/goal-options` | tipos de meta, campos do alvo de cada um e rótulos (público, cache 1 h) |
 | GET | `/muscle-groups` | catálogo de grupos |
 | GET/POST | `/exercises` · GET/PATCH `/exercises/{id}` | biblioteca (global + próprios); filtros `muscle`, `equipment`, `q` |
 | GET | `/exercises/{id}/history` | séries do usuário nesse exercício + recordes |
@@ -114,3 +115,35 @@ Todo 401 traz `WWW-Authenticate: Bearer`. O access token contém apenas `sub` (i
 | `DELETE /me/consents/terms_privacy` | 409 | `consent_not_revocable` |
 
 Os logs registram só os **nomes** dos campos alterados, nunca os valores.
+
+## Metas (implementadas na etapa 2.3)
+
+`POST /goals` — `kind`, `title` (2–80), `target` (objeto validado pelos campos do tipo), `start_date` (opcional; padrão: hoje no fuso do perfil), `target_date` (opcional), `priority` (1 alta, 2 média, 3 baixa; padrão 2). Responde `201` com `Location` e a meta, incluindo `summary` (o alvo em texto, ex.: "5 km em 25:30").
+
+`PATCH /goals/{id}` — parcial: `title`, `target` (validado pelo tipo existente), `start_date`, `target_date` (`null` remove o prazo), `status` (`active|achieved|abandoned`), `priority`. O tipo não muda. Sair de `active` grava `closed_at`; reativar o limpa.
+
+Tipos e campos (fonte única: `app/modules/goals/kinds.py`, expostos em `GET /goal-options`; unidades métricas):
+
+| `kind` | `target` |
+|---|---|
+| `strength` | `exercise` (texto 2–80), `load_kg` (1–500, passo 0,5), `reps` (1–30) |
+| `hypertrophy` | `muscle_group` (grupos de DATA_MODEL §3), `weekly_sets` (1–40) |
+| `weight_loss` / `weight_gain` 🔒 | `target_weight_kg` (30–300, passo 0,1) |
+| `weight_maintenance` 🔒 | `target_weight_kg`, `tolerance_kg` (0,5–5, passo 0,5) |
+| `run_distance` | `distance_km` (0,1–100, passo 0,1) |
+| `run_time` | `distance_km`, `time_s` (60–86 400) |
+| `frequency` | `sessions_per_week` (1–14), `modality` (opcional) |
+| `habit` | `description` (texto 2–120), `days_per_week` (1–7) |
+| `custom` | `description` (opcional, até 500) |
+
+🔒 Peso é dado de saúde: exige o consentimento `health_data`, e revogá-lo apaga essas metas.
+
+| Situação | Status | `code` |
+|---|---|---|
+| Tipo inválido, campo do alvo ausente, desconhecido, fora da faixa ou fora do passo; campo extra (ex.: `user_id`, `kind` no PATCH) | 422 | `validation_error` (campo como `target.load_kg`) |
+| Prazo no passado (na criação), antes do início ou além de 10 anos; início fora de −5 anos/+1 ano | 422 | `validation_error` |
+| Meta de peso sem `health_data` ativo | 403 | `consent_required` |
+| 30 metas ativas (ao criar ou reativar) | 409 | `goal_limit` |
+| Meta de outra pessoa ou inexistente | 404 | `not_found` |
+
+Os logs registram o id e o tipo da meta, nunca o título ou o alvo.

@@ -110,6 +110,7 @@ void _worstCaseScreen(WidgetTester tester) {
 Future<FakeAuthServer> _pump(
   WidgetTester tester, {
   Map<String, Object?>? profile,
+  List<Map<String, Object?>> goals = const [],
   bool signedIn = true,
 }) async {
   final server = FakeAuthServer(validRefreshToken: signedIn ? 'salvo' : null)
@@ -117,6 +118,7 @@ Future<FakeAuthServer> _pump(
     ..profileOptions = _fullOptions
     ..consents.add('health_data');
   if (profile != null) server.profile = profile;
+  server.goals = [...goals];
   await tester.pumpWidget(
     ProviderScope(
       retry: noAutomaticRetry,
@@ -260,5 +262,52 @@ void main() {
     await tapAll(['Condição cardíaca', 'Pressão alta', 'Tornozelo']);
     await next('Concluir');
     expect(find.textContaining('Olá, Maria'), findsOneWidget);
+  });
+
+  testWidgets('metas: lista, edição e formulário novo', (tester) async {
+    _worstCaseScreen(tester);
+    final server = FakeAuthServer.strengthGoal();
+    await _pump(
+      tester,
+      profile: _maximalProfile(),
+      goals: [
+        {
+          ...server,
+          'title':
+              'Levantar o dobro do meu peso corporal no levantamento terra',
+          'summary': 'Levantamento terra sumô com pausa: 182,5 kg × 3',
+          'target_date': '2026-01-15',
+          'priority': 1,
+        },
+      ],
+    );
+
+    final goals = find.text('Metas');
+    await tester.scrollUntilVisible(
+      goals,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(goals);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Prazo vencido'), findsOneWidget);
+
+    await tester.tap(find.textContaining('Levantar o dobro'));
+    await tester.pumpAndSettle();
+    final delete = find.text('Excluir meta');
+    await tester.ensureVisible(delete);
+    await tester.pumpAndSettle();
+    await _back(tester);
+
+    final create = find.widgetWithText(FilledButton, 'Nova meta');
+    await tester.tap(create);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Força'));
+    await tester.pumpAndSettle();
+    final save = find.widgetWithText(FilledButton, 'Criar meta');
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.text('Dê um nome para a meta.'), findsOneWidget);
   });
 }

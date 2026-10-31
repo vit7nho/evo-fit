@@ -6,6 +6,9 @@ import '../features/auth/application/auth_controller.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/register_page.dart';
 import '../features/auth/presentation/splash_page.dart';
+import '../features/goals/presentation/goal_form_page.dart';
+import '../features/goals/presentation/goals_page.dart';
+import '../features/goals/presentation/new_goal_page.dart';
 import '../features/home/presentation/home_page.dart';
 import '../features/profile/presentation/edit_profile_section_page.dart';
 import '../features/profile/presentation/onboarding_page.dart';
@@ -120,6 +123,33 @@ final routerProvider = Provider<GoRouter>((ref) {
                   state.pathParameters['section']!,
                 ),
               ),
+            ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.goals,
+        pageBuilder: (context, state) => _page(state, const GoalsPage()),
+        routes: [
+          // "nova" antes de ":id": o caminho literal tem precedência.
+          GoRoute(
+            path: 'nova',
+            pageBuilder: (context, state) => _page(state, const NewGoalPage()),
+            routes: [
+              GoRoute(
+                path: ':kind',
+                pageBuilder: (context, state) => _page(
+                  state,
+                  GoalFormPage.create(kind: state.pathParameters['kind']!),
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: ':id',
+            pageBuilder: (context, state) => _page(
+              state,
+              GoalFormPage.edit(goalId: state.pathParameters['id']!),
             ),
           ),
         ],

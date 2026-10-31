@@ -12,6 +12,8 @@ Barra inferior com **5 destinos** (mais que isso fica apertado em telas pequenas
 | **Evolução** | Meu Corpo · Métricas · Gráficos · Comparativos · Histórico (abas internas) |
 | **IA** | Conversas (global/específica) |
 
+**Metas** (etapa 2.3): cartão no Início com o número de metas ativas → lista (ativas por prioridade e prazo; concluídas abaixo) → “Nova meta” escolhe o tipo e abre um formulário montado a partir dos campos que a API descreve para esse tipo. Na edição: marcar como alcançada, abandonar, reativar ou excluir (com confirmação). Prazo vencido aparece com ícone e texto, não só cor.
+
 **Nutrição** e **Perfil**: acesso pelo Início (card de nutrição + avatar no topo). Se o usuário marcar nutrição como módulo principal no onboarding, a aba **Atividades** pode ser trocada por **Nutrição** — a barra se adapta às modalidades escolhidas (configurável no Perfil). Módulos não usados não aparecem no dashboard.
 
 ## 2. Fluxos principais

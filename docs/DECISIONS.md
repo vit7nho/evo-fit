@@ -157,3 +157,15 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 - **Teste de pior caso permanente** (`stress_layout_test.dart`): um estouro de layout reprova o teste. A verificação por mutação confirmou que ele acusa a falha.
 **Consequências:** botões de avançar não usam mais o estado desabilitado; novos componentes clicáveis devem usar `EvoFocusRing` e `EvoPressable`, e animações implícitas, `evoDuration`/`EvoAnimatedSize`. Ficou sem verificação a navegação completa com TalkBack num aparelho real.
 
+
+### ADR-028 — Metas com alvo descrito por tipo
+**Status:** Aceita · Fase 2.3
+**Decisões:**
+- **Os campos do alvo de cada tipo são dados, não código duplicado:** `app/modules/goals/kinds.py` define campos (texto, inteiro, número com passo, escolha, duração), faixas e unidades. A API valida por ali e publica em `GET /goal-options`; o app monta o formulário a partir disso. Um tipo novo aparece sem atualizar o app (mesma linha da ADR-026).
+- **`kind` como texto**, não enum do PostgreSQL: um tipo novo não exige migração. O status continua enum (conjunto fechado).
+- **Unidades métricas no armazenamento** (`kg`, `km`, segundos). `distance_km` em vez do `distance_m` previsto no DATA_MODEL: é o que a pessoa digita e evita conversão no formulário. A exibição em libras e milhas (`unit_system=imperial`) fica pendente.
+- **Metas de peso são dado de saúde:** exigem `health_data` e são apagadas na revogação, como as limitações (ADR-026).
+- **Posse pelo token:** toda consulta filtra pelo dono; a meta de outra pessoa responde 404, igual a uma inexistente. No app, a lista depende do id da conta e é descartada ao trocar de usuário.
+- **Status manual por enquanto:** marcar como alcançada é uma ação do usuário. O progresso automático virá com os registros de treino (Fase 3) e de medidas (Fase 5).
+- **"Hoje" é o dia no fuso do perfil**, não em UTC: perto da meia-noite os dois diferem.
+- **Limite de 30 metas ativas**, por foco e contra abuso.

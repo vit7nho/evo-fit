@@ -99,6 +99,148 @@ class FakeAuthServer {
     ],
   };
 
+  /// Metas guardadas (como a API devolve) e o que chegou nas gravações.
+  List<Map<String, Object?>> goals = [];
+  final goalBodies = <Map<String, Object?>>[];
+  final goalCalls = <String>[];
+  int goalListCalls = 0;
+
+  /// Próxima criação de meta responde com o limite de metas ativas (409).
+  bool goalLimitReached = false;
+
+  static Map<String, Object?> strengthGoal({
+    String id = 'meta-1',
+    String status = 'active',
+  }) => {
+    'id': id,
+    'kind': 'strength',
+    'title': 'Supino de 80 kg',
+    'target': {'exercise': 'Supino', 'load_kg': 80, 'reps': 5},
+    'summary': 'Supino: 80 kg × 5',
+    'start_date': '2026-10-30',
+    'target_date': null,
+    'status': status,
+    'priority': 2,
+    'closed_at': status == 'active' ? null : '2026-10-31T12:00:00Z',
+  };
+
+  static Map<String, Object?> _field(
+    String key,
+    String label,
+    String type, {
+    bool required = true,
+    num? min,
+    num? max,
+    num? step,
+    String? unit,
+    List<Map<String, String>>? options,
+  }) => {
+    'key': key,
+    'label': label,
+    'type': type,
+    'required': required,
+    'min': min,
+    'max': max,
+    'step': step,
+    'unit': unit,
+    'options': options,
+  };
+
+  /// Subconjunto dos tipos reais: um de cada tipo de campo e um de saúde.
+  static final goalOptions = {
+    'kinds': [
+      {
+        'code': 'strength',
+        'label': 'Força',
+        'description': 'Levantar uma carga num exercício.',
+        'health_data': false,
+        'fields': [
+          _field('exercise', 'Exercício', 'text', min: 2, max: 80),
+          _field(
+            'load_kg',
+            'Carga',
+            'number',
+            min: 1,
+            max: 500,
+            step: 0.5,
+            unit: 'kg',
+          ),
+          _field('reps', 'Repetições', 'int', min: 1, max: 30),
+        ],
+      },
+      {
+        'code': 'weight_loss',
+        'label': 'Perder peso',
+        'description': 'Chegar a um peso menor.',
+        'health_data': true,
+        'fields': [
+          _field(
+            'target_weight_kg',
+            'Peso desejado',
+            'number',
+            min: 30,
+            max: 300,
+            step: 0.1,
+            unit: 'kg',
+          ),
+        ],
+      },
+      {
+        'code': 'run_time',
+        'label': 'Tempo de corrida',
+        'description': 'Correr uma distância em até um tempo.',
+        'health_data': false,
+        'fields': [
+          _field(
+            'distance_km',
+            'Distância',
+            'number',
+            min: 0.1,
+            max: 100,
+            step: 0.1,
+            unit: 'km',
+          ),
+          _field('time_s', 'Tempo', 'duration', min: 60, max: 86400),
+        ],
+      },
+      {
+        'code': 'frequency',
+        'label': 'Frequência',
+        'description': 'Treinar um número de vezes por semana.',
+        'health_data': false,
+        'fields': [
+          _field(
+            'sessions_per_week',
+            'Treinos por semana',
+            'int',
+            min: 1,
+            max: 14,
+          ),
+          _field(
+            'modality',
+            'Modalidade',
+            'choice',
+            required: false,
+            options: [
+              {'code': 'strength', 'label': 'Musculação'},
+              {'code': 'walk', 'label': 'Caminhada'},
+            ],
+          ),
+        ],
+      },
+    ],
+    'statuses': [
+      {'code': 'active', 'label': 'Ativa'},
+      {'code': 'achieved', 'label': 'Alcançada'},
+      {'code': 'abandoned', 'label': 'Abandonada'},
+    ],
+    'priorities': [
+      {'value': 1, 'label': 'Alta'},
+      {'value': 2, 'label': 'Média'},
+      {'value': 3, 'label': 'Baixa'},
+    ],
+  };
+
   /// Faz o access token atual expirar (o próximo uso recebe 401).
   void expireAccessToken() => validAccessToken = 'expirado';
 
@@ -141,6 +283,17 @@ class FakeAuthServer {
             ? _patch(body.cast<String, Object?>())
             : _invalidToken(),
       ('GET', '/profile-options') => FakeHttpAdapter.json(200, profileOptions),
+      ('GET', '/goal-options') => FakeHttpAdapter.json(200, goalOptions),
+      ('GET', '/goals') =>
+        _authorized(options) ? _listGoals() : _invalidToken(),
+      ('POST', '/goals') =>
+        _authorized(options)
+            ? _createGoal(body.cast<String, Object?>())
+            : _invalidToken(),
+      (final method, final path) when path.startsWith('/goals/') =>
+        _authorized(options)
+            ? _goal(method, path.split('/').last, body.cast<String, Object?>())
+            : _invalidToken(),
       (final method, final path) when path.startsWith('/me/consents/') =>
         _authorized(options)
             ? _consent(method, path.split('/').last)
@@ -201,6 +354,73 @@ class FakeAuthServer {
     return _me();
   }
 
+  ResponseBody _listGoals() {
+    goalListCalls++;
+    int rank(Map<String, Object?> g) => g['status'] == 'active' ? 0 : 1;
+    final sorted = [...goals]..sort((a, b) => rank(a).compareTo(rank(b)));
+    return FakeHttpAdapter.json(200, sorted);
+  }
+
+  static String _summary(String kind, Map<String, Object?> target) =>
+      switch (kind) {
+        'strength' =>
+          '${target['exercise']}: ${target['load_kg']} kg × ${target['reps']}',
+        'weight_loss' => '${target['target_weight_kg']} kg',
+        'frequency' => '${target['sessions_per_week']}x por semana',
+        _ => '',
+      };
+
+  /// Mesmas regras da API que o app precisa respeitar: peso exige health_data.
+  ResponseBody _createGoal(Map<String, Object?> body) {
+    goalCalls.add('POST');
+    goalBodies.add(body);
+    if (goalLimitReached) {
+      return _problem(409, 'goal_limit', 'Você já tem 30 metas ativas.');
+    }
+    if (body['kind'] == 'weight_loss' && !consents.contains('health_data')) {
+      return _problem(403, 'consent_required', 'Autorize os dados de saúde.');
+    }
+    final target = Map<String, Object?>.from(body['target']! as Map);
+    final goal = <String, Object?>{
+      'id': 'meta-nova-${goalCalls.length}',
+      'kind': body['kind'],
+      'title': body['title'],
+      'target': target,
+      'summary': _summary(body['kind']! as String, target),
+      'start_date': '2026-10-31',
+      'target_date': body['target_date'],
+      'status': 'active',
+      'priority': body['priority'] ?? 2,
+      'closed_at': null,
+    };
+    goals.add(goal);
+    return FakeHttpAdapter.json(201, goal);
+  }
+
+  ResponseBody _goal(String method, String id, Map<String, Object?> body) {
+    final index = goals.indexWhere((g) => g['id'] == id);
+    if (index < 0) return _problem(404, 'not_found', 'Meta não encontrada.');
+    goalCalls.add('$method $id');
+    switch (method) {
+      case 'DELETE':
+        goals.removeAt(index);
+        return ResponseBody.fromString('', 204);
+      case 'PATCH':
+        goalBodies.add(body);
+        final goal = {...goals[index], ...body};
+        if (body.containsKey('target')) {
+          goal['summary'] = _summary(
+            goal['kind']! as String,
+            Map<String, Object?>.from(body['target']! as Map),
+          );
+        }
+        goals[index] = goal;
+        return FakeHttpAdapter.json(200, goal);
+      default:
+        return FakeHttpAdapter.json(200, goals[index]);
+    }
+  }
+
   ResponseBody _consent(String method, String kind) {
     consentCalls.add('$method $kind');
     if (method == 'PUT') {
@@ -213,6 +433,7 @@ class FakeAuthServer {
     }
     consents.remove(kind);
     if (kind == 'health_data') {
+      goals.removeWhere((g) => g['kind'] == 'weight_loss');
       profile = {
         ...profile,
         'limitation_tags': <String>[],
