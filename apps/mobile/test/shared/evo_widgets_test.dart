@@ -1,9 +1,11 @@
 import 'package:evofit/app/theme/app_theme.dart';
 import 'package:evofit/shared/widgets/evo_button.dart';
 import 'package:evofit/shared/widgets/evo_entrance.dart';
+import 'package:evofit/shared/widgets/evo_focus_ring.dart';
 import 'package:evofit/shared/widgets/evo_form_error.dart';
 import 'package:evofit/shared/widgets/evo_state_views.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget _host(Widget child) => MaterialApp(
@@ -21,9 +23,27 @@ void main() {
     );
 
     expect(find.text('Salvar'), findsNothing);
-    expect(find.bySemanticsLabel('Carregando'), findsOneWidget);
+    expect(find.bySemanticsLabel('Salvar, carregando'), findsOneWidget);
     await tester.tap(find.byType(FilledButton));
     expect(taps, 0);
+  });
+
+  testWidgets('EvoButton ocupa a largura toda num pai esticado', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        SizedBox(
+          width: 300,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [EvoButton(label: 'Ok', onPressed: () {})],
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.getSize(find.byType(FilledButton)).width, 300);
   });
 
   testWidgets('EvoButton tem área de toque mínima de 48dp', (tester) async {
@@ -146,6 +166,68 @@ void main() {
       await gesture.up();
       await tester.pumpAndSettle();
       expect(scale(), 1);
+    });
+
+    testWidgets('arrastar (rolagem) desfaz o encolhimento na hora', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(EvoButton(label: 'Ok', onPressed: () {})));
+      double scale() =>
+          tester.widget<AnimatedScale>(find.byType(AnimatedScale)).scale;
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(FilledButton)),
+      );
+      await tester.pump();
+      expect(scale(), lessThan(1));
+
+      await gesture.moveBy(const Offset(0, 40));
+      await tester.pump();
+      expect(scale(), 1);
+      await gesture.up();
+    });
+
+    testWidgets('com redução de movimento, o erro aparece sem animar', (
+      tester,
+    ) async {
+      Widget build(String? message) => MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: _host(EvoFormError(message: message)),
+      );
+      await tester.pumpWidget(build(null));
+      await tester.pumpWidget(build('Falhou.'));
+      await tester.pump();
+
+      expect(find.text('Falhou.'), findsOneWidget);
+      // Já entrou por inteiro no primeiro quadro: nada de esmaecimento em curso.
+      final fade = tester.widget<FadeTransition>(
+        find
+            .ancestor(
+              of: find.text('Falhou.'),
+              matching: find.byType(FadeTransition),
+            )
+            .first,
+      );
+      expect(fade.opacity.value, 1);
+    });
+
+    testWidgets('foco pelo teclado desenha o anel no botão', (tester) async {
+      await tester.pumpWidget(_host(EvoButton(label: 'Ok', onPressed: () {})));
+      Finder ring() => find.descendant(
+        of: find.byType(EvoFocusRing),
+        matching: find.byType(DecoratedBox),
+      );
+      expect(ring(), findsNothing);
+
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(
+        () => FocusManager.instance.highlightStrategy =
+            FocusHighlightStrategy.automatic,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(ring(), findsOneWidget);
     });
 
     testWidgets('EvoFormError sem mensagem não mostra nada', (tester) async {

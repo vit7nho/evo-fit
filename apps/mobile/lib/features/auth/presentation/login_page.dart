@@ -7,6 +7,7 @@ import '../../../app/theme/tokens.g.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/evo_button.dart';
 import '../../../shared/widgets/evo_form_error.dart';
+import '../../../shared/widgets/form_focus.dart';
 import '../application/auth_controller.dart';
 import 'auth_layout.dart';
 import 'form_validators.dart';
@@ -39,7 +40,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _submit() async {
-    if (_submitting || !_formKey.currentState!.validate()) return;
+    if (_submitting || !validateAndFocusFirstError(_formKey.currentState!)) {
+      return;
+    }
     FocusScope.of(context).unfocus();
     setState(() {
       _submitting = true;
@@ -63,7 +66,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       key: _formKey,
       child: AutofillGroup(
         child: AuthLayout(
-          title: 'Bem-vindo\nde volta.',
+          title: 'Que bom te\nver de novo.',
           subtitle: 'Entre para acompanhar sua evolução.',
           footer: Center(
             child: TextButton.icon(

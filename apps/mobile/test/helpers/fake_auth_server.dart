@@ -32,6 +32,10 @@ class FakeAuthServer {
   String? validAccessToken;
   String? validRefreshToken;
   bool offline = false;
+
+  /// E-mail devolvido em /me e corpo de /profile-options (trocáveis nos testes).
+  String accountEmail = email;
+  Map<String, Object> profileOptions = options;
   int refreshCalls = 0;
   int logoutCalls = 0;
   int _counter = 0;
@@ -136,10 +140,7 @@ class FakeAuthServer {
         _authorized(options)
             ? _patch(body.cast<String, Object?>())
             : _invalidToken(),
-      ('GET', '/profile-options') => FakeHttpAdapter.json(
-        200,
-        FakeAuthServer.options,
-      ),
+      ('GET', '/profile-options') => FakeHttpAdapter.json(200, profileOptions),
       (final method, final path) when path.startsWith('/me/consents/') =>
         _authorized(options)
             ? _consent(method, path.split('/').last)
@@ -168,7 +169,7 @@ class FakeAuthServer {
 
   ResponseBody _me() => FakeHttpAdapter.json(200, {
     'id': '0192f0c0-0000-7000-8000-000000000001',
-    'email': email,
+    'email': accountEmail,
     'status': 'active',
     'created_at': '2026-10-30T12:00:00Z',
     'profile': profile,

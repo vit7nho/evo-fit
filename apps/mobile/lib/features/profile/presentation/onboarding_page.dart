@@ -64,6 +64,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   bool _submitting = false;
   ApiException? _error;
 
+  /// Aviso local de seção incompleta (não vem da API).
+  String? _hint;
+
   @override
   void initState() {
     super.initState();
@@ -87,6 +90,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     setState(() {
       _index = index;
       _error = null;
+      _hint = null;
     });
     await _pages.animateToPage(
       index,
@@ -97,11 +101,21 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     );
   }
 
-  Future<void> _next() => _isLast ? _finish() : _goTo(_index + 1);
+  Future<void> _advance() => _isLast ? _finish() : _goTo(_index + 1);
+
+  /// "Continuar": avança, ou diz o que falta escolher (ou que dá para pular).
+  Future<void> _next() async {
+    final missing = _draft.missing(_step.section);
+    if (missing != null) {
+      setState(() => _hint = '$missing Ou toque em Pular.');
+      return;
+    }
+    await _advance();
+  }
 
   Future<void> _skip() {
     setState(() => _draft.clear(_step.section));
-    return _next();
+    return _advance();
   }
 
   Future<void> _finish() async {
@@ -168,6 +182,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         _Header(
           index: _index,
           total: _steps.length,
+          title: _step.title,
           onBack: _index == 0 || _submitting ? null : () => _goTo(_index - 1),
           onSkip: _submitting ? null : _skip,
         ),
@@ -188,9 +203,12 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       EvoEntrance(
-                        child: Text(
-                          step.title,
-                          style: theme.textTheme.displaySmall,
+                        child: Semantics(
+                          header: true,
+                          child: Text(
+                            step.title,
+                            style: theme.textTheme.displaySmall,
+                          ),
                         ),
                       ),
                       const SizedBox(height: EvoSpace.sm),
@@ -221,19 +239,27 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             EvoSpace.xl,
             EvoSpace.lg,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              EvoFormError(message: _error?.message),
-              EvoButton(
-                label: _isLast ? 'Concluir' : 'Continuar',
-                trailingIcon: _isLast
-                    ? Icons.check_rounded
-                    : Icons.arrow_forward_rounded,
-                isLoading: _submitting,
-                onPressed: _draft.isComplete(_step.section) ? _next : null,
+          child: ConstrainedBox(
+            // Com fonte muito grande o rodapé rola, em vez de espremer o conteúdo.
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.4,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  EvoFormError(message: _hint ?? _error?.message),
+                  EvoButton(
+                    label: _isLast ? 'Concluir' : 'Continuar',
+                    trailingIcon: _isLast
+                        ? Icons.check_rounded
+                        : Icons.arrow_forward_rounded,
+                    isLoading: _submitting,
+                    onPressed: _next,
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ],
@@ -241,7 +267,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   Widget _editor(ProfileSection section, ProfileOptions options) {
-    void changed() => setState(() => _error = null);
+    void changed() => setState(() {
+      _error = null;
+      _hint = null;
+    });
     return switch (section) {
       ProfileSection.objectives => ObjectivesEditor(
         draft: _draft,
@@ -274,12 +303,14 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.index,
     required this.total,
+    required this.title,
     required this.onBack,
     required this.onSkip,
   });
 
   final int index;
   final int total;
+  final String title;
   final VoidCallback? onBack;
   final VoidCallback? onSkip;
 
@@ -294,9 +325,12 @@ class _Header extends StatelessWidget {
       ),
       child: Row(
         children: [
-          AnimatedOpacity(
-            opacity: onBack == null ? 0 : 1,
-            duration: EvoMotion.fast,
+          // No primeiro passo o voltar some também para o TalkBack (o espaço fica).
+          Visibility(
+            visible: onBack != null,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
             child: IconButton(
               tooltip: 'Passo anterior',
               icon: const Icon(Icons.arrow_back_rounded),
@@ -305,12 +339,16 @@ class _Header extends StatelessWidget {
           ),
           const SizedBox(width: EvoSpace.sm),
           Expanded(
+            // Região viva: ao trocar de passo, o TalkBack anuncia o novo passo.
             child: Semantics(
-              label: 'Passo ${index + 1} de $total',
+              liveRegion: true,
+              label:
+                  'Passo ${index + 1} de $total: '
+                  '${title.replaceAll('\n', ' ')}',
               excludeSemantics: true,
               child: TweenAnimationBuilder<double>(
                 tween: Tween(end: (index + 1) / total),
-                duration: EvoMotion.slow,
+                duration: evoDuration(context, EvoMotion.slow),
                 curve: EvoCurves.emphasizedDecelerate,
                 builder: (context, value, _) => ClipRRect(
                   borderRadius: BorderRadius.circular(EvoRadius.pill),

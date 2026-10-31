@@ -114,7 +114,10 @@ void main() {
 
   group('cadastro', () {
     Future<void> openRegister(WidgetTester tester) async {
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Criar conta'));
+      final button = find.widgetWithText(OutlinedButton, 'Criar conta');
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
       await tester.pumpAndSettle();
     }
 
@@ -122,7 +125,7 @@ void main() {
       WidgetTester tester, {
       required String password,
     }) async {
-      await tester.enterText(_field('Como quer ser chamado'), 'Ana');
+      await tester.enterText(_field('Seu nome ou apelido'), 'Ana');
       await tester.enterText(_field('E-mail'), FakeAuthServer.email);
       await tester.enterText(_field('Senha'), password);
     }

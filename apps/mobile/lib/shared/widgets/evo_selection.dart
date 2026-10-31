@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/motion.dart';
 import '../../app/theme/tokens.g.dart';
+import 'evo_focus_ring.dart';
 import 'evo_pressable.dart';
 
 /// Pílula selecionável: branca com contorno; preta quando selecionada.
@@ -23,56 +24,103 @@ class EvoChip extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      child: EvoPressable(
-        enabled: onTap != null,
-        pressedScale: 0.95,
-        child: Material(
-          color: const Color(0x00000000),
-          child: InkWell(
-            onTap: onTap,
-            customBorder: const StadiumBorder(),
-            child: AnimatedContainer(
-              duration: EvoMotion.fast,
-              curve: EvoCurves.standard,
-              constraints: const BoxConstraints(minHeight: evoTouchTargetMin),
-              padding: const EdgeInsets.symmetric(horizontal: EvoSpace.lg),
-              decoration: ShapeDecoration(
-                color: selected ? EvoColors.accent : EvoColors.bgSurface,
-                shape: StadiumBorder(
-                  side: BorderSide(
-                    color: selected ? EvoColors.accent : EvoColors.borderStrong,
-                  ),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedSize(
-                    duration: EvoMotion.fast,
-                    curve: EvoCurves.standard,
-                    child: selected
-                        ? Padding(
-                            padding: const EdgeInsets.only(right: EvoSpace.xs),
-                            child: Icon(
-                              Icons.check_rounded,
-                              size: 18,
-                              color: foreground,
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: foreground,
-                      fontSize: EvoFontSize.bodySm,
-                      fontWeight: FontWeight.w600,
+      child: EvoFocusRing(
+        child: EvoPressable(
+          enabled: onTap != null,
+          child: _SelectionFill(
+            selected: selected,
+            shape: const StadiumBorder(),
+            child: InkWell(
+              onTap: onTap,
+              customBorder: const StadiumBorder(),
+              splashColor: _splash(selected),
+              highlightColor: _splash(selected),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: evoTouchTargetMin),
+                padding: const EdgeInsets.symmetric(horizontal: EvoSpace.lg),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // O ícone de marcado não depende de cor nem de animação.
+                    EvoAnimatedSize(
+                      duration: EvoMotion.fast,
+                      child: selected
+                          ? Padding(
+                              padding: const EdgeInsets.only(
+                                right: EvoSpace.xs,
+                              ),
+                              child: Icon(
+                                Icons.check_rounded,
+                                size: 18,
+                                color: foreground,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
-                  ),
-                ],
+                    // Com fonte grande o rótulo quebra linha em vez de estourar.
+                    Flexible(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: EvoSpace.sm,
+                        ),
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            color: foreground,
+                            fontSize: EvoFontSize.bodySm,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Efeito de toque visível no branco (preto translúcido) e no preto (branco).
+Color _splash(bool selected) =>
+    (selected ? EvoColors.onAccent : EvoColors.accent).withValues(alpha: 0.12);
+
+/// Fundo e contorno de um item selecionável, pintados no Material com [Ink] para
+/// que o efeito de toque e o destaque do InkWell apareçam por cima (com um
+/// fundo opaco por cima do Material, eles ficariam escondidos).
+class _SelectionFill extends StatelessWidget {
+  const _SelectionFill({
+    required this.selected,
+    required this.shape,
+    required this.child,
+  });
+
+  final bool selected;
+  final OutlinedBorder shape;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(end: selected ? 1 : 0),
+        duration: evoDuration(context, EvoMotion.fast),
+        curve: EvoCurves.standard,
+        child: child,
+        builder: (context, t, child) => Ink(
+          decoration: ShapeDecoration(
+            color: Color.lerp(EvoColors.bgSurface, EvoColors.accent, t),
+            shape: shape.copyWith(
+              side: BorderSide(
+                color: Color.lerp(EvoColors.borderStrong, EvoColors.accent, t)!,
+              ),
+            ),
+          ),
+          child: child,
         ),
       ),
     );
@@ -139,68 +187,60 @@ class EvoOptionCard extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  static const _shape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.all(Radius.circular(EvoRadius.card)),
+  );
+
   @override
   Widget build(BuildContext context) {
+    final foreground = selected ? EvoColors.onAccent : EvoColors.textPrimary;
     return Semantics(
       button: true,
       selected: selected,
-      child: EvoPressable(
-        pressedScale: 0.97,
-        child: Material(
-          color: const Color(0x00000000),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(EvoRadius.card),
-            child: AnimatedContainer(
-              duration: EvoMotion.fast,
-              curve: EvoCurves.standard,
-              constraints: const BoxConstraints(minHeight: 108),
-              padding: const EdgeInsets.all(EvoSpace.lg),
-              decoration: BoxDecoration(
-                color: selected ? EvoColors.accent : EvoColors.bgSurface,
-                borderRadius: BorderRadius.circular(EvoRadius.card),
-                border: Border.all(
-                  color: selected ? EvoColors.accent : EvoColors.borderSubtle,
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Icon(
-                        icon,
-                        size: 26,
-                        color: selected
-                            ? EvoColors.onAccent
-                            : EvoColors.textPrimary,
-                      ),
-                      AnimatedOpacity(
-                        opacity: selected ? 1 : 0,
-                        duration: EvoMotion.fast,
-                        child: const Icon(
-                          Icons.check_circle_rounded,
-                          size: 20,
-                          color: EvoColors.onAccent,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: EvoSpace.lg),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: selected
-                          ? EvoColors.onAccent
-                          : EvoColors.textPrimary,
-                      fontSize: EvoFontSize.bodySm,
-                      fontWeight: FontWeight.w600,
-                      height: 1.25,
+      child: EvoFocusRing(
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(EvoRadius.card + 3)),
+        ),
+        child: EvoPressable(
+          child: _SelectionFill(
+            selected: selected,
+            shape: _shape,
+            child: InkWell(
+              onTap: onTap,
+              customBorder: _shape,
+              splashColor: _splash(selected),
+              highlightColor: _splash(selected),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 108),
+                padding: const EdgeInsets.all(EvoSpace.lg),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Icon(icon, size: 26, color: foreground),
+                        if (selected)
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            size: 20,
+                            color: EvoColors.onAccent,
+                          ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: EvoSpace.lg),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: foreground,
+                        fontSize: EvoFontSize.bodySm,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -234,23 +274,27 @@ class EvoNumberPicker extends StatelessWidget {
     return Row(
       children: [
         for (var n = min; n <= max; n++)
-          // A célula inteira recebe o toque (≥ 48 dp); o círculo é só o desenho.
           Expanded(
+            // A ação fica no nó de acessibilidade (o TalkBack ativa com dois
+            // toques) e a célula inteira recebe o toque (≥ 48 dp de altura).
             child: Semantics(
               button: true,
               selected: value == n,
               label: '$n $semanticsSuffix',
               excludeSemantics: true,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onChanged(n),
-                child: SizedBox(
-                  height: 56,
-                  child: Center(
-                    child: EvoPressable(
-                      pressedScale: 0.9,
+              onTap: () => onChanged(n),
+              child: EvoFocusRing(
+                shape: const CircleBorder(),
+                child: InkResponse(
+                  onTap: () => onChanged(n),
+                  radius: 28,
+                  splashColor: _splash(false),
+                  highlightColor: const Color(0x00000000),
+                  child: SizedBox(
+                    height: 56,
+                    child: Center(
                       child: AnimatedContainer(
-                        duration: EvoMotion.fast,
+                        duration: evoDuration(context, EvoMotion.fast),
                         curve: EvoCurves.standard,
                         width: 42,
                         height: 42,
@@ -268,6 +312,9 @@ class EvoNumberPicker extends StatelessWidget {
                         ),
                         child: Text(
                           '$n',
+                          // O círculo tem tamanho fixo; o número cresce até onde cabe.
+                          textScaler: MediaQuery.textScalerOf(context)
+                              .clamp(maxScaleFactor: 1.3),
                           style: TextStyle(
                             color: value == n
                                 ? EvoColors.onAccent
@@ -302,7 +349,10 @@ class EvoFieldLabel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(text, style: theme.textTheme.titleMedium),
+          Semantics(
+            header: true,
+            child: Text(text, style: theme.textTheme.titleMedium),
+          ),
           if (hint != null) ...[
             const SizedBox(height: 2),
             Text(hint!, style: theme.textTheme.bodyMedium),

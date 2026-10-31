@@ -7,6 +7,7 @@ import '../../../app/theme/tokens.g.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/evo_button.dart';
 import '../../../shared/widgets/evo_form_error.dart';
+import '../../../shared/widgets/form_focus.dart';
 import '../application/auth_controller.dart';
 import 'auth_layout.dart';
 import 'form_validators.dart';
@@ -44,7 +45,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   Future<void> _submit() async {
     if (_submitting) return;
-    final fieldsOk = _formKey.currentState!.validate();
+    final fieldsOk = validateAndFocusFirstError(_formKey.currentState!);
     setState(() => _showTermsError = !_acceptTerms);
     if (!fieldsOk || !_acceptTerms) return;
     FocusScope.of(context).unfocus();
@@ -98,14 +99,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             TextFormField(
               controller: _name,
               textCapitalization: TextCapitalization.words,
-              autofillHints: const [AutofillHints.givenName],
+              autofillHints: const [AutofillHints.nickname],
               textInputAction: TextInputAction.next,
               maxLength: 60,
               validator: AuthValidators.displayName,
               onChanged: _clearServerError,
               forceErrorText: fieldErrors['display_name'],
               decoration: const InputDecoration(
-                labelText: 'Como quer ser chamado',
+                labelText: 'Seu nome ou apelido',
                 prefixIcon: Icon(Icons.person_outline_rounded),
                 counterText: '',
               ),
@@ -192,6 +193,16 @@ class _TermsCheckbox extends StatelessWidget {
           onChanged: (checked) => onChanged(checked ?? false),
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
+          // O erro faz parte do controle: o TalkBack o lê junto com a caixa.
+          isError: errorText != null,
+          subtitle: errorText == null
+              ? null
+              : Text(
+                  errorText!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: EvoColors.danger,
+                  ),
+                ),
           title: Text(
             'Li e aceito os Termos de Uso e a Política de Privacidade',
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -206,16 +217,6 @@ class _TermsCheckbox extends StatelessWidget {
             child: const Text('Ler o resumo dos termos'),
           ),
         ),
-        if (errorText != null)
-          Padding(
-            padding: const EdgeInsets.only(left: EvoSpace.md),
-            child: Text(
-              errorText!,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: EvoColors.danger,
-              ),
-            ),
-          ),
       ],
     );
   }

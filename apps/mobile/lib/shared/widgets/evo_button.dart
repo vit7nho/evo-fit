@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/motion.dart';
 import '../../app/theme/tokens.g.dart';
+import 'evo_focus_ring.dart';
 import 'evo_pressable.dart';
 
 /// Botão de ação em pílula, com estado de carregamento e resposta ao toque.
 ///
 /// Enquanto [isLoading] for verdadeiro o botão fica desabilitado, evitando envios
-/// duplicados. O conteúdo troca com um cruzamento suave entre texto e indicador.
+/// duplicados. O conteúdo troca com um esmaecimento entre texto e indicador.
 class EvoButton extends StatelessWidget {
   const EvoButton({
     super.key,
@@ -35,24 +37,16 @@ class EvoButton extends StatelessWidget {
         : EvoColors.textPrimary;
 
     final Widget content = AnimatedSwitcher(
-      duration: EvoMotion.fast,
-      transitionBuilder: (child, animation) => FadeTransition(
-        opacity: animation,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.85, end: 1).animate(animation),
-          child: child,
-        ),
-      ),
+      duration: evoDuration(context, EvoMotion.fast),
       child: isLoading
           ? SizedBox.square(
               key: const ValueKey('loading'),
               dimension: 22,
               child: CircularProgressIndicator(
                 strokeWidth: 2.2,
-                color: variant == EvoButtonVariant.primary
-                    ? EvoColors.onAccent
-                    : foreground,
-                semanticsLabel: 'Carregando',
+                color: foreground,
+                // Mantém o nome da ação: "Entrar, carregando".
+                semanticsLabel: '$label, carregando',
               ),
             )
           : Row(
@@ -63,7 +57,8 @@ class EvoButton extends StatelessWidget {
                   Icon(icon, size: 20),
                   const SizedBox(width: EvoSpace.sm),
                 ],
-                Text(label),
+                // Com fonte grande o rótulo quebra linha em vez de estourar.
+                Flexible(child: Text(label, textAlign: TextAlign.center)),
                 if (trailingIcon != null) ...[
                   const SizedBox(width: EvoSpace.sm),
                   Icon(trailingIcon, size: 20),
@@ -90,7 +85,9 @@ class EvoButton extends StatelessWidget {
       ),
     };
 
-    return EvoPressable(enabled: enabled, child: button);
+    return EvoFocusRing(
+      child: EvoPressable(enabled: enabled, child: button),
+    );
   }
 }
 

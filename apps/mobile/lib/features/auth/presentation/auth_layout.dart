@@ -65,7 +65,15 @@ class AuthLayout extends StatelessWidget {
                           ),
                           const SizedBox(height: EvoSpace.x3xl),
                           enter(
-                            Text(title, style: theme.textTheme.displayMedium),
+                            // Sem AppBar, o título nomeia a tela para o TalkBack.
+                            Semantics(
+                              header: true,
+                              namesRoute: true,
+                              child: Text(
+                                title,
+                                style: theme.textTheme.displayMedium,
+                              ),
+                            ),
                           ),
                           const SizedBox(height: EvoSpace.md),
                           enter(

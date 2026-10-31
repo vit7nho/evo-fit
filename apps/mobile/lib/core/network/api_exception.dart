@@ -38,7 +38,7 @@ class ApiException implements Exception {
       case DioExceptionType.unknown:
         return const ApiException(
           kind: ApiErrorKind.unknown,
-          message: 'Algo deu errado. Tente novamente.',
+          message: 'Não foi possível concluir. Verifique sua conexão e tente novamente.',
         );
     }
   }
@@ -63,7 +63,7 @@ class ApiException implements Exception {
           ? detail
           : (status >= 500
                 ? 'O servidor encontrou um problema. Tente novamente.'
-                : 'Não foi possível concluir a operação.'),
+                : 'Não foi possível concluir. Confira os dados e tente novamente.'),
       fieldErrors: fieldErrors,
       requestId: problem['request_id'] as String?,
     );

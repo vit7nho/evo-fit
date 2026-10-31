@@ -67,11 +67,21 @@ Fonte da verdade: `packages/design-tokens/tokens.json`, gerado para Dart e CSS p
 - Curvas *emphasized* do Material 3; durações 150 / 250 / 400 ms e 420 ms para troca de tela.
 - Troca de tela: a nova sobe 3,5 % e aparece; a anterior recua (escala 0,97) e esmaece.
 - Entrada em cascata dos blocos de cada tela (60 ms entre eles), sem timers.
-- Botões e cards encolhem levemente sob o dedo (0,97–0,98).
-- Avisos de erro abrem e fecham o espaço suavemente; o botão troca texto e indicador com um cruzamento.
-- Tudo é desligado quando o sistema pede redução de movimento.
+- Botões, cards e pílulas encolhem sob o dedo, sempre para 0,97 (`EvoPressable.pressedScale`), e voltam na hora se o dedo arrasta para rolar.
+- Avisos de erro abrem e fecham o espaço suavemente; o botão troca texto e indicador com um esmaecimento.
+- Tudo é desligado quando o sistema pede redução de movimento. As animações implícitas usam `evoDuration` e `EvoAnimatedSize`, porque `AnimatedSize` e `AnimatedSwitcher` não checam isso sozinhos.
 
-**Toque:** alvo mínimo de 48×48 dp.
+**Toque:** alvo mínimo de 48×48 dp, inclusive nos botões dos diálogos.
+
+**Acessibilidade** (revisão de 2026-10-30, ADR-027):
+- **Foco por teclado/D-pad:** contorno preto de 2 px (`EvoFocusRing` e tema dos botões de texto e de ícone). O destaque padrão do Material (10 %) tinha 1,3:1 e não era percebido.
+- **Seleção:** pílulas e cartões pintam o fundo com `Ink`, para o efeito de toque aparecer; o marcado tem ícone, não só cor. Os números de "dias por semana" têm a ação no nó de acessibilidade, então o TalkBack os ativa com dois toques.
+- **Botões de avançar nunca ficam desabilitados:** com a seção incompleta, mostram o que falta ("Escolha um objetivo principal. Ou toque em Pular."). Um botão apagado não diz o motivo.
+- **Formulários:** um envio com erro leva o foco ao primeiro campo inválido; o erro dos termos faz parte da caixa de seleção; o botão em carregamento mantém o nome ("Entrar, carregando").
+- **Leitores de tela:** títulos das telas sem barra marcados como cabeçalho; a troca de passo do onboarding é anunciada; o voltar escondido no primeiro passo também sai da árvore do TalkBack.
+- **Fonte grande (até 200 %) em 320 dp:** rótulos de botões e pílulas quebram linha; dicas e erros de campo vão até 8 linhas; logo e números de círculo crescem com limite; rodapés fixos rolam quando passam de 40 % da tela. Coberto por `test/app/stress_layout_test.dart`.
+- **Saída com alterações não salvas** na edição do perfil pede confirmação ("Descartar alterações?").
+- **Textos neutros em gênero** ("Que bom te ver de novo.", "Seu nome ou apelido").
 
 ## 5. Teste de usabilidade (Fase 5)
 

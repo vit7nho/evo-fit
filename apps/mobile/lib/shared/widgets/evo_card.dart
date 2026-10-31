@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/tokens.g.dart';
+import 'evo_focus_ring.dart';
 import 'evo_pressable.dart';
 
 /// Card padrão: superfície branca com borda sutil, sem sombra.
@@ -27,6 +28,12 @@ class EvoCard extends StatelessWidget {
         child: Padding(padding: padding, child: child),
       ),
     );
-    return onTap == null ? card : EvoPressable(pressedScale: 0.98, child: card);
+    if (onTap == null) return card;
+    return EvoFocusRing(
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(EvoRadius.card + 3)),
+      ),
+      child: EvoPressable(child: card),
+    );
   }
 }

@@ -18,6 +18,14 @@ abstract final class AppTheme {
 
   static const _pill = StadiumBorder();
   static const _buttonSize = Size(evoTouchTargetMin, 56);
+
+  /// Contorno preto no foco por teclado/D-pad: o destaque padrão do Material (10%)
+  /// tem contraste de ~1,3:1 sobre o branco e não é percebido.
+  static final _focusSide = WidgetStateProperty.resolveWith<BorderSide?>(
+    (states) => states.contains(WidgetState.focused)
+        ? const BorderSide(color: EvoColors.accent, width: 2)
+        : null,
+  );
   static const _buttonText = TextStyle(
     fontSize: EvoFontSize.body,
     fontWeight: FontWeight.w600,
@@ -64,7 +72,7 @@ abstract final class AppTheme {
           fontSize: EvoFontSize.display,
           fontWeight: FontWeight.w800,
           letterSpacing: -1.6,
-          height: 1.05,
+          height: 1.1,
         ),
         displaySmall: text.displaySmall?.copyWith(
           fontSize: EvoFontSize.displaySm,
@@ -154,13 +162,13 @@ abstract final class AppTheme {
             fontSize: EvoFontSize.bodySm,
             fontWeight: FontWeight.w600,
           ),
-        ),
+        ).copyWith(side: _focusSide),
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           foregroundColor: EvoColors.textPrimary,
           minimumSize: const Size(evoTouchTargetMin, evoTouchTargetMin),
-        ),
+        ).copyWith(side: _focusSide),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -186,8 +194,9 @@ abstract final class AppTheme {
         helperStyle: const TextStyle(color: EvoColors.textSecondary),
         errorStyle: const TextStyle(color: EvoColors.danger),
         suffixIconColor: EvoColors.textSecondary,
-        errorMaxLines: 3,
-        helperMaxLines: 3,
+        // Com fonte grande, dicas e erros quebram em mais linhas em vez de cortar.
+        errorMaxLines: 8,
+        helperMaxLines: 8,
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith(

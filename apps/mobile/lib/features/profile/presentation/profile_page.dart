@@ -24,16 +24,25 @@ class ProfilePage extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider).value;
     if (auth is! Authenticated) return const Scaffold();
     final user = auth.user;
-    // Sem as opções, os cartões mostram os códigos; os rótulos chegam em seguida.
-    final options = ref.watch(profileOptionsProvider).value;
+    // Os resumos usam os rótulos das opções; sem elas, avisam em vez de mostrar
+    // códigos internos (gain_muscle...).
+    final optionsState = ref.watch(profileOptionsProvider);
+    final options = optionsState.value;
     final theme = Theme.of(context);
 
     final sections = [
       for (final section in ProfileSection.values)
         _SectionCard(
           section: section,
-          summary: _summary(section, user, options),
-          onTap: () => context.push(AppRoutes.profileEdit(section.path)),
+          summary: options != null
+              ? _summary(section, user, options)
+              : optionsState.hasError
+              ? 'Não foi possível carregar. Toque para tentar de novo.'
+              : 'Carregando…',
+          onTap: () {
+            if (optionsState.hasError) ref.invalidate(profileOptionsProvider);
+            context.push(AppRoutes.profileEdit(section.path));
+          },
         ),
     ];
 
@@ -77,13 +86,11 @@ class ProfilePage extends ConsumerWidget {
   static String _summary(
     ProfileSection section,
     CurrentUser user,
-    ProfileOptions? options,
+    ProfileOptions options,
   ) {
     final p = user.profile;
     String label(List<Option> Function(ProfileOptions) list, String? code) =>
-        options == null
-        ? (code ?? '')
-        : ProfileOptions.labelOf(list(options), code);
+        ProfileOptions.labelOf(list(options), code);
     String labels(
       List<Option> Function(ProfileOptions) list,
       List<String> codes,
@@ -139,7 +146,9 @@ class ProfilePage extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(minimumSize: const Size(88, 44)),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(88, evoTouchTargetMin),
+            ),
             child: const Text('Sair'),
           ),
         ],
@@ -263,7 +272,17 @@ class _AiConsentCardState extends ConsumerState<_AiConsentCard> {
           .read(profileActionsProvider)
           .setConsent(ConsentKinds.aiProcessing, granted: granted);
     } on ApiException catch (error) {
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      // Com ação, o aviso não some sozinho para quem usa TalkBack.
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Preferência não salva. ${error.message}'),
+          duration: const Duration(seconds: 10),
+          action: SnackBarAction(
+            label: 'Tentar de novo',
+            onPressed: () => _toggle(granted),
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }

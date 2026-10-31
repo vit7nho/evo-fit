@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/motion.dart';
 import '../../../app/theme/tokens.g.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_exception.dart';
@@ -44,7 +45,7 @@ class SystemStatusPage extends ConsumerWidget {
               const SizedBox(height: EvoSpace.xl),
               EvoCard(
                 child: AnimatedSwitcher(
-                  duration: EvoMotion.base,
+                  duration: evoDuration(context, EvoMotion.base),
                   child: status.when(
                     // Nova tentativa também mostra o carregamento: o toque tem retorno visível.
                     skipLoadingOnRefresh: false,

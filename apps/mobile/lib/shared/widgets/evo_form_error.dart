@@ -15,12 +15,11 @@ class EvoFormError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = message;
-    return AnimatedSize(
+    return EvoAnimatedSize(
       duration: EvoMotion.base,
-      curve: EvoCurves.standard,
       alignment: Alignment.topCenter,
       child: AnimatedSwitcher(
-        duration: EvoMotion.base,
+        duration: evoDuration(context, EvoMotion.base),
         child: text == null
             ? const SizedBox(width: double.infinity)
             : Padding(

@@ -9,6 +9,39 @@ abstract final class EvoCurves {
   static const standard = Cubic(0.2, 0, 0, 1);
 }
 
+/// Duração de uma animação implícita (AnimatedSize, AnimatedSwitcher...): zero
+/// quando o sistema pede menos movimento, porque esses widgets não checam sozinhos.
+Duration evoDuration(BuildContext context, Duration duration) =>
+    MediaQuery.disableAnimationsOf(context) ? Duration.zero : duration;
+
+/// AnimatedSize que sai de cena quando o sistema pede menos movimento.
+///
+/// Não basta duração zero: com ela o AnimatedSize do Flutter se remarca durante o
+/// próprio layout e dispara um erro de renderização.
+class EvoAnimatedSize extends StatelessWidget {
+  const EvoAnimatedSize({
+    super.key,
+    required this.child,
+    this.duration = EvoMotion.base,
+    this.alignment = Alignment.center,
+  });
+
+  final Widget child;
+  final Duration duration;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    return AnimatedSize(
+      duration: duration,
+      curve: EvoCurves.standard,
+      alignment: alignment,
+      child: child,
+    );
+  }
+}
+
 /// Transição entre telas: a nova sobe levemente enquanto aparece; a anterior
 /// recua um pouco e esmaece. Sem animação quando o sistema pede menos movimento.
 class EvoPageTransition extends StatelessWidget {

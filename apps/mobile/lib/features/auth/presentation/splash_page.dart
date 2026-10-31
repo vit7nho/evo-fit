@@ -47,7 +47,7 @@ class SplashPage extends ConsumerWidget {
               ),
               const Spacer(flex: 2),
               AnimatedSwitcher(
-                duration: EvoMotion.base,
+                duration: evoDuration(context, EvoMotion.base),
                 child: auth.hasError
                     ? EvoEntrance(
                         child: Column(

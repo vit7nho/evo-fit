@@ -6,6 +6,7 @@ import '../../../app/theme/tokens.g.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/evo_button.dart';
 import '../../../shared/widgets/evo_form_error.dart';
+import '../../../shared/widgets/form_focus.dart';
 import '../../../shared/widgets/evo_state_views.dart';
 import '../../auth/application/auth_controller.dart';
 import '../application/profile_actions.dart';
@@ -35,6 +36,12 @@ class _EditProfileSectionPageState
   bool _saving = false;
   ApiException? _error;
 
+  /// Aviso local de seção incompleta (não vem da API).
+  String? _hint;
+
+  /// Há alterações não salvas: voltar pede confirmação.
+  bool _dirty = false;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +52,13 @@ class _EditProfileSectionPageState
     _name.text = _draft.displayName;
     _birthYear.text = _draft.birthYear?.toString() ?? '';
     _note.text = _draft.limitationsNote;
+    for (final c in [_name, _birthYear, _note]) {
+      final initial = c.text;
+      // O controlador também avisa mudanças de cursor e seleção; só texto conta.
+      c.addListener(() {
+        if (c.text != initial) _markDirty();
+      });
+    }
   }
 
   @override
@@ -55,8 +69,18 @@ class _EditProfileSectionPageState
     super.dispose();
   }
 
+  void _markDirty() {
+    if (!_dirty) setState(() => _dirty = true);
+  }
+
   Future<void> _save() async {
-    if (_saving || !(_formKey.currentState?.validate() ?? true)) return;
+    final form = _formKey.currentState;
+    if (_saving || (form != null && !validateAndFocusFirstError(form))) return;
+    final missing = _draft.missing(widget.section);
+    if (missing != null) {
+      setState(() => _hint = missing);
+      return;
+    }
     final actions = ref.read(profileActionsProvider);
     final revokingHealth =
         widget.section == ProfileSection.health &&
@@ -85,6 +109,7 @@ class _EditProfileSectionPageState
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Perfil atualizado')));
+      _dirty = false;
       context.pop();
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error);
@@ -111,7 +136,7 @@ class _EditProfileSectionPageState
             onPressed: () => Navigator.of(context).pop(true),
             style: FilledButton.styleFrom(
               backgroundColor: EvoColors.danger,
-              minimumSize: const Size(88, 44),
+              minimumSize: const Size(88, evoTouchTargetMin),
             ),
             child: const Text('Revogar e apagar'),
           ),
@@ -121,9 +146,47 @@ class _EditProfileSectionPageState
     return confirmed ?? false;
   }
 
+  Future<bool> _confirmDiscard() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Descartar alterações?'),
+        content: const Text('O que você mudou nesta seção não será salvo.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Continuar editando'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(88, evoTouchTargetMin),
+            ),
+            child: const Text('Descartar'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  Future<void> _onPopInvoked(bool didPop, Object? _) async {
+    if (didPop || !await _confirmDiscard() || !mounted) return;
+    setState(() => _dirty = false);
+    context.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final options = ref.watch(profileOptionsProvider);
+    return PopScope(
+      canPop: !_dirty || _saving,
+      onPopInvokedWithResult: _onPopInvoked,
+      child: _scaffold(options),
+    );
+  }
+
+  Widget _scaffold(AsyncValue<ProfileOptions> options) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.section.title)),
       body: SafeArea(
@@ -163,18 +226,24 @@ class _EditProfileSectionPageState
                   EvoSpace.xl,
                   EvoSpace.lg,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    EvoFormError(message: _error?.message),
-                    EvoButton(
-                      label: 'Salvar',
-                      isLoading: _saving,
-                      onPressed: _draft.isComplete(widget.section)
-                          ? _save
-                          : null,
+                child: ConstrainedBox(
+                  // Com fonte muito grande o rodapé rola, em vez de espremer o conteúdo.
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(context).height * 0.4,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        EvoFormError(message: _hint ?? _error?.message),
+                        EvoButton(
+                          label: 'Salvar',
+                          isLoading: _saving,
+                          onPressed: _save,
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -185,7 +254,11 @@ class _EditProfileSectionPageState
   }
 
   Widget _editor(ProfileOptions options) {
-    void changed() => setState(() => _error = null);
+    void changed() => setState(() {
+      _error = null;
+      _hint = null;
+      _dirty = true;
+    });
     return switch (widget.section) {
       ProfileSection.basics => BasicsEditor(
         draft: _draft,

@@ -147,3 +147,13 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 - **O roteador só reage a mudanças que afetam a rota** (entrou, saiu, precisa de onboarding): salvar o perfil não reavalia a navegação.
 - **Conexão com o banco em UTC** (`-c timezone=UTC`): datas saem iguais na criação e na leitura (achado pelos testes da 2.2; reforça a ADR-015).
 
+### ADR-027 — Revisão de interface e acessibilidade antes da 2.3
+**Status:** Aceita · Fase 2 (entre 2.2 e 2.3)
+**Contexto:** revisão das telas de acesso, onboarding e perfil por acessibilidade, layout, texto, tipografia, cor e acabamento, mais um teste de pior caso (320 dp, fonte em 200 %, nomes e e-mails longos, vocabulário completo). Achou 5 problemas graves (foco invisível, toque escondido nas pílulas, "dias por semana" inoperável pelo TalkBack, animações ignorando a redução de movimento, erro sem caminho de saída) e estouros de layout com fonte grande.
+**Decisões:**
+- **Botões de avançar sempre habilitados**, explicando o que falta, em vez de desabilitados sem motivo.
+- **Anel de foco próprio** (preto, 2 px) em vez do destaque translúcido do Material, que some na paleta monocromática.
+- **Uma escala de toque só (0,97)**, desfeita ao arrastar.
+- **Teste de pior caso permanente** (`stress_layout_test.dart`): um estouro de layout reprova o teste. A verificação por mutação confirmou que ele acusa a falha.
+**Consequências:** botões de avançar não usam mais o estado desabilitado; novos componentes clicáveis devem usar `EvoFocusRing` e `EvoPressable`, e animações implícitas, `evoDuration`/`EvoAnimatedSize`. Ficou sem verificação a navegação completa com TalkBack num aparelho real.
+

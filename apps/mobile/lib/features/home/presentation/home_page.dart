@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/routes.dart';
 import '../../../app/theme/tokens.g.dart';
+import '../../../shared/widgets/evo_button.dart';
 import '../../../shared/widgets/evo_card.dart';
 import '../../../shared/widgets/evo_entrance.dart';
 import '../../../shared/widgets/evo_logo.dart';
@@ -21,6 +22,12 @@ class HomePage extends ConsumerWidget {
     if (auth is! Authenticated) return const Scaffold();
     final user = auth.user;
     final theme = Theme.of(context);
+    // Quem pulou passos do onboarding é convidado a completar o perfil.
+    final profile = user.profile;
+    final incomplete =
+        profile.primaryObjective == null ||
+        profile.preferredModalities.isEmpty ||
+        profile.weeklyAvailability == null;
 
     return Scaffold(
       appBar: AppBar(
@@ -59,22 +66,38 @@ class HomePage extends ConsumerWidget {
           ),
           children: [
             EvoEntrance(
-              child: Text(
-                'Olá, ${user.displayName}!',
-                style: theme.textTheme.displayMedium,
+              child: Semantics(
+                header: true,
+                child: Text(
+                  'Olá, ${user.displayName}!',
+                  style: theme.textTheme.displayMedium,
+                ),
               ),
             ),
             const SizedBox(height: EvoSpace.md),
             EvoEntrance(
               delay: EvoEntrance.stagger(1),
               child: Text(
-                'Seu perfil está configurado. Metas e treinos chegam nas '
-                'próximas etapas do projeto.',
+                incomplete
+                    ? 'Complete seu perfil para receber sugestões que '
+                          'combinam com você.'
+                    : 'Tudo pronto. Metas e treinos chegam em breve.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: EvoColors.textSecondary,
                 ),
               ),
             ),
+            if (incomplete) ...[
+              const SizedBox(height: EvoSpace.xl),
+              EvoEntrance(
+                delay: EvoEntrance.stagger(1),
+                child: EvoButton(
+                  label: 'Completar perfil',
+                  trailingIcon: Icons.arrow_forward_rounded,
+                  onPressed: () => context.push(AppRoutes.profile),
+                ),
+              ),
+            ],
             const SizedBox(height: EvoSpace.x2xl),
             EvoEntrance(
               delay: EvoEntrance.stagger(2),

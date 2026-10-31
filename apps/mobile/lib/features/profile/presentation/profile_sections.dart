@@ -71,12 +71,22 @@ class ProfileDraft {
   /// Opções de duração por sessão, em minutos.
   static const sessionMinutes = [20, 30, 45, 60, 90];
 
-  bool isComplete(ProfileSection section) => switch (section) {
-    ProfileSection.basics => displayName.trim().isNotEmpty,
-    ProfileSection.objectives => primaryObjective != null,
-    ProfileSection.activity => modalities.isNotEmpty,
-    ProfileSection.routine => daysPerWeek != null && minutesPerSession != null,
-    ProfileSection.health => true,
+  /// O que falta para concluir a seção, ou nulo se está completa.
+  ///
+  /// Os botões de avançar ficam sempre habilitados e mostram este aviso: um botão
+  /// desabilitado não diz ao usuário (nem ao TalkBack) o que está faltando.
+  /// Dados pessoais ficam a cargo dos validadores do formulário.
+  String? missing(ProfileSection section) => switch (section) {
+    ProfileSection.basics => null,
+    ProfileSection.objectives =>
+      primaryObjective == null ? 'Escolha um objetivo principal.' : null,
+    ProfileSection.activity =>
+      modalities.isEmpty ? 'Escolha pelo menos uma atividade.' : null,
+    ProfileSection.routine =>
+      daysPerWeek == null || minutesPerSession == null
+          ? 'Escolha os dias por semana e o tempo de cada treino.'
+          : null,
+    ProfileSection.health => null,
   };
 
   /// Descarta as respostas de uma seção (botão "Pular" do onboarding).
@@ -199,9 +209,8 @@ class ObjectivesEditor extends StatelessWidget {
           ),
         ],
         // Os secundários só aparecem depois da escolha principal.
-        AnimatedSize(
+        EvoAnimatedSize(
           duration: EvoMotion.base,
-          curve: EvoCurves.standard,
           alignment: Alignment.topCenter,
           child: draft.primaryObjective == null
               ? const SizedBox(width: double.infinity)
@@ -395,9 +404,8 @@ class HealthEditor extends StatelessWidget {
             ),
           ),
         ),
-        AnimatedSize(
+        EvoAnimatedSize(
           duration: EvoMotion.base,
-          curve: EvoCurves.standard,
           alignment: Alignment.topCenter,
           child: !draft.healthConsent
               ? const SizedBox(width: double.infinity)
@@ -466,10 +474,10 @@ class BasicsEditor extends StatelessWidget {
             onChanged();
           },
           validator: (value) => (value ?? '').trim().isEmpty
-              ? 'Informe como quer ser chamado.'
+              ? 'Informe seu nome ou apelido.'
               : null,
           decoration: const InputDecoration(
-            labelText: 'Como quer ser chamado',
+            labelText: 'Seu nome ou apelido',
             prefixIcon: Icon(Icons.person_outline_rounded),
             counterText: '',
           ),

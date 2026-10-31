@@ -105,4 +105,4 @@ Dados de demonstração identificados (`scripts/seed_demo.py`, usuário `demo@ev
 
 ## Próxima etapa
 
-**Fase 2** em andamento: 2.1 (autenticação) e 2.2 (onboarding, perfil e consentimentos) concluídas, verificadas no emulador com a API real. Próxima: 2.3 (metas). A Fase 1 foi executada na ordem 1.1 → 1.4 → 1.6 → 1.7 → 1.5 → 1.8 → 1.9 → 1.10.
+**Fase 2** em andamento: 2.1 (autenticação) e 2.2 (onboarding, perfil e consentimentos) concluídas, verificadas no emulador com a API real. Depois da 2.2, uma revisão de interface e acessibilidade (ADR-027) corrigiu foco, TalkBack, redução de movimento e fonte grande. Próxima: 2.3 (metas). A Fase 1 foi executada na ordem 1.1 → 1.4 → 1.6 → 1.7 → 1.5 → 1.8 → 1.9 → 1.10.

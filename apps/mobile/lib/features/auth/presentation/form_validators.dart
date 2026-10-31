@@ -25,7 +25,7 @@ abstract final class AuthValidators {
 
   static String? displayName(String? value) {
     final name = value?.trim() ?? '';
-    if (name.isEmpty) return 'Informe como quer ser chamado.';
+    if (name.isEmpty) return 'Informe seu nome ou apelido.';
     if (name.length > 60) return 'Use no máximo 60 caracteres.';
     return null;
   }

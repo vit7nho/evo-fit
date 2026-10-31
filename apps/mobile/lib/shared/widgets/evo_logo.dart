@@ -36,6 +36,10 @@ class EvoLogo extends StatelessWidget {
           SizedBox(width: size * 0.3),
           Text(
             'EvoFit',
+            // É uma marca, não um texto corrido: cresce pouco com a fonte do
+            // sistema para não estourar a barra do topo em telas estreitas.
+            textScaler: MediaQuery.textScalerOf(context)
+                .clamp(maxScaleFactor: 1.2),
             style: TextStyle(
               color: EvoColors.textPrimary,
               fontSize: size * 0.55,

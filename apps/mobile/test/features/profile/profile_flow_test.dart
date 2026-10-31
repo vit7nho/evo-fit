@@ -61,14 +61,36 @@ void main() {
       expect(find.text('Olá, Ana!'), findsNothing);
     });
 
-    testWidgets('continuar só libera depois de escolher', (tester) async {
+    testWidgets('continuar sem escolher diz o que falta e não avança', (
+      tester,
+    ) async {
       await _pumpSignedIn(tester, onboarded: false);
 
-      final button = find.widgetWithText(FilledButton, 'Continuar');
-      expect(tester.widget<FilledButton>(button).onPressed, isNull);
+      await _continue(tester, 'Continuar');
+      expect(
+        find.text('Escolha um objetivo principal. Ou toque em Pular.'),
+        findsOneWidget,
+      );
+      expect(find.text('Qual é o seu\nobjetivo?'), findsOneWidget);
 
+      // Escolher apaga o aviso; agora avança.
       await _tapText(tester, 'Emagrecer');
-      expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
+      expect(find.textContaining('Ou toque em Pular'), findsNothing);
+      await _continue(tester, 'Continuar');
+      expect(find.text('Como você se\nexercita?'), findsOneWidget);
+    });
+
+    testWidgets('quem pulou tudo é convidado a completar o perfil', (
+      tester,
+    ) async {
+      await _pumpSignedIn(tester, onboarded: false);
+      for (var i = 0; i < 4; i++) {
+        await tester.tap(find.text('Pular'));
+        await tester.pumpAndSettle();
+      }
+
+      await _continue(tester, 'Completar perfil');
+      expect(find.text('Perfil'), findsOneWidget);
     });
 
     testWidgets('respondendo tudo, envia um único PATCH e vai ao início', (
@@ -154,8 +176,29 @@ void main() {
       await tester.tap(find.byTooltip('Passo anterior'));
       await tester.pumpAndSettle();
 
-      final button = find.widgetWithText(FilledButton, 'Continuar');
-      expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
+      // A escolha continua lá: avança direto, sem aviso.
+      await _continue(tester, 'Continuar');
+      expect(find.text('Como você se\nexercita?'), findsOneWidget);
+    });
+
+    testWidgets('o passo é anunciado e o voltar some no primeiro passo', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await _pumpSignedIn(tester, onboarded: false);
+
+      // O botão guarda o espaço na tela, mas sai da árvore do TalkBack.
+      expect(find.bySemanticsLabel('Passo anterior'), findsNothing);
+      expect(
+        tester.getSemantics(
+          find.bySemanticsLabel('Passo 1 de 4: Qual é o seu objetivo?'),
+        ),
+        matchesSemantics(
+          label: 'Passo 1 de 4: Qual é o seu objetivo?',
+          isLiveRegion: true,
+        ),
+      );
+      semantics.dispose();
     });
   });
 
@@ -233,6 +276,60 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(server.consentCalls, isEmpty);
+    });
+
+    testWidgets('dias por semana funcionam pelo TalkBack (ação semântica)', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final server = await _pumpSignedIn(tester, onboarded: true);
+      await openProfile(tester);
+      await _tapText(tester, 'Rotina');
+
+      // Dois toques no TalkBack disparam a ação "tap" do nó, não um toque na tela.
+      tester.semantics.tap(find.semantics.byLabel('6 dias por semana'));
+      await tester.pumpAndSettle();
+      await _continue(tester, 'Salvar');
+
+      final routine = server.patches.single['weekly_availability']! as Map;
+      expect(routine['days_per_week'], 6);
+      semantics.dispose();
+    });
+
+    testWidgets('voltar com alterações não salvas pede confirmação', (
+      tester,
+    ) async {
+      final server = await _pumpSignedIn(tester, onboarded: true);
+      await openProfile(tester);
+      await _tapText(tester, 'Rotina');
+      await tester.tap(find.bySemanticsLabel('5 dias por semana'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.text('Descartar alterações?'), findsOneWidget);
+
+      await tester.tap(find.text('Continuar editando'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(FilledButton, 'Salvar'), findsOneWidget);
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Descartar'));
+      await tester.pumpAndSettle();
+      expect(find.text('3x por semana · 45 min'), findsOneWidget);
+      expect(server.patches, isEmpty);
+    });
+
+    testWidgets('voltar sem alterações sai direto', (tester) async {
+      await _pumpSignedIn(tester, onboarded: true);
+      await openProfile(tester);
+      await _tapText(tester, 'Rotina');
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.text('Descartar alterações?'), findsNothing);
+      expect(find.text('3x por semana · 45 min'), findsOneWidget);
     });
 
     testWidgets('consentimento de IA liga direto no perfil', (tester) async {
