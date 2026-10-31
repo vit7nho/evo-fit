@@ -28,9 +28,22 @@ class HomePage extends ConsumerWidget {
         title: const EvoLogo(size: 30),
         actions: [
           IconButton(
-            tooltip: 'Sair',
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: () => _confirmLogout(context, ref),
+            tooltip: 'Perfil',
+            onPressed: () => context.push(AppRoutes.profile),
+            icon: CircleAvatar(
+              radius: 16,
+              backgroundColor: EvoColors.accent,
+              child: Text(
+                user.displayName.isEmpty
+                    ? '?'
+                    : user.displayName.characters.first.toUpperCase(),
+                style: const TextStyle(
+                  color: EvoColors.onAccent,
+                  fontSize: EvoFontSize.bodySm,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
           ),
           const SizedBox(width: EvoSpace.sm),
         ],
@@ -55,7 +68,7 @@ class HomePage extends ConsumerWidget {
             EvoEntrance(
               delay: EvoEntrance.stagger(1),
               child: Text(
-                'Sua conta está pronta. Perfil, metas e treinos chegam nas '
+                'Seu perfil está configurado. Metas e treinos chegam nas '
                 'próximas etapas do projeto.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: EvoColors.textSecondary,
@@ -120,31 +133,5 @@ class HomePage extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sair da conta?'),
-        content: const Text(
-          'Você precisará entrar de novo com e-mail e senha neste aparelho.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(minimumSize: const Size(88, 44)),
-            child: const Text('Sair'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed ?? false) {
-      await ref.read(authControllerProvider.notifier).logout();
-    }
   }
 }

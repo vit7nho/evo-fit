@@ -7,6 +7,10 @@ import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/register_page.dart';
 import '../features/auth/presentation/splash_page.dart';
 import '../features/home/presentation/home_page.dart';
+import '../features/profile/presentation/edit_profile_section_page.dart';
+import '../features/profile/presentation/onboarding_page.dart';
+import '../features/profile/presentation/profile_page.dart';
+import '../features/profile/presentation/profile_sections.dart';
 import '../features/system_status/presentation/system_status_page.dart';
 import 'routes.dart';
 import 'theme/motion.dart';
@@ -30,10 +34,28 @@ String? authRedirect(AsyncValue<AuthState> auth, String location) {
   final isPublic = AppRoutes.public.contains(location);
   return switch (session) {
     Unauthenticated() => isPublic ? null : AppRoutes.login,
+    // Conta nova: o onboarding vem antes de qualquer outra tela.
+    Authenticated(:final user) when user.needsOnboarding =>
+      location == AppRoutes.onboarding ? null : AppRoutes.onboarding,
     Authenticated() =>
-      isPublic || location == AppRoutes.splash ? AppRoutes.home : null,
+      isPublic ||
+              location == AppRoutes.splash ||
+              location == AppRoutes.onboarding
+          ? AppRoutes.home
+          : null,
   };
 }
+
+/// Resumo do estado da sessão que importa para o roteamento.
+Object _routeRelevantState(AsyncValue<AuthState> auth) => switch (auth) {
+  AsyncData(value: Authenticated(:final user)) => (
+    'authenticated',
+    user.needsOnboarding,
+  ),
+  AsyncData(value: Unauthenticated()) => 'unauthenticated',
+  AsyncError() => 'error',
+  _ => 'loading',
+};
 
 /// Página com a transição padrão do app (sobe e aparece; a anterior recua).
 CustomTransitionPage<void> _page(GoRouterState state, Widget child) =>
@@ -51,9 +73,13 @@ CustomTransitionPage<void> _page(GoRouterState state, Widget child) =>
     );
 
 final routerProvider = Provider<GoRouter>((ref) {
-  // O GoRouter reavalia o redirect quando a sessão muda (login, logout, expiração).
+  // O GoRouter reavalia o redirect só quando muda o que decide a rota (entrou, saiu,
+  // expirou, concluiu o onboarding). Salvar o perfil não deve mexer na navegação.
   final authChanges = ValueNotifier<int>(0);
-  ref.listen(authControllerProvider, (_, _) => authChanges.value++);
+  ref.listen(
+    authControllerProvider.select(_routeRelevantState),
+    (_, _) => authChanges.value++,
+  );
 
   final router = GoRouter(
     initialLocation: AppRoutes.splash,
@@ -76,6 +102,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.home,
         pageBuilder: (context, state) => _page(state, const HomePage()),
+      ),
+      GoRoute(
+        path: AppRoutes.onboarding,
+        pageBuilder: (context, state) => _page(state, const OnboardingPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.profile,
+        pageBuilder: (context, state) => _page(state, const ProfilePage()),
+        routes: [
+          GoRoute(
+            path: ':section',
+            pageBuilder: (context, state) => _page(
+              state,
+              EditProfileSectionPage(
+                section: ProfileSection.fromPath(
+                  state.pathParameters['section']!,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoutes.status,

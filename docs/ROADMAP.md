@@ -47,7 +47,7 @@ Inspeção do ambiente, avaliação de viabilidade e riscos, arquitetura, modelo
 | # | Tarefa | Prio |
 |---|---|---|
 | 2.1 ✅ | Auth completa (registro, login, refresh rotativo, logout) + testes de segurança | P0 |
-| 2.2 | Onboarding: perfil, objetivos, modalidades, equipamentos, consentimentos | P0 |
+| 2.2 ✅ | Onboarding: perfil, objetivos, modalidades, equipamentos, consentimentos | P0 |
 | 2.3 | Metas (CRUD) | P0 |
 | 2.4 | Grupos musculares + seed próprio de exercícios + biblioteca com filtros | P0 |
 | 2.5 | Fichas: CRUD, ordenação, agrupamentos (bi-set/tri-set/supersérie) | P0 |
@@ -105,4 +105,4 @@ Dados de demonstração identificados (`scripts/seed_demo.py`, usuário `demo@ev
 
 ## Próxima etapa
 
-**Fase 2** em andamento: 2.1 concluída (backend 66 testes, app 41 testes, fluxo verificado no emulador com a API real). Próxima: 2.2 (onboarding e perfil). A Fase 1 foi executada na ordem 1.1 → 1.4 → 1.6 → 1.7 → 1.5 → 1.8 → 1.9 → 1.10.
+**Fase 2** em andamento: 2.1 (autenticação) e 2.2 (onboarding, perfil e consentimentos) concluídas, verificadas no emulador com a API real. Próxima: 2.3 (metas). A Fase 1 foi executada na ordem 1.1 → 1.4 → 1.6 → 1.7 → 1.5 → 1.8 → 1.9 → 1.10.

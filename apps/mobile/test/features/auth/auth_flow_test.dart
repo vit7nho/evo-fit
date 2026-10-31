@@ -70,7 +70,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Olá, Ana!'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Sair'));
+    // Sair fica no perfil (avatar no topo do início).
+    await tester.tap(find.byTooltip('Perfil'));
+    await tester.pumpAndSettle();
+    final logout = find.widgetWithText(OutlinedButton, 'Sair da conta');
+    await tester.scrollUntilVisible(
+      logout,
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(logout);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Sair'));
     await tester.pumpAndSettle();
@@ -158,7 +168,7 @@ void main() {
       );
     });
 
-    testWidgets('cadastro válido entra no app', (tester) async {
+    testWidgets('cadastro válido leva ao onboarding', (tester) async {
       await _pumpApp(tester);
       await openRegister(tester);
       await fillForm(tester, password: FakeAuthServer.password);
@@ -166,7 +176,7 @@ void main() {
 
       await submit(tester);
 
-      expect(find.text('Olá, Ana!'), findsOneWidget);
+      expect(find.text('Qual é o seu\nobjetivo?'), findsOneWidget);
     });
 
     testWidgets('o resumo dos termos abre e fecha', (tester) async {

@@ -136,3 +136,14 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 - O ícone do app virou o monograma da marca (adaptativo a partir do Android 8; PNG nos anteriores).
 - Contrastes verificados (tabela em `UX_FLOWS.md` §4). O modo escuro fica para depois da v1.
 
+### ADR-026 — Onboarding, objetivos e dados de saúde
+**Status:** Aceita · Fase 2.2
+**Decisões:**
+- **Objetivo ≠ meta.** `primary_objective`/`secondary_objectives` no perfil registram a motivação (vocabulário fixo, escolhido em toques); metas mensuráveis com prazo ficam em `goals` (2.3).
+- **Experiência única** (`experience_level`) em vez de uma por modalidade, como previa o UX_FLOWS: menos atrito no onboarding; pode virar por modalidade quando houver uso real para isso.
+- **Revogar `health_data` apaga os dados de saúde** em vez de só bloquear o uso: sem o consentimento não há base legal para mantê-los (LGPD art. 11). O app avisa e pede confirmação antes.
+- **Vocabulários no backend** (`GET /profile-options`), com rótulos PT-BR: o app não duplica listas e um código novo aparece sem atualizar o app.
+- **Onboarding com 4 passos puláveis** (o cadastro é o passo 1); `onboarding_completed_at` decide se ele aparece e é gravado no mesmo PATCH das respostas.
+- **O roteador só reage a mudanças que afetam a rota** (entrou, saiu, precisa de onboarding): salvar o perfil não reavalia a navegação.
+- **Conexão com o banco em UTC** (`-c timezone=UTC`): datas saem iguais na criação e na leitura (achado pelos testes da 2.2; reforça a ADR-015).
+

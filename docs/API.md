@@ -1,6 +1,6 @@
 # API — convenções e endpoints planejados
 
-> **Implementados:** `/health`, `/auth/*` e `GET /me` (Fase 2.1). O restante do mapa ainda é planejamento. A fonte da verdade, depois de implementada, será o OpenAPI gerado (`/docs`, `/openapi.json`) e exportado para `docs/openapi.json` (ADR-008). Este arquivo registra as convenções e o mapa previsto.
+> **Implementados:** `/health`, `/auth/*` (2.1), `/me`, `/me/consents/{kind}` e `/profile-options` (2.2). O restante do mapa ainda é planejamento. A fonte da verdade, depois de implementada, será o OpenAPI gerado (`/docs`, `/openapi.json`) e exportado para `docs/openapi.json` (ADR-008). Este arquivo registra as convenções e o mapa previsto.
 
 ## Convenções
 
@@ -27,8 +27,9 @@
 | POST | `/auth/login` ✅ | access + refresh |
 | POST | `/auth/refresh` ✅ | rotação do refresh |
 | POST | `/auth/logout` ✅ | revoga a família; `204` (idempotente) |
-| GET ✅ / PATCH | `/me` | conta + perfil + consentimentos ativos (PATCH na etapa 2.2) |
-| PUT/DELETE | `/me/consents/{kind}` | conceder/revogar consentimento |
+| GET ✅ / PATCH ✅ | `/me` | conta + perfil + consentimentos ativos; PATCH parcial (só os campos enviados) |
+| PUT ✅ / DELETE ✅ | `/me/consents/{kind}` | conceder (idempotente) / revogar; `health_data` revogado apaga os dados de saúde |
+| GET ✅ | `/profile-options` | vocabulários do perfil com rótulos PT-BR (público, cache 1 h) |
 | GET/POST | `/goals` · GET/PATCH/DELETE `/goals/{id}` | metas |
 | GET | `/muscle-groups` | catálogo de grupos |
 | GET/POST | `/exercises` · GET/PATCH `/exercises/{id}` | biblioteca (global + próprios); filtros `muscle`, `equipment`, `q` |
@@ -100,3 +101,16 @@ Resposta de `register`, `login` e `refresh`:
 | Limite de tentativas | 429 | `too_many_requests` + `Retry-After` |
 
 Todo 401 traz `WWW-Authenticate: Bearer`. O access token contém apenas `sub` (id), `jti`, `iss`, `typ`, `iat` e `exp` — nenhum dado pessoal.
+
+## Perfil e consentimentos (implementados na etapa 2.2)
+
+`PATCH /me` — atualização parcial; campos ausentes não mudam, `null` limpa os opcionais e esvazia as listas. Campos: `display_name`, `birth_year` (13–100 anos), `sex_for_calculations`, `timezone` (IANA), `unit_system`, `experience_level`, `weekly_availability` (`{days_per_week 1–7, minutes_per_session 10–300}`), `primary_objective`, `secondary_objectives` (≤ 5, sem repetir o principal), `preferred_modalities`, `equipment`, `dietary_preferences`, `limitation_tags`, `limitations_note` (≤ 1000), `onboarding_completed: true`. Os vocabulários ficam em `app/modules/users/vocabulary.py` e são expostos em `GET /profile-options`.
+
+| Situação | Status | `code` |
+|---|---|---|
+| Valor fora do vocabulário, repetido, fora da faixa, campo extra (ex.: `email`, `user_id`) | 422 | `validation_error` |
+| `limitation_tags`/`limitations_note` não vazios sem consentimento `health_data` ativo | 403 | `consent_required` |
+| `PUT /me/consents/terms_privacy` (aceito só no cadastro) | 422 | `validation_error` |
+| `DELETE /me/consents/terms_privacy` | 409 | `consent_not_revocable` |
+
+Os logs registram só os **nomes** dos campos alterados, nunca os valores.

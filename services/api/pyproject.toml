@@ -17,6 +17,7 @@ dependencies = [
     "psycopg[binary]>=3.3,<4",
     "argon2-cffi>=25.1,<26",
     "pyjwt>=2.15,<3",
+    "tzdata>=2026.1",  # banco de fusos IANA (Windows e imagens slim não o trazem)
 ]
 
 [project.optional-dependencies]

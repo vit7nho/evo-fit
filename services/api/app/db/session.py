@@ -6,14 +6,18 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
 
+# Sessão do banco sempre em UTC (ADR-015): datas lidas do banco saem com "+00:00",
+# iguais às criadas pela aplicação, independentemente do fuso do servidor.
+# Sem timeout, um banco inalcançável (sem recusa ativa) trava a requisição indefinidamente.
+CONNECT_ARGS = {"connect_timeout": 5, "options": "-c timezone=UTC"}
+
 
 @lru_cache
 def get_engine() -> Engine:
     return create_engine(
         get_settings().database_url,
         pool_pre_ping=True,
-        # Sem timeout, um banco inalcançável (sem recusa ativa) trava a requisição indefinidamente.
-        connect_args={"connect_timeout": 5},
+        connect_args=CONNECT_ARGS,
         pool_timeout=10,
     )
 

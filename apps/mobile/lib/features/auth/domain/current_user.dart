@@ -1,12 +1,15 @@
 import 'package:flutter/foundation.dart';
 
-/// Dados da conta que a interface usa. Vem de GET /me.
+import '../../profile/domain/profile.dart';
+
+/// Conta do usuário autenticado: dados, perfil e consentimentos ativos (GET /me).
 @immutable
 class CurrentUser {
   const CurrentUser({
     required this.id,
     required this.email,
-    required this.displayName,
+    required this.profile,
+    this.consents = const {},
   });
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) {
@@ -14,11 +17,24 @@ class CurrentUser {
     return CurrentUser(
       id: json['id'] as String,
       email: json['email'] as String,
-      displayName: profile?['display_name'] as String? ?? '',
+      profile: profile == null
+          ? const UserProfile(displayName: '')
+          : UserProfile.fromJson(profile),
+      consents: {
+        for (final c in (json['consents'] as List<dynamic>? ?? const []))
+          (c as Map<String, dynamic>)['kind'] as String,
+      },
     );
   }
 
   final String id;
   final String email;
-  final String displayName;
+  final UserProfile profile;
+
+  /// Tipos de consentimento ativos (ex.: `health_data`).
+  final Set<String> consents;
+
+  String get displayName => profile.displayName;
+  bool get needsOnboarding => !profile.onboardingCompleted;
+  bool hasConsent(String kind) => consents.contains(kind);
 }

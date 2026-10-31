@@ -90,6 +90,11 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
   }
 
+  /// Troca os dados da conta em memória (ex.: depois de salvar o perfil).
+  void replaceUser(CurrentUser user) {
+    if (state.value is Authenticated) state = AsyncData(Authenticated(user));
+  }
+
   /// Sai imediatamente no aparelho; avisar a API é melhor esforço (sem rede, o token
   /// expira sozinho no servidor).
   Future<void> logout() async {

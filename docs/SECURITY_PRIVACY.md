@@ -30,6 +30,8 @@
 
 ## 3. Consentimentos
 
+**Implementado (2.2):** `health_data` e `ai_processing` são concedidos e revogados pelo usuário (`PUT`/`DELETE /me/consents/{kind}`); `terms_privacy` só no cadastro. Dados de saúde (`limitation_tags`, `limitations_note`) são recusados sem `health_data` ativo, e **revogar `health_data` apaga esses dados** (ADR-026). O app pede o consentimento em um cartão próprio, destacado, antes de mostrar os campos de saúde.
+
 Registrados em `user_consents` (tipo, versão do texto, data, revogação):
 
 - `terms_privacy` — obrigatório no cadastro. ⚖ Os textos de Termos e Política de Privacidade precisam ser redigidos/revisados.

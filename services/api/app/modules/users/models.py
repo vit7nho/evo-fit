@@ -81,13 +81,19 @@ class UserProfile(Timestamps, Base):
     )
     # {"days_per_week": int, "minutes_per_session": int} — validado pelo schema Pydantic.
     weekly_availability: Mapped[dict | None] = mapped_column(JSONB)
-    # Listas de valores controlados; o vocabulário é validado na API (Fase 2).
+    # Motivação declarada no onboarding (vocabulário em users/vocabulary.py). Metas
+    # mensuráveis ficam em `goals` (etapa 2.3).
+    primary_objective: Mapped[str | None] = mapped_column(String(32))
+    secondary_objectives: Mapped[list[str]] = mapped_column(ARRAY(String(32)), default=list)
+    # Listas de valores controlados; o vocabulário é validado na API.
     preferred_modalities: Mapped[list[str]] = mapped_column(ARRAY(String(32)), default=list)
     equipment: Mapped[list[str]] = mapped_column(ARRAY(String(32)), default=list)
     dietary_preferences: Mapped[list[str]] = mapped_column(ARRAY(String(32)), default=list)
     limitation_tags: Mapped[list[str]] = mapped_column(ARRAY(String(48)), default=list)
     # Dado sensível de saúde: só com consentimento health_data; nunca em logs.
     limitations_note: Mapped[str | None] = mapped_column(Text)
+    # Preenchido ao concluir (ou pular) o onboarding; o app usa para decidir se o mostra.
+    onboarding_completed_at: Mapped[datetime | None]
 
     user: Mapped[User] = relationship(back_populates="profile")
 

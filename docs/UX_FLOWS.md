@@ -16,7 +16,7 @@ Barra inferior com **5 destinos** (mais que isso fica apertado em telas pequenas
 
 ## 2. Fluxos principais
 
-**Onboarding (≤ 5 passos, todos puláveis exceto o 1):**
+**Onboarding (≤ 5 passos, todos puláveis exceto o 1)** — implementado na 2.2 (ADR-026): passos 2–5 em uma tela com barra de progresso; experiência única em vez de por modalidade:
 1. Conta + aceite de termos.
 2. Objetivo principal (cartões: ganhar massa, emagrecer, manter, correr, criar o hábito de caminhar, saúde geral) + objetivos secundários.
 3. Modalidades e experiência por modalidade.

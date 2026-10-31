@@ -1,19 +1,27 @@
 import 'package:evofit/app/router.dart';
 import 'package:evofit/features/auth/application/auth_controller.dart';
 import 'package:evofit/features/auth/domain/current_user.dart';
+import 'package:evofit/features/profile/domain/profile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  const user = CurrentUser(
+  final onboarded = DateTime.utc(2026, 10, 30);
+  final user = CurrentUser(
     id: '1',
     email: 'ana@exemplo.com',
-    displayName: 'Ana',
+    profile: UserProfile(displayName: 'Ana', onboardingCompletedAt: onboarded),
+  );
+  const newUser = CurrentUser(
+    id: '2',
+    email: 'bia@exemplo.com',
+    profile: UserProfile(displayName: 'Bia'),
   );
   const loading = AsyncLoading<AuthState>();
   final failed = AsyncError<AuthState>(Exception('sem rede'), StackTrace.empty);
   const signedOut = AsyncData<AuthState>(Unauthenticated());
-  const signedIn = AsyncData<AuthState>(Authenticated(user));
+  final signedIn = AsyncData<AuthState>(Authenticated(user));
+  const signedInNew = AsyncData<AuthState>(Authenticated(newUser));
 
   test('restaurando ou com falha de conexão: fica na abertura', () {
     for (final state in [loading, failed]) {
@@ -37,8 +45,26 @@ void main() {
     expect(authRedirect(signedIn, AppRoutes.home), isNull);
   });
 
+  test('conta nova vai para o onboarding antes de qualquer tela', () {
+    for (final location in [
+      AppRoutes.splash,
+      AppRoutes.login,
+      AppRoutes.home,
+      AppRoutes.profile,
+    ]) {
+      expect(authRedirect(signedInNew, location), AppRoutes.onboarding);
+    }
+    expect(authRedirect(signedInNew, AppRoutes.onboarding), isNull);
+  });
+
+  test('onboarding concluído não volta para o onboarding', () {
+    expect(authRedirect(signedIn, AppRoutes.onboarding), AppRoutes.home);
+    expect(authRedirect(signedIn, AppRoutes.profile), isNull);
+    expect(authRedirect(signedIn, AppRoutes.profileEdit('saude')), isNull);
+  });
+
   test('status do servidor fica acessível em qualquer estado', () {
-    for (final state in [loading, failed, signedOut, signedIn]) {
+    for (final state in [loading, failed, signedOut, signedIn, signedInNew]) {
       expect(authRedirect(state, AppRoutes.status), isNull);
     }
   });

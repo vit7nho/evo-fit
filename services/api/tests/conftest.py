@@ -33,7 +33,7 @@ os.environ["JWT_SECRET"] = "segredo-de-teste-somente-para-pytest-0123456789"
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
 
 from app.core.config import get_settings  # noqa: E402
-from app.db.session import get_db  # noqa: E402
+from app.db.session import CONNECT_ARGS, get_db  # noqa: E402
 from app.main import create_app  # noqa: E402
 
 get_settings.cache_clear()
@@ -49,7 +49,7 @@ def alembic_config(database_url: str = TEST_DATABASE_URL) -> Config:
 
 @pytest.fixture(scope="session")
 def engine() -> Iterator[Engine]:
-    eng = create_engine(TEST_DATABASE_URL, pool_pre_ping=True)
+    eng = create_engine(TEST_DATABASE_URL, pool_pre_ping=True, connect_args=CONNECT_ARGS)
     try:
         with eng.connect() as conn:
             conn.execute(text("SELECT 1"))
@@ -100,3 +100,23 @@ def client_without_db(app: FastAPI) -> Iterator[TestClient]:
     """Cliente para testes que não tocam no banco (erros, middleware)."""
     with TestClient(app, raise_server_exceptions=False) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def signup(client: TestClient):
+    """Cria uma conta pela API e devolve o cabeçalho de autorização dela."""
+
+    def _signup(email: str = "ana@exemplo.com", name: str = "Ana") -> dict[str, str]:
+        response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": email,
+                "password": "cavalo bateria grampo",
+                "display_name": name,
+                "accept_terms": True,
+            },
+        )
+        assert response.status_code == 201, response.text
+        return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+    return _signup
