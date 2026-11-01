@@ -11,6 +11,8 @@ import '../../../shared/widgets/evo_logo.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../goals/application/goals_controller.dart';
 import '../../goals/domain/goal.dart';
+import '../../sessions/application/session_controller.dart';
+import '../../sessions/domain/session.dart';
 import '../../training/application/templates_controller.dart';
 
 /// Tela inicial de quem entrou. Ganha o painel e a navegação inferior nas próximas etapas.
@@ -27,6 +29,10 @@ class HomePage extends ConsumerWidget {
     final theme = Theme.of(context);
     final goals = ref.watch(goalsProvider);
     final templates = ref.watch(templatesProvider);
+    final session = ref.watch(sessionProvider).value;
+    final now = session == null
+        ? DateTime.now()
+        : ref.watch(clockTickProvider).value ?? DateTime.now();
     // Quem pulou passos do onboarding é convidado a completar o perfil.
     final profile = user.profile;
     final incomplete =
@@ -104,6 +110,21 @@ class HomePage extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: EvoSpace.x2xl),
+            // Treino aberto (inclusive depois de fechar e reabrir o app): retomar.
+            if (session != null) ...[
+              EvoEntrance(
+                delay: EvoEntrance.stagger(2),
+                child: _LinkCard(
+                  icon: Icons.play_arrow_rounded,
+                  title: 'Treino em andamento',
+                  subtitle: session.isPaused
+                      ? '${session.name} · pausado'
+                      : '${session.name} · ${formatElapsed(session.elapsedAt(now))}',
+                  onTap: () => context.push(AppRoutes.session),
+                ),
+              ),
+              const SizedBox(height: EvoSpace.md),
+            ],
             EvoEntrance(
               delay: EvoEntrance.stagger(2),
               child: _LinkCard(

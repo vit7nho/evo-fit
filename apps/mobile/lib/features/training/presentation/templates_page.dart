@@ -10,6 +10,7 @@ import '../../../shared/widgets/evo_card.dart';
 import '../../../shared/widgets/evo_state_views.dart';
 import '../../exercises/data/exercises_api.dart';
 import '../../exercises/domain/exercise.dart';
+import '../../sessions/presentation/start_session.dart';
 import '../application/templates_controller.dart';
 import '../domain/template.dart';
 
@@ -69,25 +70,25 @@ class TemplatesPage extends ConsumerWidget {
               ),
             ),
           ),
-          data: (list) => list.isEmpty
-              ? Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(EvoSpace.xl),
-                    child: EvoEmptyView(
-                      icon: Icons.list_alt_rounded,
-                      title: 'Nenhuma ficha ainda',
-                      message:
-                          'Monte seus treinos com os exercícios da biblioteca: '
-                          'séries, descanso e bi-sets.',
-                      actionLabel: 'Criar ficha',
-                      onAction: () => context.push(AppRoutes.templateNew),
-                    ),
-                  ),
-                )
-              : Column(
-                  children: [
-                    Expanded(
-                      child: ReorderableListView.builder(
+          data: (list) => Column(
+            children: [
+              Expanded(
+                child: list.isEmpty
+                    ? Center(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(EvoSpace.xl),
+                          child: EvoEmptyView(
+                            icon: Icons.list_alt_rounded,
+                            title: 'Nenhuma ficha ainda',
+                            message:
+                                'Monte seus treinos com os exercícios da biblioteca: '
+                                'séries, descanso e bi-sets.',
+                            actionLabel: 'Criar ficha',
+                            onAction: () => context.push(AppRoutes.templateNew),
+                          ),
+                        ),
+                      )
+                    : ReorderableListView.builder(
                         padding: const EdgeInsets.all(EvoSpace.xl),
                         itemCount: list.length,
                         // onReorderItem já entrega o índice final ajustado.
@@ -109,39 +110,51 @@ class TemplatesPage extends ConsumerWidget {
                           ),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        EvoSpace.xl,
-                        0,
-                        EvoSpace.xl,
-                        EvoSpace.lg,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  EvoSpace.xl,
+                  0,
+                  EvoSpace.xl,
+                  EvoSpace.lg,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (list.isNotEmpty) ...[
+                      EvoButton(
+                        label: 'Nova ficha',
+                        icon: Icons.add_rounded,
+                        onPressed: () => context.push(AppRoutes.templateNew),
                       ),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: EvoButton(
-                          label: 'Nova ficha',
-                          icon: Icons.add_rounded,
-                          onPressed: () => context.push(AppRoutes.templateNew),
-                        ),
-                      ),
+                      const SizedBox(height: EvoSpace.sm),
+                    ],
+                    // Treinar sem ficha: os exercícios entram na hora.
+                    EvoButton(
+                      label: 'Treino livre',
+                      icon: Icons.play_arrow_rounded,
+                      variant: EvoButtonVariant.secondary,
+                      onPressed: () => startSession(context, ref),
                     ),
                   ],
                 ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _TemplateCard extends StatelessWidget {
+class _TemplateCard extends ConsumerWidget {
   const _TemplateCard({required this.template, required this.muscleNames});
 
   final WorkoutTemplate template;
   final Map<String, String> muscleNames;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final count = switch (template.exerciseCount) {
       0 => 'Sem exercícios',
@@ -176,6 +189,19 @@ class _TemplateCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: EvoSpace.sm),
+          if (template.exerciseCount > 0)
+            IconButton.filled(
+              tooltip: 'Iniciar ${template.name}',
+              // Cores explícitas: o tema dos IconButtons pinta o ícone de preto,
+              // o que o apagaria sobre o fundo preto do botão preenchido.
+              style: IconButton.styleFrom(
+                backgroundColor: EvoColors.accent,
+                foregroundColor: EvoColors.onAccent,
+              ),
+              icon: const Icon(Icons.play_arrow_rounded),
+              onPressed: () =>
+                  startSession(context, ref, templateId: template.id),
+            ),
           const Icon(
             Icons.drag_indicator_rounded,
             color: EvoColors.textSecondary,

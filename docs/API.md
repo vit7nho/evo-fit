@@ -38,10 +38,10 @@
 | GET | `/exercises/{id}/history` | séries do usuário nesse exercício + recordes |
 | GET ✅ / POST ✅ | `/workout-templates` · GET/PUT/DELETE `/workout-templates/{id}` ✅ · PUT `/workout-templates/order` ✅ | fichas salvas inteiras (nome, itens e grupos), ADR-031 |
 | GET ✅ | `/workout-options` | tipos de agrupamento e de série planejada (público, cache 1 h) |
-| POST | `/workout-sessions` | iniciar (livre ou a partir de ficha; `409` se já houver uma em andamento) |
-| GET | `/workout-sessions/current` · `/workout-sessions/{id}` | |
-| POST | `/workout-sessions/{id}/pause` · `/resume` · `/finish` · `/discard` | ciclo de vida |
-| POST/PATCH/DELETE | `/workout-sessions/{id}/exercises[/{seid}/sets[/{set_id}]]` | registro de séries (salvamento por série) |
+| POST ✅ | `/workout-sessions` | iniciar (livre ou a partir de ficha; `409` se já houver uma em andamento) |
+| GET ✅ | `/workout-sessions/current` · `/workout-sessions/{id}` | o aberto (`204` se não houver) · um treino |
+| POST ✅ | `/workout-sessions/{id}/pause` · `/resume` · `/finish` · `/discard` | ciclo de vida |
+| POST/DELETE ✅ · POST/PATCH/DELETE ✅ | `/workout-sessions/{id}/exercises[/{seid}]` · `…/{seid}/sets[/{set_id}]` | exercícios do treino e registro de séries (salvamento por série) |
 | GET | `/workout-sessions/{id}/comparison?with=previous` | comparação com a sessão anterior da mesma ficha |
 
 ### Fase 3: modalidades e evolução
@@ -196,3 +196,18 @@ A ficha é enviada **inteira** em `POST /workout-templates` e `PUT /workout-temp
 | Exercício próprio de outra pessoa ou inexistente | 422 | `validation_error` (`items.N.exercise_id`) |
 | 50 fichas | 409 | `template_limit` |
 | Ficha de outra pessoa ou inexistente | 404 | `not_found` |
+
+## Sessões de treino (implementadas na etapa 2.6)
+
+- `POST /workout-sessions` — `{"template_id": "…"}` copia da ficha os exercícios, grupos, séries planejadas e descansos (a ficha pode mudar ou sair depois sem afetar o treino); sem `template_id`, treino livre ("Treino livre" ou `name`). Uma sessão aberta (em andamento ou pausada) por usuário: a segunda recebe `409 session_in_progress`, com o id da aberta em `errors[0].message`.
+- **Resposta (`SessionOut`)**: `status` (`in_progress|paused|completed`), `started_at`, `paused_total_s`, `elapsed_s` (tempo ativo calculado no servidor na hora da resposta: o app soma o tempo local, sem depender do relógio do aparelho), `groups`, `exercises` (com `planned_sets`, `rest_s`, `sets` feitas e `previous`: as séries da última sessão concluída com o exercício, base do pré-preenchimento, mais `previous_at`) e o resumo `set_count` (sem aquecimento) e `volume_kg` (carga × repetições, só carga externa).
+- **Séries**: `POST …/sets` com `kind` (`warmup|working`; drop, rest-pause e falha na 2.7), `reps` (1–200) **ou** `duration_s` conforme o exercício seja por tempo, `load_kg` (passo 0,25), `rir` (0–10) e `rpe` (1–10, passo 0,5) opcionais. `PATCH` corrige; `DELETE` apaga. Até 20 séries por exercício e 30 exercícios por treino.
+- **Ciclo**: `pause`/`resume` acumulam `paused_total_s`; `finish` (`perceived_effort` 1–10 e `notes` opcionais) exige ao menos uma série e grava a duração ativa; `discard` apaga o treino aberto (atividade, exercícios e séries).
+
+| Situação | Status | `code` |
+|---|---|---|
+| Já existe um treino aberto | 409 | `session_in_progress` |
+| Alterar um treino concluído | 409 | `session_closed` |
+| Finalizar sem séries | 422 | `session_empty` |
+| Série sem repetições (ou com duração) num exercício por repetições, e o contrário; tipo fora de `warmup/working`; campo extra | 422 | `validation_error` |
+| Ficha, treino, exercício ou série de outra pessoa (ou inexistente) | 404 | `not_found` |

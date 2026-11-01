@@ -2,6 +2,7 @@ import 'package:evofit/app/app.dart';
 import 'package:evofit/app/provider_config.dart';
 import 'package:evofit/core/auth/session_store.dart';
 import 'package:evofit/core/network/api_client.dart';
+import 'package:evofit/features/sessions/application/session_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -129,6 +130,8 @@ Future<FakeAuthServer> _pump(
         tokenStorageProvider.overrideWithValue(
           InMemoryTokenStorage(signedIn ? 'salvo' : null),
         ),
+        // Sem tique: um relógio que avança sozinho impediria a tela de assentar.
+        clockTickProvider.overrideWith((ref) => const Stream.empty()),
       ],
       child: const EvoFitApp(),
     ),
@@ -380,7 +383,11 @@ void main() {
     await tester.tap(card);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.textContaining('Treino A'));
+    // Com fonte grande, o rodapé (Nova ficha, Treino livre) empurra a lista: rolar.
+    final template = find.textContaining('Treino A');
+    await tester.ensureVisible(template);
+    await tester.pumpAndSettle();
+    await tester.tap(template);
     await tester.pumpAndSettle();
     expect(find.textContaining('Supersérie'), findsOneWidget);
 
@@ -390,5 +397,71 @@ void main() {
     await tester.tap(supino);
     await tester.pumpAndSettle();
     expect(find.text('Série 3'), findsOneWidget);
+  });
+
+  testWidgets('treino: cartões, série feita e barra de descanso', (
+    tester,
+  ) async {
+    _worstCaseScreen(tester);
+    await _pump(
+      tester,
+      profile: _maximalProfile(),
+      setUp: (s) {
+        final template = s.templateFrom('ficha', 1, {
+          'name': 'Treino A — Peito, ombros e tríceps (semana pesada)',
+          'notes': null,
+          'groups': [
+            {'kind': 'superset', 'rest_after_s': 150},
+          ],
+          'items': [
+            for (final id in ['ex-supino', 'ex-triceps', 'ex-agachamento'])
+              {
+                'exercise_id': id,
+                'planned_sets': [
+                  {'kind': 'warmup', 'reps_min': 15, 'reps_max': 20},
+                  {'kind': 'working', 'reps_min': 8, 'reps_max': 12},
+                ],
+                'rest_s': 90,
+                'notes': null,
+                'group': id == 'ex-supino' ? null : 0,
+              },
+          ],
+        });
+        s.previousSets = {
+          'ex-supino': [
+            {
+              'kind': 'warmup',
+              'reps': 20,
+              'load_kg': 142.5,
+              'duration_s': null,
+            },
+            {
+              'kind': 'working',
+              'reps': 12,
+              'load_kg': 182.5,
+              'duration_s': null,
+            },
+          ],
+        };
+        s.session = s.sessionFrom(template);
+      },
+    );
+
+    final card = find.text('Treino em andamento');
+    await tester.scrollUntilVisible(
+      card,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+
+    final check = find.byTooltip('Concluir série 1 de Supino reto com barra');
+    await tester.ensureVisible(check);
+    await tester.pumpAndSettle();
+    await tester.tap(check);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Descanso'), findsOneWidget);
   });
 }

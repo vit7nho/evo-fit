@@ -203,3 +203,15 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 - **Séries por tempo ou por repetições conforme o exercício** (`load_type = time`), conferido na API.
 - **Excluir é definitivo**, sem arquivar fichas; a sessão (2.6) vai copiar o que precisa da ficha.
 - **`template_items.exercise_id` com CASCADE**: sem ele, excluir a conta travava quando uma ficha usava um exercício próprio (achado pelo teste).
+
+### ADR-032 — Sessão de treino salva série a série no servidor
+**Status:** Aceita · Fase 2.6
+**Decisões:**
+- **Cada série vai para a API na hora do ✓**: fechar e reabrir o app retoma o treino aberto (`GET /workout-sessions/current`), sem esperar a 2.9. O rascunho local da 2.9 fica para quando não houver rede.
+- **Uma sessão aberta por usuário**, garantida por índice único parcial no banco (vale também para dois inícios simultâneos); o app, ao receber `409`, abre a sessão que já existe em vez de mostrar erro.
+- **A sessão copia a ficha** (exercícios, grupos, plano, descansos): editar ou excluir a ficha não muda o treino em andamento nem o histórico.
+- **Pré-preenchimento pela última sessão concluída** com o mesmo exercício (da mesma conta; descartadas não contam), devolvido junto com o treino. Ordem de sugestão no app: última vez → plano → série anterior de hoje.
+- **Tempo calculado no servidor** (`elapsed_s` na resposta); o app soma o tempo local desde então. O descanso guarda o horário de término, não um contador.
+- **Descartar apaga** (atividade, sessão, exercícios e séries); não existe estado `discarded`.
+- **`activities` nasce agora** (modalidade `strength`), como base da Fase 3; drop, rest-pause e falha (2.7) já têm colunas (`parent_set_id`, `to_failure`, CHECK do segmento), mas a API ainda recusa esses tipos.
+- **Achados no emulador**, corrigidos: o botão preenchido de iniciar ficava com o ícone preto sobre preto (tema dos IconButtons); a sugestão só aparecia ao tocar no campo (rótulo agora sempre no alto); a barra de descanso não ocupava a largura toda. Nos testes, o tempo e a barra de descanso estouravam com fonte em 200% (corrigidos com a faixa do tempo e o `Wrap`).

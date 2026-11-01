@@ -413,6 +413,62 @@ class FakeAuthServer {
     };
   }
 
+  /// Treino aberto (como a API devolve), concluídos e chamadas recebidas.
+  Map<String, Object?>? session;
+  final finishedSessions = <Map<String, Object?>>[];
+  final sessionCalls = <String>[];
+  final setBodies = <Map<String, Object?>>[];
+
+  /// Séries "da última vez" por exercício, para o pré-preenchimento.
+  Map<String, List<Map<String, Object?>>> previousSets = {};
+
+  /// A próxima série registrada falha (para testar o erro na linha).
+  bool failNextSet = false;
+
+  /// Monta um treino como a API devolve, a partir de uma ficha (ou livre).
+  Map<String, Object?> sessionFrom(Map<String, Object?>? template) {
+    final items = template == null
+        ? const <Object>[]
+        : template['items']! as List;
+    return {
+      'id': 'treino-${sessionCalls.length}',
+      'name': template?['name'] ?? 'Treino livre',
+      'template_id': template?['id'],
+      'status': 'in_progress',
+      'started_at': '2026-11-01T10:00:00Z',
+      'paused_at': null,
+      'paused_total_s': 0,
+      'ended_at': null,
+      'elapsed_s': 0,
+      'perceived_effort': null,
+      'notes': null,
+      'groups': template?['groups'] ?? const <Object>[],
+      'exercises': [
+        for (final (i, raw) in items.indexed) _sessionEntry(i, raw as Map),
+      ],
+      'set_count': 0,
+      'volume_kg': 0,
+    };
+  }
+
+  Map<String, Object?> _sessionEntry(int index, Map<dynamic, dynamic> item) {
+    final exercise = Map<String, Object?>.from(item['exercise']! as Map);
+    return {
+      'id': 'entrada-$index-${exercise['id']}',
+      'exercise': exercise,
+      'position': index,
+      'group': item['group'],
+      'planned_sets': item['planned_sets'],
+      'rest_s': item['rest_s'],
+      'notes': null,
+      'sets': <Object>[],
+      'previous': previousSets[exercise['id']] ?? const <Object>[],
+      'previous_at': previousSets.containsKey(exercise['id'])
+          ? '2026-10-29T10:00:00Z'
+          : null,
+    };
+  }
+
   /// Faz o access token atual expirar (o próximo uso recebe 401).
   void expireAccessToken() => validAccessToken = 'expirado';
 
@@ -457,6 +513,20 @@ class FakeAuthServer {
       ('GET', '/profile-options') => FakeHttpAdapter.json(200, profileOptions),
       ('GET', '/goal-options') => FakeHttpAdapter.json(200, goalOptions),
       ('GET', '/workout-options') => FakeHttpAdapter.json(200, workoutOptions),
+      ('GET', '/workout-sessions/current') =>
+        !_authorized(options)
+            ? _invalidToken()
+            : session == null
+            ? ResponseBody.fromString('', 204)
+            : FakeHttpAdapter.json(200, session!),
+      ('POST', '/workout-sessions') =>
+        _authorized(options)
+            ? _startSession(body.cast<String, Object?>())
+            : _invalidToken(),
+      (final method, final path) when path.startsWith('/workout-sessions/') =>
+        _authorized(options)
+            ? _sessionRoute(method, path, body.cast<String, Object?>())
+            : _invalidToken(),
       ('GET', '/workout-templates') =>
         _authorized(options)
             ? FakeHttpAdapter.json(200, templates)
@@ -564,6 +634,140 @@ class FakeAuthServer {
       profile['onboarding_completed_at'] ??= '2026-10-31T12:00:00Z';
     }
     return _me();
+  }
+
+  ResponseBody _startSession(Map<String, Object?> body) {
+    sessionCalls.add('POST start');
+    if (session != null) {
+      return _problem(
+        409,
+        'session_in_progress',
+        'Você já tem um treino em andamento.',
+        errors: [
+          {'field': 'session_id', 'message': session!['id']! as String},
+        ],
+      );
+    }
+    final templateId = body['template_id'];
+    final template = templateId == null
+        ? null
+        : templates.firstWhere((t) => t['id'] == templateId);
+    session = sessionFrom(template);
+    return FakeHttpAdapter.json(201, session!);
+  }
+
+  /// Mesmas regras da API: treino encerrado não muda; finalizar exige uma série.
+  ResponseBody _sessionRoute(
+    String method,
+    String path,
+    Map<String, Object?> body,
+  ) {
+    final parts = path.split('/'); // ['', 'workout-sessions', id, ...]
+    final current = session;
+    if (current == null || current['id'] != parts[2]) {
+      return _problem(404, 'not_found', 'Treino não encontrado.');
+    }
+    final rest = parts.sublist(3).join('/');
+    sessionCalls.add('$method ${rest.isEmpty ? 'get' : rest.split('/').first}');
+    final entries = (current['exercises']! as List)
+        .cast<Map<String, Object?>>();
+    Map<String, Object?> entry(String id) =>
+        entries.firstWhere((e) => e['id'] == id);
+
+    switch ((method, parts.length)) {
+      case ('GET', 3):
+        return FakeHttpAdapter.json(200, current);
+      case ('POST', 4) when parts[3] == 'pause':
+        current['status'] = 'paused';
+        return FakeHttpAdapter.json(200, current);
+      case ('POST', 4) when parts[3] == 'resume':
+        current['status'] = 'in_progress';
+        return FakeHttpAdapter.json(200, current);
+      case ('POST', 4) when parts[3] == 'finish':
+        final sets = entries.expand((e) => e['sets']! as List).toList();
+        if (sets.isEmpty) {
+          return _problem(
+            422,
+            'session_empty',
+            'Registre pelo menos uma série.',
+          );
+        }
+        final finished = {
+          ...current,
+          'status': 'completed',
+          'elapsed_s': 1800,
+          'perceived_effort': body['perceived_effort'],
+          'notes': body['notes'],
+          'set_count': sets.where((s) => (s as Map)['kind'] != 'warmup').length,
+        };
+        finishedSessions.add(finished);
+        session = null;
+        return FakeHttpAdapter.json(200, finished);
+      case ('POST', 4) when parts[3] == 'discard':
+        session = null;
+        return ResponseBody.fromString('', 204);
+      case ('POST', 4) when parts[3] == 'exercises':
+        final exercise = exercises.firstWhere(
+          (e) => e['id'] == body['exercise_id'],
+        );
+        entries.add(
+          _sessionEntry(entries.length, {
+            'exercise': {
+              'id': exercise['id'],
+              'name': exercise['name'],
+              'equipment': exercise['equipment'],
+              'load_type': exercise['load_type'],
+              'is_active': true,
+              'primary_muscles': <String>[],
+            },
+            'group': null,
+            'planned_sets': null,
+            'rest_s': 90,
+          }),
+        );
+        return FakeHttpAdapter.json(201, current);
+      case ('DELETE', 5):
+        entries.removeWhere((e) => e['id'] == parts[4]);
+        return ResponseBody.fromString('', 204);
+      case ('POST', 6):
+        setBodies.add(body);
+        if (failNextSet) {
+          failNextSet = false;
+          return _problem(
+            500,
+            'internal_error',
+            'O servidor encontrou um problema.',
+          );
+        }
+        final sets = entry(parts[4])['sets']! as List;
+        final logged = {
+          'id': 'serie-${setBodies.length}',
+          'position': sets.length,
+          'kind': body['kind'] ?? 'working',
+          'reps': body['reps'],
+          'load_kg': body['load_kg'],
+          'duration_s': body['duration_s'],
+          'rir': null,
+          'rpe': null,
+          'to_failure': false,
+          'completed_at': '2026-11-01T10:05:00Z',
+        };
+        sets.add(logged);
+        return FakeHttpAdapter.json(201, logged);
+      case ('PATCH', 7):
+        setBodies.add(body);
+        final sets = (entry(parts[4])['sets']! as List)
+            .cast<Map<String, Object?>>();
+        final index = sets.indexWhere((s) => s['id'] == parts[6]);
+        sets[index] = {...sets[index], ...body};
+        return FakeHttpAdapter.json(200, sets[index]);
+      case ('DELETE', 7):
+        (entry(parts[4])['sets']! as List).removeWhere(
+          (s) => (s as Map)['id'] == parts[6],
+        );
+        return ResponseBody.fromString('', 204);
+    }
+    return _problem(404, 'not_found', 'Rota não encontrada no servidor falso.');
   }
 
   ResponseBody _createTemplate(Map<String, Object?> body) {

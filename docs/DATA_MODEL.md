@@ -54,9 +54,9 @@ stimulus_methodologies                              (configuração versionada, 
 
 **activities** (base multimodal): `user_id`, `modality` (`strength|run|walk|cycle|swim|other`), `started_at`, `ended_at`, `duration_s`, `perceived_effort` (RPE 1–10, opcional), `notes`, `source` (`manual|app_session|import:<provider>`), `external_id` (nullable; único por `user_id+source`), `deleted_at` (exclusão lógica para recalcular indicadores com histórico; exclusão de conta é física).
 
-**workout_sessions**: `activity_id` (1:1), `template_id` (nullable — sessões livres são permitidas), `status` (`in_progress|paused|completed|discarded`), `paused_total_s`.
+**workout_sessions** (migração 0006): `activity_id` (1:1), `user_id` (repetido da atividade, para filtrar pelo dono), `template_id` (nullable, `SET NULL` — sessões livres são permitidas e a ficha pode ser excluída), `name` (copiado da ficha), `status` (`in_progress|paused|completed`; descartar apaga, sem estado `discarded`), `paused_at`, `paused_total_s`. Índice único parcial: uma sessão aberta por usuário.
 
-**session_exercises**: `session_id`, `exercise_id`, `position`, `exercise_group_id`, `notes`.
+**session_exercises**: `session_id`, `exercise_id`, `position`, `group_id`, `planned_sets` (cópia do plano da ficha), `rest_s`, `notes`. Os grupos da sessão usam `exercise_groups.session_id` (CHECK: ficha **ou** sessão).
 
 **set_entries** (séries executadas):
 

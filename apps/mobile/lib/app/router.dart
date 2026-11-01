@@ -17,6 +17,7 @@ import '../features/profile/presentation/edit_profile_section_page.dart';
 import '../features/profile/presentation/onboarding_page.dart';
 import '../features/profile/presentation/profile_page.dart';
 import '../features/profile/presentation/profile_sections.dart';
+import '../features/sessions/presentation/session_page.dart';
 import '../features/system_status/presentation/system_status_page.dart';
 import '../features/training/presentation/template_editor_page.dart';
 import '../features/training/presentation/templates_page.dart';
@@ -161,6 +162,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: AppRoutes.session,
+        pageBuilder: (context, state) => _page(state, const SessionPage()),
       ),
       GoRoute(
         path: AppRoutes.templates,

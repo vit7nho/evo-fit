@@ -29,6 +29,9 @@ abstract final class AppRoutes {
   static const templateNew = '/fichas/nova';
   static String templateEdit(String id) => '/fichas/$id';
 
+  /// Treino em andamento.
+  static const session = '/treino';
+
   /// Telas abertas a quem não entrou.
   static const public = {login, register};
 }

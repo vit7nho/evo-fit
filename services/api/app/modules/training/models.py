@@ -41,15 +41,23 @@ class ExerciseGroup(UUIDPrimaryKey, Base):
 
     __tablename__ = "exercise_groups"
 
-    # A 2.6 acrescenta session_id (e o CHECK "exatamente um dos dois").
-    template_id: Mapped[uuid.UUID] = mapped_column(
+    # Pertence a uma ficha ou a uma sessão (exatamente uma das duas).
+    template_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("workout_templates.id", ondelete="CASCADE"), index=True
+    )
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("workout_sessions.id", ondelete="CASCADE"), index=True
     )
     position: Mapped[int] = mapped_column(SmallInteger)
     kind: Mapped[str] = mapped_column(String(16))  # superset | biset | triset | giant_set
     rest_after_s: Mapped[int | None] = mapped_column(SmallInteger)
 
-    __table_args__ = (CheckConstraint("rest_after_s BETWEEN 0 AND 600", name="rest_after_range"),)
+    __table_args__ = (
+        CheckConstraint("rest_after_s BETWEEN 0 AND 600", name="rest_after_range"),
+        CheckConstraint(
+            "(template_id IS NULL) <> (session_id IS NULL)", name="template_or_session"
+        ),
+    )
 
 
 class TemplateItem(UUIDPrimaryKey, Base):
