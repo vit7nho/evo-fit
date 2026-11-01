@@ -32,8 +32,9 @@
 | GET ✅ | `/profile-options` | vocabulários do perfil com rótulos PT-BR (público, cache 1 h) |
 | GET ✅ / POST ✅ | `/goals` · GET/PATCH/DELETE `/goals/{id}` ✅ | metas; `?status=` filtra; metas de peso exigem `health_data` |
 | GET ✅ | `/goal-options` | tipos de meta, campos do alvo de cada um e rótulos (público, cache 1 h) |
-| GET | `/muscle-groups` | catálogo de grupos |
-| GET/POST | `/exercises` · GET/PATCH `/exercises/{id}` | biblioteca (global + próprios); filtros `muscle`, `equipment`, `q` |
+| GET ✅ | `/muscle-groups` | grupos musculares com ids estáveis (público, cache 1 h) |
+| GET ✅ | `/exercise-options` | grupos, equipamentos, mecânicas e tipos de carga (público, cache 1 h) |
+| GET ✅ / POST ✅ | `/exercises` · GET/PATCH `/exercises/{id}` ✅ | biblioteca (global + próprios); filtros `q`, `muscle`, `equipment` (repetível), `mine`, `include_archived` |
 | GET | `/exercises/{id}/history` | séries do usuário nesse exercício + recordes |
 | CRUD | `/workout-templates`, `/workout-templates/{id}/items` | fichas, itens e grupos (bi-set etc.) |
 | POST | `/workout-sessions` | iniciar (livre ou a partir de ficha; `409` se já houver uma em andamento) |
@@ -147,3 +148,19 @@ Tipos e campos (fonte única: `app/modules/goals/kinds.py`, expostos em `GET /go
 | Meta de outra pessoa ou inexistente | 404 | `not_found` |
 
 Os logs registram o id e o tipo da meta, nunca o título ou o alvo.
+
+## Biblioteca de exercícios (implementada na etapa 2.4)
+
+O catálogo global (71 exercícios em PT-BR, seed `v1`, ADR-016) chega com a migração 0004. Os ids dos exercícios do catálogo são UUID v5 derivados do slug: são os mesmos em qualquer ambiente.
+
+`GET /exercises` — visíveis para o usuário: catálogo + os próprios, em ordem alfabética (sem acentos). `q`: cada palavra precisa aparecer no nome, ignorando acentos e maiúsculas (curingas do SQL não valem). `muscle`: o músculo aparece como principal ou secundário. `equipment`: um ou mais (`?equipment=bodyweight&equipment=bands`). `mine=true`: só os próprios. `include_archived=true`: inclui os próprios arquivados. Cada exercício traz `is_custom`, `muscles` (principais primeiro, na ordem do catálogo) e `images`: caminhos das fotos de posição inicial e final (`/api/v1/media/exercises/{slug}/0.jpg` e `1.jpg`), vazio para exercícios próprios e para os 4 do catálogo sem foto. As fotos são arquivos públicos, sem login, com `Cache-Control: public, max-age=86400`.
+
+`POST /exercises` — exercício próprio: `name` (2–80, único entre os seus, sem diferenciar maiúsculas e acentos), `instructions` (até 2000), `mechanics`, `equipment`, `load_type`, `unilateral`, `muscles` (`[{muscle_group_id, role}]`, ao menos um principal, sem repetir). `PATCH /exercises/{id}` — parcial; `muscles` substitui a lista; `is_active: false` arquiva (não há exclusão: as sessões vão apontar para o exercício).
+
+| Situação | Status | `code` |
+|---|---|---|
+| Vocabulário inválido, sem músculo principal, músculo repetido, campo extra (ex.: `owner_user_id`) | 422 | `validation_error` |
+| Nome repetido entre os seus | 409 | `exercise_exists` |
+| 200 exercícios próprios | 409 | `exercise_limit` |
+| Alterar um exercício do catálogo | 403 | `exercise_read_only` |
+| Exercício próprio de outra pessoa ou inexistente | 404 | `not_found` |

@@ -310,4 +310,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Dê um nome para a meta.'), findsOneWidget);
   });
+
+  testWidgets('exercícios: biblioteca, detalhe e formulário', (tester) async {
+    _worstCaseScreen(tester);
+    await _pump(tester, profile: _maximalProfile());
+
+    final library = find.text('Exercícios');
+    await tester.scrollUntilVisible(
+      library,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(library);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Agachamento livre'));
+    await tester.pumpAndSettle();
+    await _back(tester);
+
+    final create = find.widgetWithText(OutlinedButton, 'Criar exercício');
+    await tester.tap(create);
+    await tester.pumpAndSettle();
+    final save = find.widgetWithText(FilledButton, 'Criar exercício');
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.text('Dê um nome ao exercício.'), findsOneWidget);
+  });
 }

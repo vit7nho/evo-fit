@@ -119,6 +119,16 @@ class HomePage extends ConsumerWidget {
             EvoEntrance(
               delay: EvoEntrance.stagger(3),
               child: _LinkCard(
+                icon: Icons.fitness_center_rounded,
+                title: 'Exercícios',
+                subtitle: 'Biblioteca com busca por nome e músculo',
+                onTap: () => context.push(AppRoutes.exercises),
+              ),
+            ),
+            const SizedBox(height: EvoSpace.md),
+            EvoEntrance(
+              delay: EvoEntrance.stagger(4),
+              child: _LinkCard(
                 icon: Icons.dns_outlined,
                 title: 'Status do servidor',
                 subtitle: 'Conexão com a API e o banco de dados',
@@ -127,7 +137,7 @@ class HomePage extends ConsumerWidget {
             ),
             const SizedBox(height: EvoSpace.xl),
             EvoEntrance(
-              delay: EvoEntrance.stagger(4),
+              delay: EvoEntrance.stagger(5),
               child: Text(
                 'Conectado como ${user.email}',
                 style: theme.textTheme.bodyMedium,

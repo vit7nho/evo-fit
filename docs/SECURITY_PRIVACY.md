@@ -15,7 +15,7 @@
 ## 2. Controles técnicos
 
 - **Autorização por usuário em todas as consultas:** repositórios recebem `user_id` do token; não existe repositório “sem dono” para dados pessoais. Testes automatizados para cada endpoint garantem que o usuário B recebe `404` ao acessar um recurso do usuário A.
-- **IDs do cliente nunca determinam a propriedade:** o `user_id` nunca vem do corpo da requisição. IDs de entidades relacionadas (ex.: `exercise_id` em uma ficha) são validados quanto à visibilidade (catálogo global ou criado pelo próprio usuário).
+- **IDs do cliente nunca determinam a propriedade:** o `user_id` nunca vem do corpo da requisição. IDs de entidades relacionadas (ex.: `exercise_id` em uma ficha) são validados quanto à visibilidade (catálogo global ou criado pelo próprio usuário). **(2.4)** A biblioteca já aplica essa regra: exercício próprio de outra pessoa responde 404 e o catálogo é só leitura (403).
 - **Validação de entrada:** Pydantic com limites (tamanhos de texto, faixas numéricas plausíveis, ex.: carga 0–1000 kg, repetições 0–200).
 - **Senhas:** Argon2id (parâmetros padrão do argon2-cffi, RFC 9106); 10 a 128 caracteres, sem senhas comuns nem o próprio e-mail. E-mail inexistente e senha errada têm a mesma resposta e o mesmo tempo (verificação descartável). ✅ 2.1
 - **Limite de tentativas** ✅ 2.1 (em memória, por processo — ADR-022): login 20/5 min por IP e 5 falhas/15 min por e-mail (bloqueia até com a senha certa); cadastro 5/h por IP; refresh 60/5 min por IP. Resposta `429` com `Retry-After`.

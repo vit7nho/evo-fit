@@ -20,6 +20,11 @@ abstract final class AppRoutes {
   /// Edição de uma meta existente.
   static String goalEdit(String id) => '/metas/$id';
 
+  static const exercises = '/exercicios';
+  static const exerciseNew = '/exercicios/novo';
+  static String exerciseDetail(String id) => '/exercicios/$id';
+  static String exerciseEdit(String id) => '/exercicios/$id/editar';
+
   /// Telas abertas a quem não entrou.
   static const public = {login, register};
 }

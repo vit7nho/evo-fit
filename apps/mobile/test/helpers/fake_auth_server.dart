@@ -241,6 +241,95 @@ class FakeAuthServer {
     ],
   };
 
+  /// Biblioteca: catálogo (só leitura) + exercícios próprios, e as gravações recebidas.
+  List<Map<String, Object?>> exercises = [
+    _catalogExercise('ex-agachamento', 'Agachamento livre', 'barbell', [
+      'quads',
+      'glutes',
+    ]),
+    _catalogExercise('ex-flexao', 'Flexão de braços', 'bodyweight', ['chest']),
+    _catalogExercise('ex-supino', 'Supino reto com barra', 'barbell', [
+      'chest',
+    ]),
+    _catalogExercise('ex-triceps', 'Tríceps francês', 'dumbbells', ['triceps']),
+  ];
+  final exerciseBodies = <Map<String, Object?>>[];
+  final exerciseCalls = <String>[];
+
+  static const _muscleNames = {
+    'chest': 'Peito',
+    'triceps': 'Tríceps',
+    'lats': 'Dorsais',
+    'quads': 'Quadríceps',
+    'glutes': 'Glúteos',
+  };
+
+  static Map<String, Object?> _catalogExercise(
+    String id,
+    String name,
+    String equipment,
+    List<String> primary,
+  ) => {
+    'id': id,
+    'name': name,
+    'instructions': 'Orientação de execução de $name.',
+    'mechanics': 'compound',
+    'equipment': equipment,
+    'load_type': 'external',
+    'unilateral': false,
+    'is_custom': false,
+    'is_active': true,
+    // Só o agachamento tem fotos, para testar os dois casos.
+    'images': id == 'ex-agachamento'
+        ? [
+            '/api/v1/media/exercises/agachamento-livre/0.jpg',
+            '/api/v1/media/exercises/agachamento-livre/1.jpg',
+          ]
+        : <String>[],
+    'muscles': [
+      for (final m in primary)
+        {'id': m, 'name': _muscleNames[m], 'role': 'primary'},
+    ],
+  };
+
+  static const exerciseOptions = {
+    'muscle_groups': [
+      {'id': 'chest', 'name': 'Peito', 'body_region': 'upper', 'view': 'front'},
+      {
+        'id': 'triceps',
+        'name': 'Tríceps',
+        'body_region': 'upper',
+        'view': 'back',
+      },
+      {'id': 'lats', 'name': 'Dorsais', 'body_region': 'upper', 'view': 'back'},
+      {
+        'id': 'quads',
+        'name': 'Quadríceps',
+        'body_region': 'lower',
+        'view': 'front',
+      },
+      {
+        'id': 'glutes',
+        'name': 'Glúteos',
+        'body_region': 'lower',
+        'view': 'back',
+      },
+    ],
+    'equipment': [
+      {'code': 'barbell', 'label': 'Barra e anilhas'},
+      {'code': 'dumbbells', 'label': 'Halteres'},
+      {'code': 'bodyweight', 'label': 'Sem equipamento'},
+    ],
+    'mechanics': [
+      {'code': 'compound', 'label': 'Multiarticular'},
+      {'code': 'isolation', 'label': 'Isolado'},
+    ],
+    'load_types': [
+      {'code': 'external', 'label': 'Carga externa'},
+      {'code': 'bodyweight', 'label': 'Peso do corpo'},
+    ],
+  };
+
   /// Faz o access token atual expirar (o próximo uso recebe 401).
   void expireAccessToken() => validAccessToken = 'expirado';
 
@@ -284,6 +373,25 @@ class FakeAuthServer {
             : _invalidToken(),
       ('GET', '/profile-options') => FakeHttpAdapter.json(200, profileOptions),
       ('GET', '/goal-options') => FakeHttpAdapter.json(200, goalOptions),
+      ('GET', '/exercise-options') => FakeHttpAdapter.json(
+        200,
+        exerciseOptions,
+      ),
+      ('GET', '/exercises') =>
+        _authorized(options)
+            ? FakeHttpAdapter.json(200, _sortedExercises())
+            : _invalidToken(),
+      ('POST', '/exercises') =>
+        _authorized(options)
+            ? _createExercise(body.cast<String, Object?>())
+            : _invalidToken(),
+      ('PATCH', final path) when path.startsWith('/exercises/') =>
+        _authorized(options)
+            ? _updateExercise(
+                path.split('/').last,
+                body.cast<String, Object?>(),
+              )
+            : _invalidToken(),
       ('GET', '/goals') =>
         _authorized(options) ? _listGoals() : _invalidToken(),
       ('POST', '/goals') =>
@@ -352,6 +460,77 @@ class FakeAuthServer {
       profile['onboarding_completed_at'] ??= '2026-10-31T12:00:00Z';
     }
     return _me();
+  }
+
+  List<Map<String, Object?>> _sortedExercises() => [...exercises]
+    ..sort((a, b) => (a['name']! as String).compareTo(b['name']! as String));
+
+  Map<String, Object?> _exerciseFrom(String id, Map<String, Object?> body) => {
+    'id': id,
+    'name': body['name'],
+    'instructions': (body['instructions'] as String?)?.isEmpty ?? true
+        ? null
+        : body['instructions'],
+    'mechanics': body['mechanics'],
+    'equipment': body['equipment'],
+    'load_type': body['load_type'],
+    'unilateral': body['unilateral'] ?? false,
+    'is_custom': true,
+    'is_active': body['is_active'] ?? true,
+    'muscles': [
+      for (final m in body['muscles']! as List)
+        {
+          'id': (m as Map)['muscle_group_id'],
+          'name': _muscleNames[m['muscle_group_id']],
+          'role': m['role'],
+        },
+    ],
+  };
+
+  /// Mesma regra da API: o nome é único entre os exercícios do próprio usuário.
+  ResponseBody _createExercise(Map<String, Object?> body) {
+    exerciseCalls.add('POST');
+    exerciseBodies.add(body);
+    final name = (body['name']! as String).toLowerCase();
+    final duplicate = exercises.any(
+      (e) =>
+          e['is_custom'] == true &&
+          (e['name']! as String).toLowerCase() == name,
+    );
+    if (duplicate) {
+      return _problem(
+        409,
+        'exercise_exists',
+        'Você já tem um exercício com esse nome.',
+        errors: [
+          {
+            'field': 'name',
+            'message': 'Você já tem um exercício com esse nome.',
+          },
+        ],
+      );
+    }
+    final exercise = _exerciseFrom('ex-proprio-${exerciseCalls.length}', body);
+    exercises.add(exercise);
+    return FakeHttpAdapter.json(201, exercise);
+  }
+
+  ResponseBody _updateExercise(String id, Map<String, Object?> body) {
+    final index = exercises.indexWhere((e) => e['id'] == id);
+    if (index < 0) {
+      return _problem(404, 'not_found', 'Exercício não encontrado.');
+    }
+    if (exercises[index]['is_custom'] != true) {
+      return _problem(403, 'exercise_read_only', 'Exercício do catálogo.');
+    }
+    exerciseCalls.add('PATCH $id');
+    exerciseBodies.add(body);
+    final current = exercises[index];
+    final updated = body.containsKey('muscles')
+        ? _exerciseFrom(id, {...current, ...body})
+        : {...current, ...body};
+    exercises[index] = updated;
+    return FakeHttpAdapter.json(200, updated);
   }
 
   ResponseBody _listGoals() {

@@ -39,9 +39,9 @@ stimulus_methodologies                              (configuração versionada, 
 
 ## 3. Musculação
 
-**muscle_groups**: `id` texto estável (`chest`, `lats`, `traps`, `delts`, `biceps`, `triceps`, `forearms`, `abs`, `obliques`, `glutes`, `quads`, `hamstrings`, `calves`), `name_pt`, `body_region` (`upper|core|lower`), `view` (`front|back|both`). Subdivisões (ex.: `delts_front`) poderão entrar com `parent_id` quando houver dados e um visual que as suporte.
+**muscle_groups** (migração 0004, dados de referência com `position` para a ordem de exibição; fonte: `app/modules/exercises/catalog.py`): `id` texto estável (`chest`, `lats`, `traps`, `delts`, `biceps`, `triceps`, `forearms`, `abs`, `obliques`, `glutes`, `quads`, `hamstrings`, `calves`), `name_pt`, `body_region` (`upper|core|lower`), `view` (`front|back|both`). Subdivisões (ex.: `delts_front`) poderão entrar com `parent_id` quando houver dados e um visual que as suporte.
 
-**exercises**: `owner_user_id` (NULL = catálogo global), `name`, `slug`, `instructions` (texto/markdown), `mechanics` (`compound|isolation`), `equipment`, `load_type` (`external|bodyweight|assisted|time`) — define se o volume `carga × reps` faz sentido —, `unilateral` (bool), `is_active`.
+**exercises** (migração 0004): `owner_user_id` (NULL = catálogo global), `name`, `slug` (único no catálogo e, separadamente, por dono: índices parciais), `search_name` (nome sem acentos e em minúsculas, para a busca sem extensões no PostgreSQL), `instructions` (texto/markdown), `mechanics` (`compound|isolation`), `equipment` (`barbell|dumbbells|machine|cable|kettlebell|bands|pull_up_bar|bodyweight`, com os mesmos códigos do perfil quando o significado coincide), `load_type` (`external|bodyweight|assisted|time`) — define se o volume `carga × reps` faz sentido —, `unilateral` (bool), `is_active`. As fotos do catálogo não ficam no banco: são arquivos versionados junto do seed (`seed/images/{slug}/0.jpg|1.jpg`, mapeados em `seed/images.v1.json`, ADR-030).
 
 **exercise_muscles**: `exercise_id`, `muscle_group_id`, `role` (`primary|secondary`), PK composta. O peso numérico **não** fica aqui: vem da metodologia (§6), para poder mudar sem migrar dados.
 

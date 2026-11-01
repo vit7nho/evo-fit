@@ -6,6 +6,9 @@ import '../features/auth/application/auth_controller.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/register_page.dart';
 import '../features/auth/presentation/splash_page.dart';
+import '../features/exercises/presentation/exercise_detail_page.dart';
+import '../features/exercises/presentation/exercise_form_page.dart';
+import '../features/exercises/presentation/exercises_page.dart';
 import '../features/goals/presentation/goal_form_page.dart';
 import '../features/goals/presentation/goals_page.dart';
 import '../features/goals/presentation/new_goal_page.dart';
@@ -124,6 +127,36 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.exercises,
+        pageBuilder: (context, state) => _page(state, const ExercisesPage()),
+        routes: [
+          // "novo" antes de ":id": o caminho literal tem precedência.
+          GoRoute(
+            path: 'novo',
+            pageBuilder: (context, state) =>
+                _page(state, const ExerciseFormPage.create()),
+          ),
+          GoRoute(
+            path: ':id',
+            pageBuilder: (context, state) => _page(
+              state,
+              ExerciseDetailPage(exerciseId: state.pathParameters['id']!),
+            ),
+            routes: [
+              GoRoute(
+                path: 'editar',
+                pageBuilder: (context, state) => _page(
+                  state,
+                  ExerciseFormPage.edit(
+                    exerciseId: state.pathParameters['id']!,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

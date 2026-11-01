@@ -14,7 +14,7 @@ cd apps/web; npm install; npm run dev     # http://localhost:3000
 .\scripts\test-all.ps1                    # todas as verificações
 ```
 
-Detalhes e solução de problemas em [docs/SETUP.md](docs/SETUP.md).
+Roteiro do dia a dia (depois de ligar o PC) em [docs/COMO_INICIAR.md](docs/COMO_INICIAR.md). Detalhes e solução de problemas em [docs/SETUP.md](docs/SETUP.md).
 
 ## Estrutura
 
@@ -54,6 +54,7 @@ As versões exatas estão fixadas nos manifestos de cada app (`pyproject.toml`, 
 | [DECISIONS](docs/DECISIONS.md) | Registro de decisões (ADRs) |
 | [ROADMAP](docs/ROADMAP.md) | Fases, backlog priorizado e critérios de aceite |
 | [SETUP](docs/SETUP.md) | Instalação e execução no Windows |
+| [COMO_INICIAR](docs/COMO_INICIAR.md) | Como iniciar tudo depois de ligar o PC |
 
 ## Aviso
 

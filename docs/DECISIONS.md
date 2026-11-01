@@ -81,7 +81,7 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 
 ### ADR-016 — Seed de exercícios próprio
 **Status:** Aceita
-**Decisão:** escrever uma biblioteca inicial (~60–80 exercícios) em PT-BR, com músculos primários e secundários definidos pelo projeto, versionada em `services/api/app/modules/exercises/seed/exercises.v1.json`. Sem imagens/vídeos de terceiros na v1.
+**Decisão:** escrever uma biblioteca inicial (~60–80 exercícios) em PT-BR, com músculos primários e secundários definidos pelo projeto, versionada em `services/api/app/modules/exercises/seed/exercises.v1.json`. Sem imagens/vídeos de terceiros na v1. *(A parte das imagens foi revista na ADR-030.)*
 **Consequência:** nenhum risco de licença; a curadoria precisa ser revisada (idealmente por um profissional de Educação Física).
 
 ### ADR-017 — Sem nova tentativa automática nos providers do app
@@ -169,3 +169,27 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 - **Status manual por enquanto:** marcar como alcançada é uma ação do usuário. O progresso automático virá com os registros de treino (Fase 3) e de medidas (Fase 5).
 - **"Hoje" é o dia no fuso do perfil**, não em UTC: perto da meia-noite os dois diferem.
 - **Limite de 30 metas ativas**, por foco e contra abuso.
+
+### ADR-029 — Biblioteca de exercícios: catálogo na migração, busca sem extensões
+**Status:** Aceita · Fase 2.4 · implementa a ADR-016
+**Decisões:**
+- **O catálogo chega com a migração** (0004 lê `exercises.v1.json`): banco novo já tem a biblioteca, inclusive o de testes. Uma versão nova do seed vira uma migração nova. Os ids do catálogo são UUID v5 do slug, iguais em todo ambiente.
+- **71 exercícios**, todos os 13 grupos musculares com exercícios como principal (teste automatizado). Conteúdo escrito pelo projeto; a revisão por profissional de Educação Física continua pendente (ADR-016).
+- **Busca sem extensão `unaccent`**: uma coluna `search_name` normalizada na aplicação. Evita exigir permissão de superusuário no banco.
+- **No app, a busca e os filtros rodam no aparelho**, sobre a lista inteira (catálogo + próprios, algumas centenas no máximo): resposta instantânea. A API também filtra (`q`, `muscle`, `equipment`), para outros clientes e para a IA.
+- **Arquivar em vez de excluir** exercícios próprios: as sessões da 2.6 vão referenciá-los.
+- **Grupos musculares em um lugar só** (`catalog.py`): a tabela, as opções da biblioteca e a meta de hipertrofia usam a mesma lista.
+- **"Sem equipamento"** como rótulo do equipamento `bodyweight`, porque "Peso do corpo" é o rótulo do tipo de carga e a tela mostrava o mesmo texto duas vezes.
+
+### ADR-030 — Fotos dos exercícios da free-exercise-db
+**Status:** Aceita · Fase 2 (depois da 2.4) · revê a parte de imagens da ADR-016
+**Contexto:** o detalhe do exercício só tinha texto. Comparadas as bases abertas: free-exercise-db (Unlicense, 2 fotos por exercício), wger (licença por imagem, maioria CC-BY-SA 3.0, poucas imagens) e bases pagas. A escolha foi do usuário: free-exercise-db.
+**Decisões:**
+- **67 dos 71 exercícios com foto**, mapeados à mão pelo equivalente mais próximo (`seed/images.v1.json`). Ficam só com texto os 4 sem variação equivalente na base: barra fixa assistida, kettlebell swing, panturrilha unilateral no degrau e remada com elástico.
+- **Arquivos dentro do projeto** (8,4 MB, servidos pela API em `/api/v1/media/exercises`), não carregados do GitHub: o app não depende de um site de terceiros e o conteúdo não muda sem uma versão nova do seed.
+- **Na API, não no app**: o APK não cresce; as fotos chegam pela rede, com cache.
+- **O texto de "Como fazer" continua o nosso**, em PT-BR. As fotos mostram a variação da base, que às vezes difere um pouco (ex.: goblet com kettlebell); o app avisa.
+- **Crédito no detalhe** ("Fotos: free-exercise-db (domínio público)"), embora a licença não exija.
+**Riscos e ressalvas:**
+- O repositório declara domínio público, mas **não documenta a origem das fotos originais**, que são profissionais e mostram pessoas identificáveis e marcas. Para uso além do TCC (publicação na loja, uso comercial), trocar por fotos próprias ou por uma base com origem documentada.
+- Formato: 65 fotos são 3:2 e 2 estão em pé; o app mostra as duas posições empilhadas, na largura toda, sem cortar.

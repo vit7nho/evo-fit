@@ -10,26 +10,13 @@ from dataclasses import dataclass
 from typing import Any, Final, Literal
 
 from app.core.errors import FieldValidationError
+from app.modules.exercises import catalog
 from app.modules.users import vocabulary
 
 FieldType = Literal["text", "int", "number", "choice", "duration"]
 
-# Grupos musculares de docs/DATA_MODEL.md §3; viram tabela no catálogo da Fase 3.
-MUSCLE_GROUPS: Final = {
-    "chest": "Peito",
-    "lats": "Dorsais",
-    "traps": "Trapézio",
-    "delts": "Ombros",
-    "biceps": "Bíceps",
-    "triceps": "Tríceps",
-    "forearms": "Antebraços",
-    "abs": "Abdômen",
-    "obliques": "Oblíquos",
-    "glutes": "Glúteos",
-    "quads": "Quadríceps",
-    "hamstrings": "Posteriores de coxa",
-    "calves": "Panturrilhas",
-}
+# Fonte única dos grupos musculares: o catálogo de exercícios (tabela muscle_groups).
+MUSCLE_GROUPS: Final = catalog.MUSCLE_NAMES
 
 
 @dataclass(frozen=True)
