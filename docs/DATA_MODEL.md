@@ -45,11 +45,11 @@ stimulus_methodologies                              (configuração versionada, 
 
 **exercise_muscles**: `exercise_id`, `muscle_group_id`, `role` (`primary|secondary`), PK composta. O peso numérico **não** fica aqui: vem da metodologia (§6), para poder mudar sem migrar dados.
 
-**workout_templates** (fichas): `user_id`, `name`, `notes`, `position`, `archived_at`.
+**workout_templates** (fichas, migração 0005): `user_id`, `name`, `notes`, `position`. Sem `archived_at`: excluir é definitivo e as sessões da 2.6 vão guardar o próprio registro (`template_id` anulável).
 
-**exercise_groups**: `id`, `template_id` **ou** `session_id` (exatamente um, via CHECK), `kind` (`superset|biset|triset|giant_set`), `rest_after_s`. Agrupa itens consecutivos da ficha/sessão.
+**exercise_groups**: `id`, `template_id` **ou** `session_id` (exatamente um, via CHECK — a 2.6 acrescenta `session_id` e o CHECK), `position`, `kind` (`superset|biset|triset|giant_set`), `rest_after_s`. Agrupa itens consecutivos da ficha/sessão.
 
-**template_items**: `template_id`, `exercise_id`, `position`, `exercise_group_id` (nullable), `planned_sets` (JSONB com uma lista de séries planejadas `[{kind, reps_min, reps_max, load_hint, rir_target, technique}]`), `rest_s`, `notes`.
+**template_items**: `template_id`, `exercise_id`, `position`, `exercise_group_id` (nullable), `planned_sets` (JSONB com uma lista de séries planejadas `[{kind, reps_min, reps_max, duration_s, load_kg, rir_target}]`; `kind` em `warmup|working|drop|rest_pause` faz o papel da antiga `technique`), `rest_s`, `notes`. `exercise_id` com `ON DELETE CASCADE`: exercícios só saem na exclusão da conta.
 > A prescrição fica em JSONB porque é um plano (lido e editado como um bloco, nunca agregado). O que é executado fica em tabelas normalizadas.
 
 **activities** (base multimodal): `user_id`, `modality` (`strength|run|walk|cycle|swim|other`), `started_at`, `ended_at`, `duration_s`, `perceived_effort` (RPE 1–10, opcional), `notes`, `source` (`manual|app_session|import:<provider>`), `external_id` (nullable; único por `user_id+source`), `deleted_at` (exclusão lógica para recalcular indicadores com histórico; exclusão de conta é física).

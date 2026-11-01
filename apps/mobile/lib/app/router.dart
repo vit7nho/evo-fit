@@ -18,6 +18,8 @@ import '../features/profile/presentation/onboarding_page.dart';
 import '../features/profile/presentation/profile_page.dart';
 import '../features/profile/presentation/profile_sections.dart';
 import '../features/system_status/presentation/system_status_page.dart';
+import '../features/training/presentation/template_editor_page.dart';
+import '../features/training/presentation/templates_page.dart';
 import 'routes.dart';
 import 'theme/motion.dart';
 import 'theme/tokens.g.dart';
@@ -157,6 +159,25 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.templates,
+        pageBuilder: (context, state) => _page(state, const TemplatesPage()),
+        routes: [
+          // "nova" antes de ":id": o caminho literal tem precedência.
+          GoRoute(
+            path: 'nova',
+            pageBuilder: (context, state) =>
+                _page(state, const TemplateEditorPage.create()),
+          ),
+          GoRoute(
+            path: ':id',
+            pageBuilder: (context, state) => _page(
+              state,
+              TemplateEditorPage.edit(templateId: state.pathParameters['id']!),
+            ),
           ),
         ],
       ),

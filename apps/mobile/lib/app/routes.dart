@@ -25,6 +25,10 @@ abstract final class AppRoutes {
   static String exerciseDetail(String id) => '/exercicios/$id';
   static String exerciseEdit(String id) => '/exercicios/$id/editar';
 
+  static const templates = '/fichas';
+  static const templateNew = '/fichas/nova';
+  static String templateEdit(String id) => '/fichas/$id';
+
   /// Telas abertas a quem não entrou.
   static const public = {login, register};
 }

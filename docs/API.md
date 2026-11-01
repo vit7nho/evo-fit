@@ -36,7 +36,8 @@
 | GET ✅ | `/exercise-options` | grupos, equipamentos, mecânicas e tipos de carga (público, cache 1 h) |
 | GET ✅ / POST ✅ | `/exercises` · GET/PATCH `/exercises/{id}` ✅ | biblioteca (global + próprios); filtros `q`, `muscle`, `equipment` (repetível), `mine`, `include_archived` |
 | GET | `/exercises/{id}/history` | séries do usuário nesse exercício + recordes |
-| CRUD | `/workout-templates`, `/workout-templates/{id}/items` | fichas, itens e grupos (bi-set etc.) |
+| GET ✅ / POST ✅ | `/workout-templates` · GET/PUT/DELETE `/workout-templates/{id}` ✅ · PUT `/workout-templates/order` ✅ | fichas salvas inteiras (nome, itens e grupos), ADR-031 |
+| GET ✅ | `/workout-options` | tipos de agrupamento e de série planejada (público, cache 1 h) |
 | POST | `/workout-sessions` | iniciar (livre ou a partir de ficha; `409` se já houver uma em andamento) |
 | GET | `/workout-sessions/current` · `/workout-sessions/{id}` | |
 | POST | `/workout-sessions/{id}/pause` · `/resume` · `/finish` · `/discard` | ciclo de vida |
@@ -164,3 +165,34 @@ O catálogo global (71 exercícios em PT-BR, seed `v1`, ADR-016) chega com a mig
 | 200 exercícios próprios | 409 | `exercise_limit` |
 | Alterar um exercício do catálogo | 403 | `exercise_read_only` |
 | Exercício próprio de outra pessoa ou inexistente | 404 | `not_found` |
+
+## Fichas de treino (implementadas na etapa 2.5)
+
+A ficha é enviada **inteira** em `POST /workout-templates` e `PUT /workout-templates/{id}` (ADR-031):
+
+```json
+{
+  "name": "Treino A",
+  "notes": null,
+  "groups": [{"kind": "biset", "rest_after_s": 90}],
+  "items": [
+    {"exercise_id": "…", "planned_sets": [{"kind": "warmup", "reps_min": 15}, {"reps_min": 8, "reps_max": 12, "load_kg": 60, "rir_target": 2}], "rest_s": 120, "notes": null, "group": null},
+    {"exercise_id": "…", "planned_sets": [{"reps_min": 10}], "group": 0},
+    {"exercise_id": "…", "planned_sets": [{"reps_min": 10}], "group": 0}
+  ]
+}
+```
+
+- `items` na ordem de execução (até 30); `group` é o índice em `groups`.
+- **Grupos:** membros em sequência; `biset` e `superset` têm 2 exercícios, `triset` 3 e `giant_set` de 4 a 6. `rest_after_s` é o descanso depois da rodada.
+- **Séries planejadas** (1 a 10 por exercício): `kind` (`warmup|working|drop|rest_pause`); repetições (`reps_min`/`reps_max`, 1–100; só uma delas preenche as duas) **ou** `duration_s` (5–3600), conforme o exercício seja por tempo (`load_type = time`) ou não; `load_kg` (0–1000, passo 0,25) e `rir_target` (0–5) opcionais.
+- `rest_s` (0–600) é o descanso entre as séries do exercício.
+- A resposta tem o mesmo formato, mais `id`, `position`, o exercício resumido em cada item e o resumo `exercise_count`, `set_count` (sem aquecimento) e `muscles` (principais).
+- `PUT /workout-templates/order` recebe `{"template_ids": [...]}` com todas as fichas do usuário, cada uma uma vez.
+
+| Situação | Status | `code` |
+|---|---|---|
+| Grupo fora de sequência, vazio ou com tamanho errado; série sem repetições nem duração (ou com as duas); exercício por tempo com repetições; campo extra | 422 | `validation_error` (campo como `groups.0` ou `items.1.planned_sets.0`) |
+| Exercício próprio de outra pessoa ou inexistente | 422 | `validation_error` (`items.N.exercise_id`) |
+| 50 fichas | 409 | `template_limit` |
+| Ficha de outra pessoa ou inexistente | 404 | `not_found` |

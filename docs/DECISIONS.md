@@ -193,3 +193,13 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 **Riscos e ressalvas:**
 - O repositório declara domínio público, mas **não documenta a origem das fotos originais**, que são profissionais e mostram pessoas identificáveis e marcas. Para uso além do TCC (publicação na loja, uso comercial), trocar por fotos próprias ou por uma base com origem documentada.
 - Formato: 65 fotos são 3:2 e 2 estão em pé; o app mostra as duas posições empilhadas, na largura toda, sem cortar.
+
+### ADR-031 — Fichas salvas inteiras
+**Status:** Aceita · Fase 2.5 · revê o desenho de rotas do API.md (`/workout-templates/{id}/items`)
+**Decisões:**
+- **Um pedido salva a ficha toda** (nome, itens na ordem e grupos), em vez de rotas por item. O editor monta tudo e envia de uma vez: não existe ficha pela metade, nem conflito de posições entre pedidos. Uma ficha tem no máximo 30 itens, então o corpo é pequeno.
+- **Grupos referenciados por índice** no corpo (`group: 0`), com o mesmo formato na entrada e na saída: o app lê, edita e devolve sem traduzir ids.
+- **Regras dos grupos nos dois lados:** a API confere sequência e tamanho; o app mantém os mesmos invariantes no rascunho (`TemplateDraft`), testados à parte. Juntar cria ou une grupos; mover um item avulso pula o grupo inteiro; na ponta do grupo, mover primeiro tira o item dele.
+- **Séries por tempo ou por repetições conforme o exercício** (`load_type = time`), conferido na API.
+- **Excluir é definitivo**, sem arquivar fichas; a sessão (2.6) vai copiar o que precisa da ficha.
+- **`template_items.exercise_id` com CASCADE**: sem ele, excluir a conta travava quando uma ficha usava um exercício próprio (achado pelo teste).

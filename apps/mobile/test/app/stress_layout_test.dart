@@ -112,6 +112,7 @@ Future<FakeAuthServer> _pump(
   Map<String, Object?>? profile,
   List<Map<String, Object?>> goals = const [],
   bool signedIn = true,
+  void Function(FakeAuthServer server)? setUp,
 }) async {
   final server = FakeAuthServer(validRefreshToken: signedIn ? 'salvo' : null)
     ..accountEmail = _longEmail
@@ -119,6 +120,7 @@ Future<FakeAuthServer> _pump(
     ..consents.add('health_data');
   if (profile != null) server.profile = profile;
   server.goals = [...goals];
+  setUp?.call(server);
   await tester.pumpWidget(
     ProviderScope(
       retry: noAutomaticRetry,
@@ -336,5 +338,57 @@ void main() {
     await tester.tap(save);
     await tester.pumpAndSettle();
     expect(find.text('Dê um nome ao exercício.'), findsOneWidget);
+  });
+
+  testWidgets('fichas: lista, editor com grupo e séries', (tester) async {
+    _worstCaseScreen(tester);
+    await _pump(
+      tester,
+      profile: _maximalProfile(),
+      setUp: (s) => s.templates = [
+        s.templateFrom('ficha-longa', 1, {
+          'name': 'Treino A — Peito, ombros e tríceps (semana pesada)',
+          'notes': null,
+          'groups': [
+            {'kind': 'superset', 'rest_after_s': 150},
+          ],
+          'items': [
+            for (final id in ['ex-supino', 'ex-triceps', 'ex-agachamento'])
+              {
+                'exercise_id': id,
+                'planned_sets': [
+                  {'kind': 'warmup', 'reps_min': 15, 'reps_max': 20},
+                  {'kind': 'working', 'reps_min': 8, 'reps_max': 12},
+                  {'kind': 'working', 'reps_min': 6, 'reps_max': 8},
+                ],
+                'rest_s': 90,
+                'notes': null,
+                'group': id == 'ex-agachamento' ? null : 0,
+              },
+          ],
+        }),
+      ],
+    );
+
+    final card = find.text('Fichas de treino');
+    await tester.scrollUntilVisible(
+      card,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('Treino A'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Supersérie'), findsOneWidget);
+
+    final supino = find.text('Supino reto com barra');
+    await tester.ensureVisible(supino);
+    await tester.pumpAndSettle();
+    await tester.tap(supino);
+    await tester.pumpAndSettle();
+    expect(find.text('Série 3'), findsOneWidget);
   });
 }

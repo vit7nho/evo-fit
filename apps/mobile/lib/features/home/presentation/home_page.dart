@@ -11,6 +11,7 @@ import '../../../shared/widgets/evo_logo.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../goals/application/goals_controller.dart';
 import '../../goals/domain/goal.dart';
+import '../../training/application/templates_controller.dart';
 
 /// Tela inicial de quem entrou. Ganha o painel e a navegação inferior nas próximas etapas.
 class HomePage extends ConsumerWidget {
@@ -25,6 +26,7 @@ class HomePage extends ConsumerWidget {
     final user = auth.user;
     final theme = Theme.of(context);
     final goals = ref.watch(goalsProvider);
+    final templates = ref.watch(templatesProvider);
     // Quem pulou passos do onboarding é convidado a completar o perfil.
     final profile = user.profile;
     final incomplete =
@@ -119,6 +121,24 @@ class HomePage extends ConsumerWidget {
             EvoEntrance(
               delay: EvoEntrance.stagger(3),
               child: _LinkCard(
+                icon: Icons.list_alt_rounded,
+                title: 'Fichas de treino',
+                subtitle: switch (templates) {
+                  AsyncData(:final value) => switch (value.length) {
+                    0 => 'Monte seu primeiro treino',
+                    1 => '1 ficha',
+                    final n => '$n fichas',
+                  },
+                  AsyncError() => 'Não foi possível carregar. Toque para ver.',
+                  _ => 'Carregando…',
+                },
+                onTap: () => context.push(AppRoutes.templates),
+              ),
+            ),
+            const SizedBox(height: EvoSpace.md),
+            EvoEntrance(
+              delay: EvoEntrance.stagger(4),
+              child: _LinkCard(
                 icon: Icons.fitness_center_rounded,
                 title: 'Exercícios',
                 subtitle: 'Biblioteca com busca por nome e músculo',
@@ -127,7 +147,7 @@ class HomePage extends ConsumerWidget {
             ),
             const SizedBox(height: EvoSpace.md),
             EvoEntrance(
-              delay: EvoEntrance.stagger(4),
+              delay: EvoEntrance.stagger(5),
               child: _LinkCard(
                 icon: Icons.dns_outlined,
                 title: 'Status do servidor',
@@ -137,7 +157,7 @@ class HomePage extends ConsumerWidget {
             ),
             const SizedBox(height: EvoSpace.xl),
             EvoEntrance(
-              delay: EvoEntrance.stagger(5),
+              delay: EvoEntrance.stagger(6),
               child: Text(
                 'Conectado como ${user.email}',
                 style: theme.textTheme.bodyMedium,

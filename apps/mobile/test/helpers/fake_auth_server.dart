@@ -330,6 +330,89 @@ class FakeAuthServer {
     ],
   };
 
+  /// Fichas guardadas (como a API devolve) e os corpos recebidos.
+  List<Map<String, Object?>> templates = [];
+  final templateBodies = <Map<String, Object?>>[];
+  final templateCalls = <String>[];
+
+  static const workoutOptions = {
+    'group_kinds': [
+      {'code': 'biset', 'label': 'Bi-set', 'min_size': 2, 'max_size': 2},
+      {'code': 'superset', 'label': 'Supersérie', 'min_size': 2, 'max_size': 2},
+      {'code': 'triset', 'label': 'Tri-set', 'min_size': 3, 'max_size': 3},
+      {
+        'code': 'giant_set',
+        'label': 'Série gigante',
+        'min_size': 4,
+        'max_size': 6,
+      },
+    ],
+    'set_kinds': [
+      {'code': 'warmup', 'label': 'Aquecimento'},
+      {'code': 'working', 'label': 'Válida'},
+      {'code': 'drop', 'label': 'Drop set'},
+      {'code': 'rest_pause', 'label': 'Rest-pause'},
+    ],
+  };
+
+  /// Monta a ficha como a API devolve, a partir do corpo enviado pelo app.
+  Map<String, Object?> templateFrom(
+    String id,
+    int position,
+    Map<String, Object?> body,
+  ) {
+    final items = <Map<String, Object?>>[];
+    final muscles = <String>{};
+    var sets = 0;
+    for (final raw in body['items'] as List? ?? const []) {
+      final item = Map<String, Object?>.from(raw as Map);
+      final exercise = exercises.firstWhere(
+        (e) => e['id'] == item['exercise_id'],
+      );
+      final primary = [
+        for (final m in exercise['muscles']! as List)
+          if ((m as Map)['role'] == 'primary') m['id']! as String,
+      ];
+      muscles.addAll(primary);
+      final planned = [
+        for (final p in item['planned_sets']! as List)
+          Map<String, Object?>.from(p as Map),
+      ];
+      sets += planned.where((p) => p['kind'] != 'warmup').length;
+      items.add({
+        'id': 'item-${items.length}',
+        'exercise': {
+          'id': exercise['id'],
+          'name': exercise['name'],
+          'equipment': exercise['equipment'],
+          'load_type': exercise['load_type'],
+          'is_active': exercise['is_active'],
+          'primary_muscles': primary,
+        },
+        'planned_sets': planned,
+        'rest_s': item['rest_s'],
+        'notes': item['notes'],
+        'group': item['group'],
+      });
+    }
+    return {
+      'id': id,
+      'name': body['name'],
+      'notes': body['notes'],
+      'position': position,
+      'groups': [
+        for (final (i, g) in (body['groups'] as List? ?? const []).indexed)
+          {'id': 'grupo-$i', ...Map<String, Object?>.from(g as Map)},
+      ],
+      'items': items,
+      'exercise_count': items.length,
+      'set_count': sets,
+      'muscles': muscles.toList(),
+      'created_at': '2026-11-01T12:00:00Z',
+      'updated_at': '2026-11-01T12:00:00Z',
+    };
+  }
+
   /// Faz o access token atual expirar (o próximo uso recebe 401).
   void expireAccessToken() => validAccessToken = 'expirado';
 
@@ -373,6 +456,27 @@ class FakeAuthServer {
             : _invalidToken(),
       ('GET', '/profile-options') => FakeHttpAdapter.json(200, profileOptions),
       ('GET', '/goal-options') => FakeHttpAdapter.json(200, goalOptions),
+      ('GET', '/workout-options') => FakeHttpAdapter.json(200, workoutOptions),
+      ('GET', '/workout-templates') =>
+        _authorized(options)
+            ? FakeHttpAdapter.json(200, templates)
+            : _invalidToken(),
+      ('POST', '/workout-templates') =>
+        _authorized(options)
+            ? _createTemplate(body.cast<String, Object?>())
+            : _invalidToken(),
+      ('PUT', '/workout-templates/order') =>
+        _authorized(options)
+            ? _reorderTemplates(body.cast<String, Object?>())
+            : _invalidToken(),
+      (final method, final path) when path.startsWith('/workout-templates/') =>
+        _authorized(options)
+            ? _template(
+                method,
+                path.split('/').last,
+                body.cast<String, Object?>(),
+              )
+            : _invalidToken(),
       ('GET', '/exercise-options') => FakeHttpAdapter.json(
         200,
         exerciseOptions,
@@ -460,6 +564,47 @@ class FakeAuthServer {
       profile['onboarding_completed_at'] ??= '2026-10-31T12:00:00Z';
     }
     return _me();
+  }
+
+  ResponseBody _createTemplate(Map<String, Object?> body) {
+    templateCalls.add('POST');
+    templateBodies.add(body);
+    final template = templateFrom(
+      'ficha-${templateCalls.length}',
+      templates.length + 1,
+      body,
+    );
+    templates.add(template);
+    return FakeHttpAdapter.json(201, template);
+  }
+
+  ResponseBody _template(String method, String id, Map<String, Object?> body) {
+    final index = templates.indexWhere((t) => t['id'] == id);
+    if (index < 0) return _problem(404, 'not_found', 'Ficha não encontrada.');
+    templateCalls.add('$method $id');
+    if (method == 'DELETE') {
+      templates.removeAt(index);
+      return ResponseBody.fromString('', 204);
+    }
+    if (method == 'PUT') {
+      templateBodies.add(body);
+      templates[index] = templateFrom(
+        id,
+        templates[index]['position']! as int,
+        body,
+      );
+    }
+    return FakeHttpAdapter.json(200, templates[index]);
+  }
+
+  ResponseBody _reorderTemplates(Map<String, Object?> body) {
+    templateCalls.add('PUT order');
+    final ids = (body['template_ids']! as List).cast<String>();
+    templates = [
+      for (final (i, id) in ids.indexed)
+        {...templates.firstWhere((t) => t['id'] == id), 'position': i + 1},
+    ];
+    return FakeHttpAdapter.json(200, templates);
   }
 
   List<Map<String, Object?>> _sortedExercises() => [...exercises]
