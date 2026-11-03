@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from app.modules.exercises import catalog as exercise_catalog
 from app.modules.training import catalog
 from app.modules.users.schemas import Option
 
@@ -83,6 +84,22 @@ class ExerciseRef(BaseModel):
     load_type: str
     is_active: bool
     primary_muscles: list[str]
+
+    @classmethod
+    def of(cls, exercise: Any) -> Self:
+        """A partir do modelo `Exercise`: músculos principais na ordem do catálogo."""
+        order = {m.id: i for i, m in enumerate(exercise_catalog.MUSCLE_GROUPS)}
+        return cls(
+            id=exercise.id,
+            name=exercise.name,
+            equipment=exercise.equipment,
+            load_type=exercise.load_type,
+            is_active=exercise.is_active,
+            primary_muscles=sorted(
+                (m.muscle_group_id for m in exercise.muscles if m.role == "primary"),
+                key=order.__getitem__,
+            ),
+        )
 
 
 class GroupOut(BaseModel):

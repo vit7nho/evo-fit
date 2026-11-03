@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../history/domain/history.dart';
 import '../../training/domain/template.dart';
 
 /// Status de um treino (códigos da API).
@@ -178,6 +179,9 @@ class WorkoutSession {
     this.exercises = const [],
     this.setCount = 0,
     this.volumeKg = 0,
+    this.perceivedEffort,
+    this.notes,
+    this.records = const [],
   });
 
   factory WorkoutSession.fromJson(
@@ -199,6 +203,11 @@ class WorkoutSession {
         .toList(),
     setCount: json['set_count'] as int? ?? 0,
     volumeKg: (json['volume_kg'] as num?)?.toDouble() ?? 0,
+    perceivedEffort: json['perceived_effort'] as int?,
+    notes: json['notes'] as String?,
+    records: (json['records'] as List<dynamic>? ?? const [])
+        .map((r) => RecordEvent.fromJson(r as Map<String, dynamic>))
+        .toList(),
   );
 
   final String id;
@@ -206,6 +215,13 @@ class WorkoutSession {
   final String? templateId;
   final String status;
   final DateTime startedAt;
+
+  /// Esforço percebido (1–10) e anotação, quando concluído.
+  final int? perceivedEffort;
+  final String? notes;
+
+  /// Recordes batidos neste treino (só quando concluído).
+  final List<RecordEvent> records;
 
   /// Tempo ativo calculado pela API no momento da resposta ([receivedAt]).
   final int elapsedS;
@@ -269,6 +285,9 @@ class WorkoutSession {
         exercises: [...exercises]..[index] = entry,
         setCount: setCount,
         volumeKg: volumeKg,
+        perceivedEffort: perceivedEffort,
+        notes: notes,
+        records: records,
       );
 }
 

@@ -12,6 +12,9 @@ import '../features/exercises/presentation/exercises_page.dart';
 import '../features/goals/presentation/goal_form_page.dart';
 import '../features/goals/presentation/goals_page.dart';
 import '../features/goals/presentation/new_goal_page.dart';
+import '../features/history/presentation/exercise_history_page.dart';
+import '../features/history/presentation/history_page.dart';
+import '../features/history/presentation/workout_detail_page.dart';
 import '../features/home/presentation/home_page.dart';
 import '../features/profile/presentation/edit_profile_section_page.dart';
 import '../features/profile/presentation/onboarding_page.dart';
@@ -159,6 +162,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                 ),
               ),
+              GoRoute(
+                path: 'historico',
+                pageBuilder: (context, state) => _page(
+                  state,
+                  ExerciseHistoryPage(exerciseId: state.pathParameters['id']!),
+                ),
+              ),
             ],
           ),
         ],
@@ -166,6 +176,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.session,
         pageBuilder: (context, state) => _page(state, const SessionPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.history,
+        pageBuilder: (context, state) => _page(state, const HistoryPage()),
+        routes: [
+          GoRoute(
+            path: ':id',
+            pageBuilder: (context, state) => _page(
+              state,
+              WorkoutDetailPage(sessionId: state.pathParameters['id']!),
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoutes.templates,

@@ -239,3 +239,14 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 - **Resumo ao vivo no topo** (duração, volume, séries), calculado no app com a mesma regra da API.
 - **Monocromático mantido**: o tipo é dito pela letra, não pela cor. Com fonte grande ou tela estreita, a coluna "Anterior" desce para baixo dos campos (que ganham rótulo) e o resumo rola junto com a lista, para caber a barra de descanso e o botão de finalizar.
 - **Verificação**: testes de fluxo e de layout (320 dp, fonte 200%) reescritos; no emulador, a tela foi aberta com um treino real em andamento, mas sem registrar séries porque o aparelho estava logado na conta pessoal do usuário — o registro na tabela está coberto pelos testes de widget contra o servidor falso, e a rota nova da API por testes de integração.
+
+### ADR-035 — Recordes calculados sob demanda, numa passada cronológica
+**Status:** Aceita · Fase 2.8
+**Decisões:**
+- **Sem tabela de recordes**: uma consulta traz as séries dos treinos concluídos do usuário (opcionalmente só alguns exercícios e só até uma data) e uma passada em ordem cronológica guarda o melhor de cada tipo e os treinos em que ele foi superado. A mesma passada serve à lista do histórico (`record_count`), ao detalhe do treino (`records`), ao histórico do exercício e a `/analytics/records`. Excluir ou corrigir um treino recalcula tudo naturalmente.
+- **Tipos por forma de medir**: carga externa tem maior carga, 1RM estimado (Epley, 1 a 12 repetições, sempre rotulado como estimativa) e maior volume num treino; peso do corpo e assistido, mais repetições; por tempo, maior duração. Melhor carga por número exato de repetições (1 a 20) fica como tabela no histórico do exercício, sem gerar "recorde batido" (seria ruído).
+- **Primeira vez não é recorde batido**; aquecimentos não contam; drop e rest-pause só entram no volume.
+- **Treino aberto não mostra recordes** (a comparação é feita ao concluir); fica para depois mostrar recorde ao vivo durante o treino.
+- **Comparação com a vez anterior** é feita no app a partir de `previous` (volume e melhor série); a API passou a escolher como "vez anterior" a última sessão antes do treino em questão — no detalhe de um treino antigo, antes vinha a mais recente.
+- **Paginação por data** (`before` = início do último item), estável mesmo com treinos novos entrando.
+- **Verificação**: testes de API (inclusive teste de mutação do filtro por usuário) e de app; no emulador, o histórico vazio da conta do usuário foi aberto contra a API real (só leitura), e respostas reais da API com três treinos (conta temporária, apagada depois) foram passadas pelos modelos do app.

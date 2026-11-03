@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -164,10 +166,17 @@ class _SessionViewState extends ConsumerState<_SessionView> {
       final sets = finished.setCount == 1
           ? '1 série'
           : '${finished.setCount} séries';
+      final records = switch (finished.records.length) {
+        0 => '',
+        1 => ' · 1 recorde',
+        final n => ' · $n recordes',
+      };
       messenger.showSnackBar(
-        SnackBar(content: Text('Treino salvo: $sets em $minutes min')),
+        SnackBar(content: Text('Treino salvo: $sets em $minutes min$records')),
       );
+      // Abre o resumo do treino (com os recordes); voltar leva ao Início.
       router.go(AppRoutes.home);
+      unawaited(router.push(AppRoutes.workoutDetail(finished.id)));
     });
   }
 

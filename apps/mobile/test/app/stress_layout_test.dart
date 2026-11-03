@@ -499,4 +499,214 @@ void main() {
     await tapVisible(find.byTooltip('Nota de $supino'));
     expect(find.text('Nota de $supino'), findsWidgets);
   });
+
+  testWidgets('histórico: lista, detalhe, recordes e histórico do exercício', (
+    tester,
+  ) async {
+    _worstCaseScreen(tester);
+    const longName = 'Treino A — Peito, ombros e tríceps (semana pesada)';
+    Map<String, Object?> set(
+      String id,
+      int pos,
+      String kind,
+      double load, {
+      String? parent,
+      bool failure = false,
+    }) => {
+      'id': id,
+      'position': pos,
+      'kind': kind,
+      'parent_set_id': parent,
+      'reps': 12,
+      'load_kg': load,
+      'duration_s': null,
+      'rir': null,
+      'rpe': null,
+      'to_failure': failure,
+      'completed_at': '2026-10-30T10:05:00Z',
+    };
+    Map<String, Object?> record(String kind, double value, {int? reps}) => {
+      'kind': kind,
+      'value': value,
+      'reps': reps,
+      'load_kg': reps == null ? null : value,
+      'session_id': 'passado',
+      'achieved_at': '2026-10-30T10:00:00Z',
+    };
+    final ref = {
+      'id': 'ex-supino',
+      'name': 'Supino reto com barra',
+      'equipment': 'barbell',
+      'load_type': 'external',
+      'is_active': true,
+      'primary_muscles': ['chest'],
+    };
+    await _pump(
+      tester,
+      profile: _maximalProfile(),
+      setUp: (s) {
+        final template = s.templateFrom('ficha', 1, {
+          'name': longName,
+          'notes': null,
+          'groups': <Object>[],
+          'items': [
+            {
+              'exercise_id': 'ex-supino',
+              'planned_sets': [
+                {'kind': 'working', 'reps_min': 8, 'reps_max': 12},
+              ],
+              'rest_s': 90,
+              'notes': null,
+              'group': null,
+            },
+          ],
+        });
+        s.previousSets = {
+          'ex-supino': [
+            {
+              'kind': 'working',
+              'reps': 12,
+              'load_kg': 177.5,
+              'duration_s': null,
+            },
+          ],
+        };
+        final workout = s.sessionFrom(template);
+        ((workout['exercises']! as List).single as Map)['sets'] = [
+          set('a', 0, 'warmup', 142.5),
+          set('b', 1, 'working', 182.5, failure: true),
+          set('c', 2, 'drop', 142.5, parent: 'b'),
+          set('d', 3, 'rest_pause', 142.5, parent: 'b'),
+        ];
+        s.pastSessions = [
+          {
+            ...workout,
+            'id': 'passado',
+            'status': 'completed',
+            'elapsed_s': 7200,
+            'perceived_effort': 10,
+            'notes': 'Anotação longa ' * 10,
+            'set_count': 1,
+            'volume_kg': 12345,
+            'records': [
+              for (final kind in ['max_load', 'best_e1rm', 'max_volume'])
+                {
+                  'exercise_id': 'ex-supino',
+                  'kind': kind,
+                  'value': 182.5,
+                  'reps': kind == 'max_load' ? 12 : null,
+                  'load_kg': kind == 'max_load' ? 182.5 : null,
+                  'previous': 177.5,
+                },
+            ],
+          },
+        ];
+        s.historyItems = [
+          {
+            'id': 'passado',
+            'name': longName,
+            'started_at': '2026-10-30T10:00:00Z',
+            'duration_s': 7200,
+            'set_count': 120,
+            'volume_kg': 123456,
+            'exercise_count': 30,
+            'exercise_names': [
+              for (var i = 0; i < 4; i++) 'Supino reto com barra',
+            ],
+            'record_count': 12,
+          },
+        ];
+        s.historyPageSize = 1;
+        s.historyItems.add({...s.historyItems.first, 'id': 'outro'});
+        s.records = [
+          {
+            'exercise': ref,
+            'records': [
+              record('max_load', 182.5, reps: 12),
+              record('best_e1rm', 255.5),
+              record('max_volume', 12345),
+            ],
+            'last_done_at': '2026-10-30T10:00:00Z',
+          },
+        ];
+        s.exerciseHistories = {
+          'ex-supino': {
+            'exercise': ref,
+            'records': [
+              record('max_load', 182.5, reps: 12),
+              record('best_e1rm', 255.5),
+              record('max_volume', 12345),
+            ],
+            'rep_records': [
+              for (var r = 1; r <= 20; r++) record('rep_max', 182.5, reps: r),
+            ],
+            'sessions': [
+              {
+                'session_id': 'passado',
+                'session_name': longName,
+                'started_at': '2026-10-30T10:00:00Z',
+                'sets': [
+                  {
+                    'kind': 'working',
+                    'reps': 12,
+                    'load_kg': 182.5,
+                    'duration_s': null,
+                    'to_failure': true,
+                    'is_segment': false,
+                  },
+                ],
+                'volume_kg': 12345,
+                'best_e1rm': 255.5,
+                'records': ['max_load', 'best_e1rm', 'max_volume'],
+              },
+            ],
+            'next_before': 'x',
+          },
+        };
+      },
+    );
+
+    Future<void> tapVisible(Finder finder) async {
+      await tester.ensureVisible(finder);
+      await tester.pumpAndSettle();
+      await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    await tester.scrollUntilVisible(
+      find.text('Histórico'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tapVisible(find.text('Histórico'));
+    await tester.scrollUntilVisible(
+      find.text('Carregar mais'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tapVisible(find.text(longName).first);
+    await tester.scrollUntilVisible(
+      find.text('3 recordes neste treino'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.scrollUntilVisible(
+      find.textContaining('Melhor série'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await _back(tester);
+    await tapVisible(find.text('Recordes'));
+    await tapVisible(find.text('Supino reto com barra'));
+    await tester.scrollUntilVisible(
+      find.text('Melhor carga por repetições'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Carregar mais'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+  });
 }

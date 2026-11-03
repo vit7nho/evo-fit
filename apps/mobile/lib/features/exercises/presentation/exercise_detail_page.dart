@@ -174,8 +174,16 @@ class _ExerciseDetailPageState extends ConsumerState<ExerciseDetailPage> {
                 style: theme.textTheme.labelSmall,
               ),
             ],
+            const SizedBox(height: EvoSpace.x2xl),
+            EvoButton(
+              label: 'Histórico e recordes',
+              icon: Icons.history_rounded,
+              variant: EvoButtonVariant.secondary,
+              onPressed: () =>
+                  context.push(AppRoutes.exerciseHistory(exercise.id)),
+            ),
             if (exercise.isCustom) ...[
-              const SizedBox(height: EvoSpace.x2xl),
+              const SizedBox(height: EvoSpace.sm),
               EvoButton(
                 label: 'Editar',
                 icon: Icons.edit_outlined,

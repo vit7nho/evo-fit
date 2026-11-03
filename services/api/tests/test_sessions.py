@@ -1,7 +1,5 @@
 """Sessões de treino: ciclo de vida, séries, pré-preenchimento, pausas e posse."""
 
-from datetime import UTC, datetime, timedelta
-
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -10,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.modules.activities.models import Activity
 from app.modules.exercises.seed import global_exercise_id
 from app.modules.sessions import service as session_service
+from tests.conftest import Clock
 
 SUPINO = str(global_exercise_id("supino-reto-barra"))
 CRUCIFIXO = str(global_exercise_id("crucifixo-halteres"))
@@ -32,23 +31,6 @@ TEMPLATE = {
     ],
     "groups": [{"kind": "biset", "rest_after_s": 90}],
 }
-
-
-class Clock:
-    """Relógio controlado do serviço (pausas e duração sem esperar de verdade)."""
-
-    def __init__(self) -> None:
-        self.now = datetime(2026, 11, 1, 10, 0, tzinfo=UTC)
-
-    def advance(self, **delta: int) -> None:
-        self.now += timedelta(**delta)
-
-
-@pytest.fixture
-def clock(monkeypatch: pytest.MonkeyPatch) -> Clock:
-    fake = Clock()
-    monkeypatch.setattr(session_service, "_now", lambda: fake.now)
-    return fake
 
 
 def template(client: TestClient, headers: dict[str, str]) -> dict:

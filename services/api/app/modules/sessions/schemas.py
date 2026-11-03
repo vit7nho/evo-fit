@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from app.modules.history.schemas import RecordEvent
 from app.modules.training.schemas import ExerciseRef, GroupOut, PlannedSet, Rest
 
 Reps = Annotated[int, Field(ge=1, le=200)]
@@ -146,3 +147,5 @@ class SessionOut(BaseModel):
     # volume (carga x repetições, só carga externa, segmentos incluídos).
     set_count: int
     volume_kg: float
+    # Recordes batidos neste treino (só quando concluído; ADR-035).
+    records: list[RecordEvent]

@@ -158,6 +158,16 @@ class HomePage extends ConsumerWidget {
             ),
             const SizedBox(height: EvoSpace.md),
             EvoEntrance(
+              delay: EvoEntrance.stagger(3),
+              child: _LinkCard(
+                icon: Icons.history_rounded,
+                title: 'Histórico',
+                subtitle: 'Treinos concluídos e recordes',
+                onTap: () => context.push(AppRoutes.history),
+              ),
+            ),
+            const SizedBox(height: EvoSpace.md),
+            EvoEntrance(
               delay: EvoEntrance.stagger(4),
               child: _LinkCard(
                 icon: Icons.fitness_center_rounded,

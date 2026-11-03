@@ -423,6 +423,54 @@ class FakeAuthServer {
   /// Séries "da última vez" por exercício, para o pré-preenchimento.
   Map<String, List<Map<String, Object?>>> previousSets = {};
 
+  /// Histórico: resumos dos treinos concluídos (do mais recente), treinos
+  /// completos para o detalhe, recordes e histórico por exercício.
+  List<Map<String, Object?>> historyItems = [];
+  List<Map<String, Object?>> pastSessions = [];
+  List<Map<String, Object?>> records = [];
+  Map<String, Map<String, Object?>> exerciseHistories = {};
+
+  /// Recordes que o próximo treino finalizado bate.
+  List<Map<String, Object?>> finishRecords = [];
+
+  /// Itens por página do histórico (a API usa 20).
+  int historyPageSize = 20;
+  final historyCursors = <String?>[];
+
+  Map<String, Object?> _historyPage(Map<String, dynamic> query) {
+    final before = query['before'] as String?;
+    historyCursors.add(before);
+    final start = before == null ? 0 : int.parse(before);
+    final end = (start + historyPageSize).clamp(0, historyItems.length);
+    return {
+      'items': historyItems.sublist(start, end),
+      'next_before': end < historyItems.length ? '$end' : null,
+    };
+  }
+
+  ResponseBody _exerciseHistory(String exerciseId) {
+    final history = exerciseHistories[exerciseId];
+    if (history != null) return FakeHttpAdapter.json(200, history);
+    final exercise = exercises.where((e) => e['id'] == exerciseId).firstOrNull;
+    if (exercise == null) {
+      return _problem(404, 'not_found', 'Exercício não encontrado.');
+    }
+    return FakeHttpAdapter.json(200, {
+      'exercise': {
+        'id': exercise['id'],
+        'name': exercise['name'],
+        'equipment': exercise['equipment'],
+        'load_type': exercise['load_type'],
+        'is_active': true,
+        'primary_muscles': <String>[],
+      },
+      'records': <Object>[],
+      'rep_records': <Object>[],
+      'sessions': <Object>[],
+      'next_before': null,
+    });
+  }
+
   /// A próxima série registrada falha (para testar o erro na linha).
   bool failNextSet = false;
 
@@ -514,6 +562,19 @@ class FakeAuthServer {
       ('GET', '/profile-options') => FakeHttpAdapter.json(200, profileOptions),
       ('GET', '/goal-options') => FakeHttpAdapter.json(200, goalOptions),
       ('GET', '/workout-options') => FakeHttpAdapter.json(200, workoutOptions),
+      ('GET', '/workout-sessions') =>
+        _authorized(options)
+            ? FakeHttpAdapter.json(200, _historyPage(options.queryParameters))
+            : _invalidToken(),
+      ('GET', '/analytics/records') =>
+        _authorized(options)
+            ? FakeHttpAdapter.json(200, records)
+            : _invalidToken(),
+      ('GET', final path)
+          when path.startsWith('/exercises/') && path.endsWith('/history') =>
+        _authorized(options)
+            ? _exerciseHistory(path.split('/')[2])
+            : _invalidToken(),
       ('GET', '/workout-sessions/current') =>
         !_authorized(options)
             ? _invalidToken()
@@ -664,6 +725,12 @@ class FakeAuthServer {
     Map<String, Object?> body,
   ) {
     final parts = path.split('/'); // ['', 'workout-sessions', id, ...]
+    // Treino concluído: só leitura, como no histórico.
+    if (method == 'GET' && parts.length == 3) {
+      for (final done in [...finishedSessions, ...pastSessions]) {
+        if (done['id'] == parts[2]) return FakeHttpAdapter.json(200, done);
+      }
+    }
     final current = session;
     if (current == null || current['id'] != parts[2]) {
       return _problem(404, 'not_found', 'Treino não encontrado.');
@@ -700,6 +767,7 @@ class FakeAuthServer {
           'perceived_effort': body['perceived_effort'],
           'notes': body['notes'],
           'set_count': sets.where((s) => (s as Map)['kind'] != 'warmup').length,
+          'records': finishRecords,
         };
         finishedSessions.add(finished);
         session = null;

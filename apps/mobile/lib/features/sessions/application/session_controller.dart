@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/application/auth_controller.dart';
+import '../../history/application/history_controller.dart';
 import '../data/sessions_api.dart';
 import '../domain/session.dart';
 
@@ -58,6 +59,10 @@ class SessionController extends AsyncNotifier<WorkoutSession?> {
       notes: notes,
     );
     state = const AsyncData(null);
+    // O treino novo entra no histórico e pode ter batido recordes.
+    ref
+      ..invalidate(sessionHistoryProvider)
+      ..invalidate(recordsProvider);
     return finished;
   }
 

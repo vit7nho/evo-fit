@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.modules.auth.dependencies import CurrentUser
 from app.modules.exercises import catalog as exercise_catalog
+from app.modules.history.router import session_events
 from app.modules.sessions.models import SetEntry, WorkoutSession
 from app.modules.sessions.schemas import (
     ExerciseAdd,
@@ -133,6 +134,7 @@ def _out(service: SessionService, user: User, session: WorkoutSession) -> Sessio
         exercises=exercises,
         set_count=set_count,
         volume_kg=round(volume, 2),
+        records=session_events(service.db, user, session),
     )
 
 

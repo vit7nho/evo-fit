@@ -1,5 +1,6 @@
 import os
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -35,6 +36,7 @@ os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
 from app.core.config import get_settings  # noqa: E402
 from app.db.session import CONNECT_ARGS, get_db  # noqa: E402
 from app.main import create_app  # noqa: E402
+from app.modules.sessions import service as session_service  # noqa: E402
 
 get_settings.cache_clear()
 
@@ -120,3 +122,20 @@ def signup(client: TestClient):
         return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
     return _signup
+
+
+class Clock:
+    """Relógio controlado do serviço (pausas e duração sem esperar de verdade)."""
+
+    def __init__(self) -> None:
+        self.now = datetime(2026, 11, 1, 10, 0, tzinfo=UTC)
+
+    def advance(self, **delta: int) -> None:
+        self.now += timedelta(**delta)
+
+
+@pytest.fixture
+def clock(monkeypatch: pytest.MonkeyPatch) -> Clock:
+    fake = Clock()
+    monkeypatch.setattr(session_service, "_now", lambda: fake.now)
+    return fake

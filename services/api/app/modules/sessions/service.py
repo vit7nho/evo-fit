@@ -143,6 +143,9 @@ class SessionService:
                     WorkoutSession.user_id == user.id,
                     WorkoutSession.status == "completed",
                     WorkoutSession.id != session.id,
+                    # Só os anteriores: no detalhe de um treino antigo, "a última vez"
+                    # é a que veio antes dele, não a mais recente.
+                    Activity.started_at < session.activity.started_at,
                     Activity.deleted_at.is_(None),
                     SessionExercise.exercise_id == exercise_id,
                 )

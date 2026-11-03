@@ -476,10 +476,22 @@ void main() {
     expect(find.textContaining('Pausado'), findsNothing);
   });
 
-  testWidgets('finalizar com esforço volta ao início com o resumo', (
+  testWidgets('finalizar abre o resumo do treino com os recordes', (
     tester,
   ) async {
-    final server = await _pumpSignedIn(tester);
+    final server = await _pumpSignedIn(
+      tester,
+      setUp: (s) => s.finishRecords = [
+        {
+          'exercise_id': 'ex-supino',
+          'kind': 'max_load',
+          'value': 60,
+          'reps': 10,
+          'load_kg': 60,
+          'previous': 57.5,
+        },
+      ],
+    );
     await _startTemplate(tester);
     await tester.enterText(_reps(0), '10');
     await _tap(tester, _check(1));
@@ -489,7 +501,15 @@ void main() {
     await _tap(tester, find.widgetWithText(FilledButton, 'Salvar treino'));
 
     expect(server.finishedSessions.single['perceived_effort'], 8);
-    expect(find.text('Treino salvo: 1 série em 30 min'), findsOneWidget);
+    expect(
+      find.text('Treino salvo: 1 série em 30 min · 1 recorde'),
+      findsOneWidget,
+    );
+    expect(find.text('1 recorde neste treino'), findsOneWidget);
+    expect(find.bySemanticsLabel('Esforço: 8/10'), findsOneWidget);
+
+    // Voltar leva ao Início, sem treino aberto.
+    await _tap(tester, find.byTooltip('Voltar'));
     expect(find.text('Olá, Ana!'), findsOneWidget);
     expect(find.text('Treino em andamento'), findsNothing);
   });

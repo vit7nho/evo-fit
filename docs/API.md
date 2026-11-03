@@ -35,7 +35,7 @@
 | GET ✅ | `/muscle-groups` | grupos musculares com ids estáveis (público, cache 1 h) |
 | GET ✅ | `/exercise-options` | grupos, equipamentos, mecânicas e tipos de carga (público, cache 1 h) |
 | GET ✅ / POST ✅ | `/exercises` · GET/PATCH `/exercises/{id}` ✅ | biblioteca (global + próprios); filtros `q`, `muscle`, `equipment` (repetível), `mine`, `include_archived` |
-| GET | `/exercises/{id}/history` | séries do usuário nesse exercício + recordes |
+| GET ✅ | `/exercises/{id}/history` | séries do usuário nesse exercício + recordes |
 | GET ✅ / POST ✅ | `/workout-templates` · GET/PUT/DELETE `/workout-templates/{id}` ✅ · PUT `/workout-templates/order` ✅ | fichas salvas inteiras (nome, itens e grupos), ADR-031 |
 | GET ✅ | `/workout-options` | tipos de agrupamento e de série planejada (público, cache 1 h) |
 | POST ✅ | `/workout-sessions` | iniciar (livre ou a partir de ficha; `409` se já houver uma em andamento) |
@@ -54,7 +54,7 @@
 | GET | `/analytics/muscles/{muscle_id}?from&to&compare=previous` | detalhe: exercícios, evolução de cargas, comparação |
 | GET | `/analytics/endurance?modality&from&to` | distância/pace por semana |
 | GET | `/analytics/compare?metric&a_from&a_to&b_from&b_to` | comparação de períodos (percentual só com base válida) |
-| GET | `/analytics/records` | recordes pessoais |
+| GET ✅ | `/analytics/records` | recordes pessoais |
 
 ### Fase 4: IA
 | Método | Caminho | Descrição |
@@ -222,3 +222,22 @@ A ficha é enviada **inteira** em `POST /workout-templates` e `PUT /workout-temp
 - **Pré-preenchimento**: cada item de `previous` traz `to_failure` e `segments` (os segmentos daquela série na última sessão).
 - **Na ficha**, uma série planejada como `drop`/`rest_pause` marca onde aplicar a técnica; no treino ela é registrada como `working` e os segmentos vêm depois.
 - **Ajustes do exercício no treino**: `PATCH /workout-sessions/{id}/exercises/{seid}` com `rest_s` (0–600) e/ou `notes` (até 500; vazio limpa). Vale só para este treino (a ficha não muda) e devolve o treino inteiro. Treino concluído: `409 session_closed`; de outra pessoa: `404`.
+
+## Histórico e recordes (implementados na etapa 2.8)
+
+Só treinos **concluídos**, de atividades não excluídas, do dono do token. Recordes são calculados na hora (DATA_MODEL §3), sem tabela própria.
+
+- `GET /workout-sessions?limit=20&before=…` — histórico, do mais recente. Cada item: `id`, `name`, `started_at`, `duration_s`, `set_count`, `volume_kg`, `exercise_count`, `exercise_names` (até 4) e `record_count`. `next_before` (data) vai como `before` na próxima página; nulo quando acabou.
+- `GET /workout-sessions/{id}` — o mesmo detalhe do treino; concluído, traz `records`: os recordes batidos nele (`exercise_id`, `kind`, `value`, `reps`, `load_kg`, `previous`). `previous` (pré-preenchimento e comparação) passa a ser a última sessão **anterior a este treino**, não a mais recente.
+- `GET /exercises/{id}/history?limit=10&before=…` — `records` (os melhores de sempre), `rep_records` (melhor carga para exatamente N repetições, 1 a 20), `sessions` (uma por treino: séries com `is_segment`, `volume_kg`, `best_e1rm` e os recordes batidos naquele dia) e `next_before`. Exercício próprio de outra pessoa: `404`.
+- `GET /analytics/records` — por exercício feito, do mais recente: os recordes e `last_done_at`.
+
+| `kind` | Exercícios | Valor |
+|---|---|---|
+| `max_load` | carga externa | maior carga numa série válida (com as repetições) |
+| `best_e1rm` | carga externa | 1RM estimado por Epley, `carga × (1 + reps/30)`, só de 1 a 12 repetições — **estimativa**, não teste |
+| `max_volume` | carga externa | maior volume num treino (inclui drop e rest-pause) |
+| `max_reps` | peso do corpo, assistido | mais repetições numa série |
+| `max_duration` | por tempo | maior duração numa série |
+
+Aquecimentos não contam; segmentos (drop, rest-pause) só entram no volume. A primeira vez num exercício não conta como recorde batido (não havia com o que comparar).

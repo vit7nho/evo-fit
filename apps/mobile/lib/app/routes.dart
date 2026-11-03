@@ -25,12 +25,19 @@ abstract final class AppRoutes {
   static String exerciseDetail(String id) => '/exercicios/$id';
   static String exerciseEdit(String id) => '/exercicios/$id/editar';
 
+  /// Séries do usuário nesse exercício e os recordes.
+  static String exerciseHistory(String id) => '/exercicios/$id/historico';
+
   static const templates = '/fichas';
   static const templateNew = '/fichas/nova';
   static String templateEdit(String id) => '/fichas/$id';
 
   /// Treino em andamento.
   static const session = '/treino';
+
+  /// Treinos concluídos e recordes.
+  static const history = '/historico';
+  static String workoutDetail(String id) => '/historico/$id';
 
   /// Telas abertas a quem não entrou.
   static const public = {login, register};
