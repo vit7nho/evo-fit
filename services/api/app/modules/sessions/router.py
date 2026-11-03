@@ -10,6 +10,7 @@ from app.modules.exercises import catalog as exercise_catalog
 from app.modules.sessions.models import SetEntry, WorkoutSession
 from app.modules.sessions.schemas import (
     ExerciseAdd,
+    ExerciseUpdate,
     PreviousSegment,
     PreviousSet,
     SessionExerciseOut,
@@ -215,6 +216,22 @@ def add_exercise(
 ) -> SessionOut:
     service = SessionService(db)
     return _out(service, user, service.add_exercise(user, session_id, data))
+
+
+@router.patch(
+    f"{_BASE}/{{session_id}}/exercises/{{entry_id}}",
+    response_model=SessionOut,
+    summary="Ajusta o descanso ou a nota de um exercício neste treino",
+)
+def update_exercise(
+    session_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    data: ExerciseUpdate,
+    user: CurrentUser,
+    db: DbSession,
+) -> SessionOut:
+    service = SessionService(db)
+    return _out(service, user, service.update_exercise(user, session_id, entry_id, data))
 
 
 @router.delete(

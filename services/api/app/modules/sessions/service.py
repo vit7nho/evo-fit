@@ -17,7 +17,14 @@ from app.core.errors import AppError, FieldValidationError, NotFoundError
 from app.modules.activities.models import Activity
 from app.modules.exercises.models import Exercise
 from app.modules.sessions.models import SessionExercise, SetEntry, WorkoutSession
-from app.modules.sessions.schemas import ExerciseAdd, SessionFinish, SessionStart, SetIn, SetUpdate
+from app.modules.sessions.schemas import (
+    ExerciseAdd,
+    ExerciseUpdate,
+    SessionFinish,
+    SessionStart,
+    SetIn,
+    SetUpdate,
+)
 from app.modules.training.models import ExerciseGroup, WorkoutTemplate
 from app.modules.users.models import User
 
@@ -275,6 +282,20 @@ class SessionService:
         session.exercises.append(
             SessionExercise(exercise_id=exercise.id, position=position, rest_s=90)
         )
+        self.db.commit()
+        self.db.refresh(session)
+        return session
+
+    def update_exercise(
+        self, user: User, session_id: uuid.UUID, entry_id: uuid.UUID, data: ExerciseUpdate
+    ) -> WorkoutSession:
+        """Descanso e nota do exercício neste treino; `null` limpa."""
+        session = self._open(user, session_id)
+        entry = self._entry(session, entry_id)
+        if "rest_s" in data.model_fields_set:
+            entry.rest_s = data.rest_s
+        if "notes" in data.model_fields_set:
+            entry.notes = data.notes or None
         self.db.commit()
         self.db.refresh(session)
         return session

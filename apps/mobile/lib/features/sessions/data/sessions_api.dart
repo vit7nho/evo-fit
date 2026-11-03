@@ -60,6 +60,19 @@ class SessionsApi {
         return _session(response);
       });
 
+  /// Descanso e nota do exercício neste treino (a ficha não muda).
+  Future<WorkoutSession> updateExercise(
+    String id,
+    String entryId,
+    Map<String, Object?> changes,
+  ) => guardApiCall(() async {
+    final response = await _dio.patch<Map<String, dynamic>>(
+      '$_base/$id/exercises/$entryId',
+      data: changes,
+    );
+    return _session(response);
+  });
+
   Future<void> removeExercise(String id, String entryId) =>
       guardApiCall(() => _dio.delete<void>('$_base/$id/exercises/$entryId'));
 

@@ -1,4 +1,5 @@
 import 'package:evofit/features/sessions/domain/session.dart';
+import 'package:evofit/features/sessions/domain/set_rows.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, Object?> _exercise(
@@ -98,68 +99,177 @@ void main() {
     });
   });
 
-  group('linhas e sugestões', () {
-    test('o plano define as linhas; o que passar dele aparece também', () {
+  group('linhas da tabela', () {
+    List<SetRowDraft> rowsOf(SessionExercise entry) {
+      var next = 0;
+      return buildRows(entry, () => next++);
+    }
+
+    /// Sugestão da linha [i] sem nada digitado (linhas feitas valem o salvo).
+    RowSuggestion suggest(SessionExercise e, List<SetRowDraft> rows, int i) =>
+        suggestRow(
+          e,
+          rows,
+          i,
+          valuesOf: (j) {
+            final logged = e.sets.where((s) => s.id == rows[j].loggedId);
+            if (logged.isEmpty) return suggest(e, rows, j);
+            final s = logged.single;
+            return (reps: s.reps, loadKg: s.loadKg, durationS: s.durationS);
+          },
+        );
+
+    SessionExercise entryOf(Map<String, Object?> json) =>
+        SessionExercise.fromJson(json);
+
+    test('o plano define as linhas; tudo feito ganha uma linha em branco', () {
       final planned = [
         for (var i = 0; i < 3; i++)
           {'kind': 'working', 'reps_min': 8, 'reps_max': 12},
       ];
-      final entry = SessionExercise.fromJson(_exercise('a', planned: planned));
-      expect(entry.rowCount(), 3);
-      expect(entry.rowCount(extra: 1), 4);
+      final fresh = rowsOf(entryOf(_exercise('a', planned: planned)));
+      expect(fresh.map((r) => (r.kind, r.isDone)), [
+        for (var i = 0; i < 3; i++) (RowKind.working, false),
+      ]);
 
-      final done = SessionExercise.fromJson(
-        _exercise(
-          'a',
-          planned: planned,
-          sets: [for (var i = 0; i < 4; i++) _set(i)],
+      final done = rowsOf(
+        entryOf(
+          _exercise(
+            'a',
+            planned: planned,
+            sets: [for (var i = 0; i < 4; i++) _set(i)],
+          ),
         ),
       );
-      expect(done.rowCount(), 4);
+      expect(done.where((r) => r.isDone), hasLength(4));
+      expect(done.last.isDone, isFalse);
     });
 
-    test('sem plano, sempre sobra uma linha em branco', () {
-      final entry = SessionExercise.fromJson(_exercise('a'));
-      expect(entry.rowCount(), 1);
-      final after = SessionExercise.fromJson(_exercise('a', sets: [_set(0)]));
-      expect(after.rowCount(), 2);
+    test('sem plano, uma linha em branco', () {
+      expect(rowsOf(entryOf(_exercise('a'))), hasLength(1));
+      expect(rowsOf(entryOf(_exercise('a', sets: [_set(0)]))), hasLength(2));
     });
 
-    test('a sugestão vem da última sessão, depois do plano', () {
-      final entry = SessionExercise.fromJson(
-        _exercise(
-          'a',
-          planned: [
-            {'kind': 'warmup', 'reps_min': 15, 'reps_max': 15},
-            {'kind': 'working', 'reps_min': 8, 'reps_max': 12, 'load_kg': 50},
-            {'kind': 'working', 'reps_min': 8, 'reps_max': 12},
-          ],
-          previous: [
-            {'kind': 'warmup', 'reps': 15, 'load_kg': 20, 'duration_s': null},
-            {'kind': 'working', 'reps': 10, 'load_kg': 60, 'duration_s': null},
-          ],
-        ),
+    test(
+      'drop e rest-pause do plano viram série válida + linha do segmento',
+      () {
+        final rows = rowsOf(
+          entryOf(
+            _exercise(
+              'a',
+              planned: [
+                {'kind': 'drop', 'reps_min': 8},
+                {'kind': 'rest_pause', 'reps_min': 8},
+                {'kind': 'warmup', 'reps_min': 15},
+              ],
+            ),
+          ),
+        );
+        expect(rows.map((r) => r.kind), [
+          RowKind.working,
+          RowKind.drop,
+          RowKind.working,
+          RowKind.restPause,
+          RowKind.warmup,
+        ]);
+      },
+    );
+
+    test(
+      'séries feitas: cada principal seguida dos segmentos; falha vira F',
+      () {
+        final entry = entryOf(
+          _exercise(
+            'a',
+            sets: [
+              {..._set(0), 'to_failure': true},
+              _set(1),
+              _set(2, kind: 'drop', parent: 's0', load: 47.5),
+            ],
+          ),
+        );
+        final rows = rowsOf(entry);
+        expect(rows.map((r) => (r.kind, r.loggedId)).take(3), [
+          (RowKind.failure, 's0'),
+          (RowKind.drop, 's2'),
+          (RowKind.working, 's1'),
+        ]);
+      },
+    );
+
+    test('o número conta só as válidas; letras para os outros tipos', () {
+      final rows = [
+        for (final (i, k) in [
+          RowKind.warmup,
+          RowKind.working,
+          RowKind.drop,
+          RowKind.failure,
+          RowKind.working,
+        ].indexed)
+          SetRowDraft(id: i, kind: k),
+      ];
+      expect(
+        [for (var i = 0; i < rows.length; i++) rowBadge(rows, i)],
+        ['A', '1', 'D', 'F', '3'],
       );
-
-      final warmup = entry.suggestion(0);
-      expect((warmup.kind, warmup.reps, warmup.loadKg), ('warmup', 15, 20.0));
-      final second = entry.suggestion(1);
-      expect((second.kind, second.reps, second.loadKg), ('working', 10, 60.0));
-      // Sem série anterior nessa posição: o plano (mínimo da faixa).
-      final third = entry.suggestion(2);
-      expect((third.reps, third.loadKg), (8, null));
+      // O segmento continua a principal mais próxima acima.
+      expect(parentRowOf(rows, 2), 1);
+      expect(parentRowOf(rows, 0), isNull);
     });
 
-    test('sem plano nem histórico, repete a última série de hoje', () {
-      final entry = SessionExercise.fromJson(
-        _exercise('a', sets: [_set(0, reps: 12, load: 40)]),
-      );
-      final next = entry.suggestion(1);
-      expect((next.reps, next.loadKg), (12, 40.0));
+    test('falha vai para a API como válida com to_failure', () {
+      expect(RowKind.failure.apiFields, {
+        'kind': 'working',
+        'to_failure': true,
+      });
+      expect(RowKind.fromSet('working', toFailure: true), RowKind.failure);
+      expect(RowKind.fromSet('rest_pause'), RowKind.restPause);
     });
+
+    test(
+      'sugestão: última vez na mesma linha, depois o plano, depois a de cima',
+      () {
+        final entry = entryOf(
+          _exercise(
+            'a',
+            planned: [
+              {'kind': 'warmup', 'reps_min': 15, 'reps_max': 15},
+              {'kind': 'working', 'reps_min': 8, 'reps_max': 12, 'load_kg': 50},
+              {'kind': 'working', 'reps_min': 8, 'reps_max': 12},
+            ],
+            previous: [
+              {'kind': 'warmup', 'reps': 15, 'load_kg': 20, 'duration_s': null},
+              {
+                'kind': 'working',
+                'reps': 10,
+                'load_kg': 60,
+                'duration_s': null,
+              },
+            ],
+          ),
+        );
+        final rows = rowsOf(entry);
+        expect(suggest(entry, rows, 0), (
+          reps: 15,
+          loadKg: 20.0,
+          durationS: null,
+        ));
+        expect(suggest(entry, rows, 1), (
+          reps: 10,
+          loadKg: 60.0,
+          durationS: null,
+        ));
+        // Sem última vez na linha: o plano (mínimo da faixa) e a carga da de cima.
+        expect(suggest(entry, rows, 2), (
+          reps: 8,
+          loadKg: 60.0,
+          durationS: null,
+        ));
+      },
+    );
 
     test('exercício por tempo sugere a duração', () {
-      final entry = SessionExercise.fromJson(
+      final entry = entryOf(
         _exercise(
           'prancha',
           timed: true,
@@ -173,95 +283,35 @@ void main() {
           ],
         ),
       );
-      expect(entry.suggestion(0).durationS, 45);
-    });
-  });
-
-  group('técnicas', () {
-    test('segmentos não viram linhas: a série com drop conta como uma', () {
-      final entry = _session([
-        _exercise(
-          'supino',
-          planned: [
-            {'kind': 'working', 'reps_min': 8},
-            {'kind': 'working', 'reps_min': 8},
-          ],
-          sets: [
-            _set(0),
-            _set(1, kind: 'drop', parent: 's0', load: 47.5),
-            _set(2, kind: 'drop', parent: 's0', load: 37.5),
-          ],
-        ),
-      ]).exercises.single;
-
-      expect(entry.mainSets.map((s) => s.id), ['s0']);
-      expect(entry.segmentsOf('s0').map((s) => s.loadKg), [47.5, 37.5]);
-      expect(entry.rowCount(), 2);
-      // A sugestão da próxima linha repete a série principal, não o drop.
-      expect(entry.suggestion(1).loadKg, 60);
-    });
-
-    test('série planejada como drop é feita como válida e marca a técnica', () {
-      final entry = _session([
-        _exercise(
-          'supino',
-          planned: [
-            {'kind': 'drop', 'reps_min': 8, 'load_kg': 60},
-            {'kind': 'rest_pause', 'reps_min': 8},
-            {'kind': 'warmup', 'reps_min': 15},
-          ],
-        ),
-      ]).exercises.single;
-
-      expect(entry.suggestion(0).kind, 'working');
-      expect(
-        [entry.technique(0), entry.technique(1), entry.technique(2)],
-        ['drop', 'rest_pause', null],
-      );
-      expect(entry.suggestion(2).kind, 'warmup');
+      expect(suggest(entry, rowsOf(entry), 0).durationS, 45);
     });
 
     test(
-      'drop sugere 20% a menos, em múltiplos de 2,5 kg; rest-pause repete',
+      'drop tira 20% da linha de cima (múltiplo de 2,5); rest-pause repete',
       () {
-        final entry = _session([
-          _exercise(
-            'supino',
-            sets: [
-              _set(0, load: 60),
-              _set(1, kind: 'drop', parent: 's0', load: 47.5),
-            ],
-          ),
-        ]).exercises.single;
-        final parent = entry.mainSets.single;
-
-        // Segundo drop: a partir do primeiro (47,5 → 37,5).
-        expect(entry.segmentSuggestion(0, parent, 'drop').loadKg, 37.5);
-        expect(entry.segmentSuggestion(0, parent, 'rest_pause').loadKg, 47.5);
-        expect(entry.segmentSuggestion(0, parent, 'drop').reps, isNull);
-      },
-    );
-
-    test(
-      'carga pequena: o drop tira ao menos 2,5 kg, e nunca fica negativo',
-      () {
-        SetSuggestion drop(double load) {
-          final entry = _session([
-            _exercise('rosca', sets: [_set(0, load: load)]),
-          ]).exercises.single;
-          return entry.segmentSuggestion(0, entry.mainSets.single, 'drop');
+        RowSuggestion segment(double load, RowKind kind) {
+          final entry = entryOf(_exercise('a', sets: [_set(0, load: load)]));
+          final rows = [
+            SetRowDraft(id: 0, kind: RowKind.working, loggedId: 's0'),
+            SetRowDraft(id: 1, kind: kind),
+          ];
+          return suggest(entry, rows, 1);
         }
 
-        expect(drop(10).loadKg, 7.5);
-        expect(drop(5).loadKg, 2.5);
-        expect(drop(2.5).loadKg, isNull);
+        expect(segment(60, RowKind.drop).loadKg, 47.5);
+        expect(segment(60, RowKind.drop).reps, isNull);
+        expect(segment(60, RowKind.restPause).loadKg, 60);
+        // Carga pequena: tira ao menos 2,5 kg e nunca fica zerada.
+        expect(segment(10, RowKind.drop).loadKg, 7.5);
+        expect(segment(5, RowKind.drop).loadKg, 2.5);
+        expect(segment(2.5, RowKind.drop).loadKg, isNull);
       },
     );
 
-    test('o segmento da última vez vale mais que a conta dos 20%', () {
-      final entry = _session([
+    test('o drop da última vez fica na linha dele e vale mais que os 20%', () {
+      final entry = entryOf(
         _exercise(
-          'supino',
+          'a',
           sets: [_set(0, load: 60)],
           previous: [
             {
@@ -276,15 +326,46 @@ void main() {
             },
           ],
         ),
-      ]).exercises.single;
-      final suggestion = entry.segmentSuggestion(
-        0,
-        entry.mainSets.single,
-        'drop',
       );
+      expect(previousAt(entry, 1)?.kind, 'drop');
+      final rows = [
+        SetRowDraft(id: 0, kind: RowKind.working, loggedId: 's0'),
+        SetRowDraft(id: 1, kind: RowKind.drop),
+      ];
+      expect(suggest(entry, rows, 1), (reps: 6, loadKg: 40.0, durationS: null));
+    });
 
-      expect(entry.previous.single.toFailure, isTrue);
-      expect((suggestion.loadKg, suggestion.reps), (40.0, 6));
+    test('acerto com o servidor: série que sumiu volta a ficar por fazer', () {
+      final entry = entryOf(_exercise('a', sets: [_set(1)]));
+      var next = 10;
+      final rows = reconcileRows(
+        [
+          SetRowDraft(id: 0, kind: RowKind.working, loggedId: 's0'),
+          SetRowDraft(id: 1, kind: RowKind.working),
+        ],
+        entry,
+        () => next++,
+      );
+      expect(rows.map((r) => (r.id, r.loggedId)), [
+        (0, null),
+        (1, null),
+        (10, 's1'),
+      ]);
+    });
+
+    test('resumo ao vivo: séries válidas e volume com os segmentos', () {
+      final session = _session([
+        _exercise(
+          'a',
+          sets: [
+            _set(0, load: 20, reps: 15, kind: 'warmup'),
+            _set(1, load: 60, reps: 10),
+            _set(2, kind: 'drop', parent: 's1', load: 45, reps: 6),
+          ],
+        ),
+      ]);
+      expect(session.liveSetCount, 1);
+      expect(session.liveVolumeKg, 60 * 10 + 45 * 6);
     });
   });
 

@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from app.modules.training.schemas import ExerciseRef, GroupOut, PlannedSet
+from app.modules.training.schemas import ExerciseRef, GroupOut, PlannedSet, Rest
 
 Reps = Annotated[int, Field(ge=1, le=200)]
 Load = Annotated[float, Field(ge=0, le=1000, multiple_of=0.25)]
@@ -28,6 +28,15 @@ class ExerciseAdd(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     exercise_id: uuid.UUID
+
+
+class ExerciseUpdate(BaseModel):
+    """Ajustes de um exercício durante o treino (só nesta sessão; a ficha não muda)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rest_s: Rest | None = None
+    notes: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
 
 
 class SetIn(BaseModel):

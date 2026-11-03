@@ -227,3 +227,15 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 - **Descanso**: o drop cancela o descanso (é feito em seguida); o rest-pause começa com 15 s; salvar o segmento inicia o descanso normal do exercício.
 - **Plano da ficha**: série planejada como drop/rest-pause é registrada como válida, com aviso na linha, e a linha do segmento abre sozinha depois do ✓.
 - **Achado no emulador**, corrigido: o título da linha do drop e o chip de falha encostavam nos rótulos dos campos logo abaixo (mais espaço vertical).
+
+### ADR-034 — Registro de séries em tabela, com o tipo no número
+**Status:** Aceita · Fase 2.7 (revisão da tela, pedida a partir de uma referência de app de treino)
+**Decisões:**
+- **Tabela por exercício** (`SÉRIE · ANTERIOR · KG · REPS · ✓`): a série da última vez fica na mesma linha (coluna "Anterior"), em vez de uma frase acima das séries.
+- **Todas as linhas editáveis e fora de ordem**: as linhas vivem no app, na ordem da tela (`set_rows.dart`), e guardam o id da série salva; a API continua salvando série a série. Ao reabrir o app, as linhas são remontadas das séries salvas mais o que falta do plano.
+- **O tipo vai no número**, num menu que explica cada opção e diz por que uma não vale (ex.: drop na primeira linha, drop em exercício sem carga, mudar o tipo de uma linha feita para segmento). Substitui a barra “Drop / Rest-pause / Até a falha” da ADR-033. Uma linha D ou RP continua a série principal mais próxima acima, que precisa estar feita; "F" é uma série válida com `to_failure`.
+- **✓ preenchido desfaz** (apaga a série e a linha volta com os valores); corrigir é editar o campo e sair dele. Remover a linha fica no menu do tipo.
+- **Descanso e nota no cabeçalho do exercício**, ajustáveis no treino (`PATCH …/exercises/{seid}`), sem mudar a ficha. Nos grupos, vale o descanso da rodada (o botão não aparece).
+- **Resumo ao vivo no topo** (duração, volume, séries), calculado no app com a mesma regra da API.
+- **Monocromático mantido**: o tipo é dito pela letra, não pela cor. Com fonte grande ou tela estreita, a coluna "Anterior" desce para baixo dos campos (que ganham rótulo) e o resumo rola junto com a lista, para caber a barra de descanso e o botão de finalizar.
+- **Verificação**: testes de fluxo e de layout (320 dp, fonte 200%) reescritos; no emulador, a tela foi aberta com um treino real em andamento, mas sem registrar séries porque o aparelho estava logado na conta pessoal do usuário — o registro na tabela está coberto pelos testes de widget contra o servidor falso, e a rota nova da API por testes de integração.

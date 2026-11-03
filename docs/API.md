@@ -41,7 +41,7 @@
 | POST ✅ | `/workout-sessions` | iniciar (livre ou a partir de ficha; `409` se já houver uma em andamento) |
 | GET ✅ | `/workout-sessions/current` · `/workout-sessions/{id}` | o aberto (`204` se não houver) · um treino |
 | POST ✅ | `/workout-sessions/{id}/pause` · `/resume` · `/finish` · `/discard` | ciclo de vida |
-| POST/DELETE ✅ · POST/PATCH/DELETE ✅ | `/workout-sessions/{id}/exercises[/{seid}]` · `…/{seid}/sets[/{set_id}]` | exercícios do treino e registro de séries (salvamento por série) |
+| POST/PATCH/DELETE ✅ · POST/PATCH/DELETE ✅ | `/workout-sessions/{id}/exercises[/{seid}]` · `…/{seid}/sets[/{set_id}]` | exercícios do treino e registro de séries (salvamento por série) |
 | GET | `/workout-sessions/{id}/comparison?with=previous` | comparação com a sessão anterior da mesma ficha |
 
 ### Fase 3: modalidades e evolução
@@ -221,3 +221,4 @@ A ficha é enviada **inteira** em `POST /workout-templates` e `PUT /workout-temp
 - **Resposta**: `SetOut.parent_set_id` (nulo nas séries principais). No resumo, `set_count` conta só as séries principais válidas (um drop set é uma série); `volume_kg` soma os segmentos.
 - **Pré-preenchimento**: cada item de `previous` traz `to_failure` e `segments` (os segmentos daquela série na última sessão).
 - **Na ficha**, uma série planejada como `drop`/`rest_pause` marca onde aplicar a técnica; no treino ela é registrada como `working` e os segmentos vêm depois.
+- **Ajustes do exercício no treino**: `PATCH /workout-sessions/{id}/exercises/{seid}` com `rest_s` (0–600) e/ou `notes` (até 500; vazio limpa). Vale só para este treino (a ficha não muda) e devolve o treino inteiro. Treino concluído: `409 session_closed`; de outra pessoa: `404`.

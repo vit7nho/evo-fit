@@ -418,6 +418,7 @@ class FakeAuthServer {
   final finishedSessions = <Map<String, Object?>>[];
   final sessionCalls = <String>[];
   final setBodies = <Map<String, Object?>>[];
+  final exerciseUpdates = <Map<String, Object?>>[];
 
   /// Séries "da última vez" por exercício, para o pré-preenchimento.
   Map<String, List<Map<String, Object?>>> previousSets = {};
@@ -726,6 +727,15 @@ class FakeAuthServer {
           }),
         );
         return FakeHttpAdapter.json(201, current);
+      case ('PATCH', 5):
+        exerciseUpdates.add(body);
+        final updated = entry(parts[4]);
+        if (body.containsKey('rest_s')) updated['rest_s'] = body['rest_s'];
+        if (body.containsKey('notes')) {
+          final note = body['notes'] as String?;
+          updated['notes'] = note == null || note.isEmpty ? null : note;
+        }
+        return FakeHttpAdapter.json(200, current);
       case ('DELETE', 5):
         entries.removeWhere((e) => e['id'] == parts[4]);
         return ResponseBody.fromString('', 204);

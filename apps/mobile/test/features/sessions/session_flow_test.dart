@@ -10,6 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/fake_auth_server.dart';
 
+const _supino = 'Supino reto com barra';
+
 /// Ficha com um exercício avulso (descanso 90 s) e um bi-set (descanso 60 s após a rodada).
 /// [firstKind]: tipo planejado da 1ª série do supino (ex.: `drop` para drop set).
 Map<String, Object?> _template(
@@ -87,71 +89,109 @@ Future<void> _startTemplate(WidgetTester tester) async {
   await _tap(tester, find.byTooltip('Iniciar Treino A'));
 }
 
-Finder _check(int set, [String exercise = 'Supino reto com barra']) =>
+Finder _check(int set, [String exercise = _supino]) =>
     find.byTooltip('Concluir série $set de $exercise');
 
+/// A barra do descanso ("Descanso 01:30"), não o botão "Descanso: 1 min 30 s".
+final _restTimer = find.textContaining(RegExp(r'^Descanso (\d|t)'));
+
+Finder _undo(int set) => find.byTooltip('Desfazer série $set de $_supino');
+
+/// Campos do supino (as linhas vêm primeiro na tela): carga e repetições da linha.
+Finder _kg(int row) => find.byType(TextField).at(row * 2);
+Finder _reps(int row) => find.byType(TextField).at(row * 2 + 1);
+
+/// Abre o menu do tipo no número da linha e escolhe [option].
+Future<void> _setKind(
+  WidgetTester tester,
+  String rowLabel,
+  String option,
+) async {
+  await _tap(tester, find.bySemanticsLabel(RegExp('^$rowLabel.*mudar o tipo')));
+  await _tap(tester, find.widgetWithText(ListTile, option));
+}
+
 void main() {
-  testWidgets('um toque no ✓ registra a série com os valores da última vez', (
-    tester,
-  ) async {
-    final server = await _pumpSignedIn(
-      tester,
-      setUp: (s) => s.previousSets = {
-        'ex-supino': [
-          {'kind': 'working', 'reps': 10, 'load_kg': 60, 'duration_s': null},
-          {'kind': 'working', 'reps': 8, 'load_kg': 62.5, 'duration_s': null},
-        ],
-      },
-    );
-    await _startTemplate(tester);
+  testWidgets(
+    'a coluna anterior e um toque no ✓ com os valores da última vez',
+    (tester) async {
+      final server = await _pumpSignedIn(
+        tester,
+        setUp: (s) => s.previousSets = {
+          'ex-supino': [
+            {'kind': 'working', 'reps': 10, 'load_kg': 60, 'duration_s': null},
+            {'kind': 'working', 'reps': 8, 'load_kg': 62.5, 'duration_s': null},
+          ],
+        },
+      );
+      await _startTemplate(tester);
 
-    expect(find.text('Treino A'), findsOneWidget);
-    expect(find.text('Última vez: 60 kg × 10, 62,5 kg × 8'), findsOneWidget);
-    await _tap(tester, _check(1));
+      expect(find.text('Treino A'), findsOneWidget);
+      expect(find.text('60 kg × 10'), findsOneWidget);
+      expect(find.text('62,5 kg × 8'), findsOneWidget);
+      await _tap(tester, _check(1));
 
-    expect(server.setBodies.single, {
-      'kind': 'working',
-      'reps': 10,
-      'load_kg': 60.0,
-    });
-    expect(
-      find.bySemanticsLabel('Série 1 feita: 60 kg × 10. Toque para corrigir.'),
-      findsOneWidget,
-    );
-    // Descanso do exercício avulso.
-    expect(find.text('Descanso 01:30'), findsOneWidget);
+      expect(server.setBodies.single, {
+        'kind': 'working',
+        'reps': 10,
+        'load_kg': 60.0,
+      });
+      expect(_undo(1), findsOneWidget);
+      // Descanso do exercício avulso.
+      expect(find.text('Descanso 01:30'), findsOneWidget);
 
-    // A próxima linha sugere a segunda série da última vez.
-    await _tap(tester, _check(2));
-    expect(server.setBodies.last, {
-      'kind': 'working',
-      'reps': 8,
-      'load_kg': 62.5,
-    });
-  });
+      await _tap(tester, _check(2));
+      expect(server.setBodies.last, {
+        'kind': 'working',
+        'reps': 8,
+        'load_kg': 62.5,
+      });
+    },
+  );
 
-  testWidgets('o digitado vale mais que a sugestão; aquecimento num toque', (
+  testWidgets('o digitado vale mais que a sugestão; aquecimento pelo menu', (
     tester,
   ) async {
     final server = await _pumpSignedIn(tester);
     await _startTemplate(tester);
 
+    await _setKind(tester, 'Série 1 de $_supino, válida', 'Aquecimento');
+    await tester.enterText(_kg(0), '20');
+    await tester.enterText(_reps(0), '15');
     await _tap(
       tester,
-      find.bySemanticsLabel(
-        'Série 1 de Supino reto com barra, válida. Toque para marcar como aquecimento.',
-      ),
+      find.byTooltip('Concluir série de aquecimento de $_supino'),
     );
-    final fields = find.byType(TextField);
-    await tester.enterText(fields.at(0), '20');
-    await tester.enterText(fields.at(1), '15');
-    await _tap(tester, _check(1));
 
     expect(server.setBodies.single, {
       'kind': 'warmup',
       'reps': 15,
       'load_kg': 20.0,
     });
+    // O aquecimento não conta: a linha seguinte é a série 1.
+    expect(_check(1), findsOneWidget);
+  });
+
+  testWidgets('dá para concluir fora de ordem sem as linhas mudarem', (
+    tester,
+  ) async {
+    final server = await _pumpSignedIn(tester);
+    await _startTemplate(tester);
+    await tester.enterText(_kg(1), '70');
+
+    await _tap(tester, _check(2));
+    expect(server.setBodies.single, {
+      'kind': 'working',
+      'reps': 8,
+      'load_kg': 70.0,
+    });
+    expect(_check(1), findsOneWidget);
+    expect(_undo(2), findsOneWidget);
+
+    await tester.enterText(_kg(0), '60');
+    await _tap(tester, _check(1));
+    expect(_undo(1), findsOneWidget);
+    expect(_undo(2), findsOneWidget);
   });
 
   testWidgets('no bi-set, o descanso só começa no fim da rodada', (
@@ -163,7 +203,7 @@ void main() {
 
     // Tríceps (1º do bi-set): sem descanso.
     await _tap(tester, _check(1, 'Tríceps francês'));
-    expect(find.textContaining('Descanso'), findsNothing);
+    expect(_restTimer, findsNothing);
 
     // Agachamento (último do bi-set): descanso do grupo.
     await _tap(tester, _check(1, 'Agachamento livre'));
@@ -172,7 +212,7 @@ void main() {
     await _tap(tester, find.bySemanticsLabel('Mais 15 segundos'));
     expect(find.text('Descanso 01:15'), findsOneWidget);
     await _tap(tester, find.text('Pular'));
-    expect(find.textContaining('Descanso'), findsNothing);
+    expect(_restTimer, findsNothing);
   });
 
   testWidgets(
@@ -219,163 +259,157 @@ void main() {
     expect(find.textContaining('Informe as repetições.'), findsOneWidget);
     expect(server.setBodies, isEmpty);
 
+    // Peso do corpo: só o campo de repetições.
     await tester.enterText(find.byType(TextField).last, '20');
     await _tap(tester, _check(1, 'Flexão de braços'));
     expect(server.setBodies.single, {'kind': 'working', 'reps': 20});
-    // Sempre sobra uma linha para a próxima série.
+
+    await _tap(tester, find.widgetWithText(OutlinedButton, 'Adicionar série'));
     expect(_check(2, 'Flexão de braços'), findsOneWidget);
   });
 
-  testWidgets('corrigir e apagar uma série feita', (tester) async {
+  testWidgets('corrigir uma série feita no próprio campo e desfazer', (
+    tester,
+  ) async {
     final server = await _pumpSignedIn(tester);
     await _startTemplate(tester);
-    await tester.enterText(find.byType(TextField).at(0), '50');
+    await tester.enterText(_kg(0), '50');
     await _tap(tester, _check(1));
 
-    await _tap(tester, find.bySemanticsLabel(RegExp('Série 1 feita')));
-    await tester.enterText(find.widgetWithText(TextField, 'Repetições'), '9');
-    await _tap(tester, find.widgetWithText(FilledButton, 'Salvar'));
-    expect(server.setBodies.last, {'reps': 9, 'load_kg': 50.0});
-    expect(find.bySemanticsLabel(RegExp('50 kg × 9')), findsOneWidget);
+    await tester.enterText(_reps(0), '9');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(server.setBodies.last, {'reps': 9});
 
-    await _tap(tester, find.bySemanticsLabel(RegExp('Série 1 feita')));
-    await _tap(tester, find.text('Apagar'));
-    expect(find.bySemanticsLabel(RegExp('Série 1 feita')), findsNothing);
+    await _tap(tester, _undo(1));
     expect(server.sessionCalls.last, 'DELETE exercises');
+    expect(_check(1), findsOneWidget);
+    // Os valores ficam na linha para concluir de novo.
+    expect(tester.widget<TextField>(_kg(0)).controller!.text, '50');
+  });
+
+  testWidgets('remover uma linha pelo menu do tipo', (tester) async {
+    await _pumpSignedIn(tester);
+    await _startTemplate(tester);
+    expect(_check(3), findsOneWidget);
+
+    await _setKind(tester, 'Série 3 de $_supino', 'Remover série');
+    expect(_check(3), findsNothing);
+    expect(_check(2), findsOneWidget);
   });
 
   group('técnicas', () {
-    const supino = 'Supino reto com barra';
-    Finder dropButton() => find.bySemanticsLabel('Acrescentar drop em $supino');
-
-    testWidgets('drop set: tira 20% da carga e o descanso vem depois do drop', (
+    testWidgets('drop: vira D pelo menu, tira 20% e continua a série acima', (
       tester,
     ) async {
       final server = await _pumpSignedIn(tester);
       await _startTemplate(tester);
-      await tester.enterText(find.byType(TextField).at(0), '60');
-      await tester.enterText(find.byType(TextField).at(1), '10');
+      await tester.enterText(_kg(0), '60');
+      await tester.enterText(_reps(0), '10');
       await _tap(tester, _check(1));
-      expect(find.text('Descanso 01:30'), findsOneWidget);
 
-      // O drop emenda sem descanso.
-      await _tap(tester, dropButton());
-      expect(find.textContaining('Descanso'), findsNothing);
-      expect(find.text('Drop 1 · menos carga, sem descanso'), findsOneWidget);
-      // Os campos do drop vêm antes dos da série 2.
-      await tester.enterText(find.byType(TextField).at(1), '6');
+      await _setKind(tester, 'Série 2 de $_supino', 'Drop set');
+      // A linha seguinte passa a ser a série 2.
+      expect(_check(2), findsOneWidget);
+      await tester.enterText(_reps(1), '6');
       await _tap(
         tester,
-        find.byTooltip('Concluir Drop 1 da série 1 de $supino'),
+        find.byTooltip('Concluir drop set da série 1 de $_supino'),
       );
 
       expect(server.setBodies.last, {
         'kind': 'drop',
-        'parent_set_id': 'serie-1',
         'reps': 6,
         'load_kg': 47.5,
+        'parent_set_id': 'serie-1',
       });
-      expect(
-        find.bySemanticsLabel(
-          'Drop 1 da série 1: 47,5 kg × 6. Toque para corrigir.',
-        ),
-        findsOneWidget,
-      );
       expect(find.text('Descanso 01:30'), findsOneWidget);
-      // A série com drop conta como uma: a próxima linha é a série 2.
-      expect(_check(2), findsOneWidget);
     });
 
-    testWidgets('drop planejado na ficha abre o drop sozinho; ✕ desiste', (
-      tester,
-    ) async {
+    testWidgets('drop planejado na ficha emenda sem descanso', (tester) async {
       final server = await _pumpSignedIn(
         tester,
         setUp: (s) => s.templates = [_template(s, firstKind: 'drop')],
       );
       await _startTemplate(tester);
-      expect(
-        find.text('Drop set nesta série: depois do ✓, registre o drop.'),
-        findsOneWidget,
-      );
-      await tester.enterText(find.byType(TextField).at(0), '60');
-      await tester.enterText(find.byType(TextField).at(1), '10');
+      await tester.enterText(_kg(0), '60');
+      await tester.enterText(_reps(0), '10');
       await _tap(tester, _check(1));
 
-      // A série principal vai como válida; o drop já está aberto, sem descanso.
+      // A série principal vai como válida; o drop está logo abaixo, sem descanso.
       expect(server.setBodies.single['kind'], 'working');
-      expect(find.text('Drop 1 · menos carga, sem descanso'), findsOneWidget);
-      expect(find.textContaining('Descanso'), findsNothing);
-
-      await _tap(tester, find.byTooltip('Desistir do drop 1'));
-      expect(find.textContaining('Drop 1'), findsNothing);
-      expect(server.setBodies, hasLength(1));
-    });
-
-    testWidgets('rest-pause: pausa curta e mesma carga', (tester) async {
-      final server = await _pumpSignedIn(tester);
-      await _startTemplate(tester);
-      await tester.enterText(find.byType(TextField).at(0), '60');
-      await tester.enterText(find.byType(TextField).at(1), '8');
-      await _tap(tester, _check(1));
-
-      await _tap(
-        tester,
-        find.bySemanticsLabel('Acrescentar rest-pause em $supino'),
-      );
-      expect(find.text('Descanso 00:15'), findsOneWidget);
-      await tester.enterText(find.byType(TextField).at(1), '3');
-      await _tap(
-        tester,
-        find.byTooltip('Concluir Rest-pause 1 da série 1 de $supino'),
-      );
-      expect(server.setBodies.last, {
-        'kind': 'rest_pause',
-        'parent_set_id': 'serie-1',
-        'reps': 3,
-        'load_kg': 60.0,
-      });
-    });
-
-    testWidgets('marcar a falha na última série e apagar leva os drops', (
-      tester,
-    ) async {
-      final server = await _pumpSignedIn(tester);
-      await _startTemplate(tester);
-      await tester.enterText(find.byType(TextField).at(0), '60');
-      await tester.enterText(find.byType(TextField).at(1), '10');
-      await _tap(tester, _check(1));
-
-      await _tap(tester, find.widgetWithText(FilterChip, 'Até a falha'));
-      expect(server.setBodies.last, {'to_failure': true});
+      expect(_restTimer, findsNothing);
       expect(
-        find.bySemanticsLabel(
-          RegExp('Série 1 feita: 60 kg × 10 · até a falha'),
-        ),
+        find.byTooltip('Concluir drop set da série 1 de $_supino'),
         findsOneWidget,
       );
-
-      await _tap(tester, dropButton());
-      await tester.enterText(find.byType(TextField).at(1), '6');
-      await _tap(
-        tester,
-        find.byTooltip('Concluir Drop 1 da série 1 de $supino'),
-      );
-
-      await _tap(tester, find.bySemanticsLabel(RegExp('Série 1 feita')));
-      expect(
-        find.text('Apagar esta série apaga também o drop ou rest-pause dela.'),
-        findsOneWidget,
-      );
-      await _tap(tester, find.text('Apagar'));
-      expect(find.bySemanticsLabel(RegExp('Drop 1')), findsNothing);
-      expect(find.bySemanticsLabel(RegExp('Série 1 feita')), findsNothing);
     });
 
-    testWidgets('a última vez mostra o drop e sugere a mesma carga', (
+    testWidgets('rest-pause planejado: pausa curta e mesma carga', (
       tester,
     ) async {
       final server = await _pumpSignedIn(
+        tester,
+        setUp: (s) => s.templates = [_template(s, firstKind: 'rest_pause')],
+      );
+      await _startTemplate(tester);
+      await tester.enterText(_kg(0), '60');
+      await tester.enterText(_reps(0), '8');
+      await _tap(tester, _check(1));
+      expect(find.text('Descanso 00:15'), findsOneWidget);
+
+      await tester.enterText(_reps(1), '3');
+      await _tap(
+        tester,
+        find.byTooltip('Concluir rest-pause da série 1 de $_supino'),
+      );
+      expect(server.setBodies.last, {
+        'kind': 'rest_pause',
+        'reps': 3,
+        'load_kg': 60.0,
+        'parent_set_id': 'serie-1',
+      });
+    });
+
+    testWidgets('até a falha pelo menu, antes e depois de concluir', (
+      tester,
+    ) async {
+      final server = await _pumpSignedIn(tester);
+      await _startTemplate(tester);
+      await _setKind(tester, 'Série 1 de $_supino', 'Até a falha');
+      expect(find.text('F'), findsOneWidget);
+      await tester.enterText(_kg(0), '60');
+      await _tap(tester, _check(1));
+      expect(server.setBodies.single, {
+        'kind': 'working',
+        'to_failure': true,
+        'reps': 8,
+        'load_kg': 60.0,
+      });
+
+      await _setKind(tester, 'Série 1 de $_supino, até a falha', 'Válida');
+      expect(server.setBodies.last, {'kind': 'working', 'to_failure': false});
+      expect(find.text('F'), findsNothing);
+    });
+
+    testWidgets('a primeira linha não vira drop: falta uma série acima', (
+      tester,
+    ) async {
+      await _pumpSignedIn(tester);
+      await _startTemplate(tester);
+      await _tap(
+        tester,
+        find.bySemanticsLabel(RegExp('^Série 1 de $_supino.*mudar o tipo')),
+      );
+      final drop = tester.widget<ListTile>(
+        find.widgetWithText(ListTile, 'Drop set'),
+      );
+      expect(drop.enabled, isFalse);
+      expect(find.text('Precisa de uma série válida acima.'), findsWidgets);
+    });
+
+    testWidgets('a última vez traz o drop na linha dele', (tester) async {
+      await _pumpSignedIn(
         tester,
         setUp: (s) => s.previousSets = {
           'ex-supino': [
@@ -393,25 +427,43 @@ void main() {
         },
       );
       await _startTemplate(tester);
-      expect(
-        find.text('Última vez: 60 kg × 10 (falha) + 45 kg × 6'),
-        findsOneWidget,
-      );
-
-      await _tap(tester, _check(1));
-      await _tap(tester, dropButton());
-      // Um toque: a sugestão é o drop da última vez.
-      await _tap(
-        tester,
-        find.byTooltip('Concluir Drop 1 da série 1 de $supino'),
-      );
-      expect(server.setBodies.last, {
-        'kind': 'drop',
-        'parent_set_id': 'serie-1',
-        'reps': 6,
-        'load_kg': 45.0,
-      });
+      expect(find.text('60 kg × 10 (F)'), findsOneWidget);
+      expect(find.text('45 kg × 6'), findsOneWidget);
     });
+  });
+
+  testWidgets('descanso e nota do exercício mudam no próprio treino', (
+    tester,
+  ) async {
+    final server = await _pumpSignedIn(tester);
+    await _startTemplate(tester);
+
+    await _tap(tester, find.widgetWithText(ActionChip, 'Descanso: 1 min 30 s'));
+    await _tap(tester, find.widgetWithText(ListTile, '2 min'));
+    expect(server.exerciseUpdates.last, {'rest_s': 120});
+    expect(find.widgetWithText(ActionChip, 'Descanso: 2 min'), findsOneWidget);
+
+    await _tap(tester, find.widgetWithText(ActionChip, 'Nota').first);
+    await tester.enterText(find.byType(TextField).last, 'Banco no 3');
+    await _tap(tester, find.widgetWithText(FilledButton, 'Salvar'));
+    expect(server.exerciseUpdates.last, {'notes': 'Banco no 3'});
+    expect(find.text('Banco no 3'), findsOneWidget);
+
+    // O descanso novo vale para a próxima série.
+    await _tap(tester, _check(1));
+    expect(find.text('Descanso 02:00'), findsOneWidget);
+  });
+
+  testWidgets('o resumo do topo soma volume e séries na hora', (tester) async {
+    await _pumpSignedIn(tester);
+    await _startTemplate(tester);
+    expect(find.bySemanticsLabel('Séries: 0'), findsOneWidget);
+
+    await tester.enterText(_kg(0), '60');
+    await tester.enterText(_reps(0), '10');
+    await _tap(tester, _check(1));
+    expect(find.bySemanticsLabel('Volume: 600 kg'), findsOneWidget);
+    expect(find.bySemanticsLabel('Séries: 1'), findsOneWidget);
   });
 
   testWidgets('pausar e retomar', (tester) async {
@@ -429,7 +481,7 @@ void main() {
   ) async {
     final server = await _pumpSignedIn(tester);
     await _startTemplate(tester);
-    await tester.enterText(find.byType(TextField).at(1), '10');
+    await tester.enterText(_reps(0), '10');
     await _tap(tester, _check(1));
 
     await _tap(tester, find.widgetWithText(FilledButton, 'Finalizar treino'));

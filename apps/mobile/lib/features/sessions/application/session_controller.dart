@@ -74,6 +74,13 @@ class SessionController extends AsyncNotifier<WorkoutSession?> {
     state = AsyncData(session);
   }
 
+  Future<void> updateExercise(
+    String entryId,
+    Map<String, Object?> changes,
+  ) async {
+    state = AsyncData(await _api.updateExercise(_session.id, entryId, changes));
+  }
+
   Future<void> removeExercise(String entryId) async {
     await _api.removeExercise(_session.id, entryId);
     state = AsyncData(await _api.get(_session.id));

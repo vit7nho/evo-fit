@@ -467,14 +467,6 @@ void main() {
     await tester.tap(card);
     await tester.pumpAndSettle();
 
-    final check = find.byTooltip('Concluir série 1 de Supino reto com barra');
-    await tester.ensureVisible(check);
-    await tester.pumpAndSettle();
-    await tester.tap(check);
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Descanso'), findsOneWidget);
-
-    // Série 2 planejada como drop: a linha do drop abre embaixo.
     Future<void> tapVisible(Finder finder) async {
       await tester.ensureVisible(finder);
       await tester.pumpAndSettle();
@@ -482,18 +474,29 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    const supino = 'Supino reto com barra';
+    // Linhas da ficha: aquecimento, série 1 e o drop planejado.
     await tapVisible(
-      find.byTooltip('Concluir série 2 de Supino reto com barra'),
+      find.byTooltip('Concluir série de aquecimento de $supino'),
     );
+    expect(find.textContaining(RegExp(r'^Descanso \d')), findsOneWidget);
+    await tapVisible(find.byTooltip('Concluir série 1 de $supino'));
+    await tapVisible(find.byTooltip('Concluir drop set da série 1 de $supino'));
+    expect(find.textContaining('Anterior: '), findsWidgets);
+
+    // Menu do tipo, descanso e nota com fonte grande.
     await tapVisible(
-      find.byTooltip('Concluir Drop 1 da série 2 de Supino reto com barra'),
+      find.bySemanticsLabel(RegExp('^Série 1 de $supino.*mudar o tipo')),
     );
-    await tapVisible(find.widgetWithText(FilterChip, 'Até a falha'));
-    await tapVisible(
-      find.bySemanticsLabel('Acrescentar rest-pause em Supino reto com barra'),
-    );
-    expect(find.textContaining('Rest-pause 1'), findsOneWidget);
-    await tapVisible(find.bySemanticsLabel(RegExp('Drop 1 da série 2')));
-    expect(find.text('Drop 1 da série 2'), findsOneWidget);
+    expect(find.text('Tipo da série'), findsOneWidget);
+    // Com fonte grande o menu ocupa a tela toda: fecha pelo voltar.
+    Navigator.of(tester.element(find.text('Tipo da série'))).pop();
+    await tester.pumpAndSettle();
+    await tapVisible(find.byTooltip('Mudar o descanso de $supino'));
+    expect(find.text('Descanso de $supino'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Descanso de $supino'))).pop();
+    await tester.pumpAndSettle();
+    await tapVisible(find.byTooltip('Nota de $supino'));
+    expect(find.text('Nota de $supino'), findsWidgets);
   });
 }

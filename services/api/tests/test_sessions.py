@@ -608,3 +608,39 @@ def test_segment_cannot_chain_to_another_users_set(client: TestClient, signup) -
     response = log(client, bia, bias, 0, kind="drop", parent_set_id=anas_set["id"], reps=6)
     assert response.status_code == 422
     assert field_errors(response) == ["parent_set_id"]
+
+
+# --- ajustes do exercício no treino ---
+
+
+def test_adjust_rest_and_note_during_the_session(client: TestClient, signup) -> None:
+    headers = signup()
+    ficha = template(client, headers)
+    session = start(client, headers, template_id=ficha["id"])
+    url = f"{BASE}/{session['id']}/exercises/{session['exercises'][0]['id']}"
+
+    response = client.patch(url, headers=headers, json={"rest_s": 150, "notes": "  Banco 3  "})
+    assert response.status_code == 200
+    entry = response.json()["exercises"][0]
+    assert (entry["rest_s"], entry["notes"]) == (150, "Banco 3")
+
+    # Só o que veio muda; nota vazia limpa.
+    entry = client.patch(url, headers=headers, json={"notes": ""}).json()["exercises"][0]
+    assert (entry["rest_s"], entry["notes"]) == (150, None)
+    assert field_errors(client.patch(url, headers=headers, json={"rest_s": 601})) == ["rest_s"]
+
+    # A ficha não muda.
+    item = client.get(f"/api/v1/workout-templates/{ficha['id']}", headers=headers).json()
+    assert item["items"][0]["rest_s"] == 120
+
+
+def test_adjusting_another_users_or_closed_session(client: TestClient, signup) -> None:
+    ana = signup("ana@exemplo.com")
+    bia = signup("bia@exemplo.com", "Bia")
+    session = start(client, ana, template_id=template(client, ana)["id"])
+    url = f"{BASE}/{session['id']}/exercises/{session['exercises'][0]['id']}"
+
+    assert client.patch(url, headers=bia, json={"rest_s": 30}).status_code == 404
+    logged(client, ana, session, 0, reps=10, load_kg=60)
+    client.post(f"{BASE}/{session['id']}/finish", headers=ana, json={})
+    assert client.patch(url, headers=ana, json={"rest_s": 30}).status_code == 409
