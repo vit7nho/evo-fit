@@ -9,44 +9,55 @@ abstract final class SessionStatus {
   static const completed = 'completed';
 }
 
-/// Série registrada.
+/// Técnicas que continuam uma série válida, registradas como segmentos dela.
+const segmentKinds = {SetKind.drop, SetKind.restPause};
+
+/// Série registrada. Drop e rest-pause são segmentos: apontam para a série que continuam.
 @immutable
 class LoggedSet {
   const LoggedSet({
     required this.id,
     required this.position,
     required this.kind,
+    this.parentSetId,
     this.reps,
     this.loadKg,
     this.durationS,
     this.rir,
     this.rpe,
+    this.toFailure = false,
   });
 
   factory LoggedSet.fromJson(Map<String, dynamic> json) => LoggedSet(
     id: json['id'] as String,
     position: json['position'] as int,
     kind: json['kind'] as String,
+    parentSetId: json['parent_set_id'] as String?,
     reps: json['reps'] as int?,
     loadKg: (json['load_kg'] as num?)?.toDouble(),
     durationS: json['duration_s'] as int?,
     rir: json['rir'] as int?,
     rpe: (json['rpe'] as num?)?.toDouble(),
+    toFailure: json['to_failure'] as bool? ?? false,
   );
 
   final String id;
   final int position;
   final String kind;
+  final String? parentSetId;
   final int? reps;
   final double? loadKg;
   final int? durationS;
   final int? rir;
   final double? rpe;
+  final bool toFailure;
 
   bool get isWarmup => kind == SetKind.warmup;
+  bool get isSegment => parentSetId != null;
 }
 
-/// Uma série da última sessão: a referência para preencher a de hoje.
+/// Uma série da última sessão: a referência para preencher a de hoje. As séries
+/// principais trazem os próprios segmentos (drop, rest-pause).
 @immutable
 class PreviousSet {
   const PreviousSet({
@@ -54,6 +65,8 @@ class PreviousSet {
     this.reps,
     this.loadKg,
     this.durationS,
+    this.toFailure = false,
+    this.segments = const [],
   });
 
   factory PreviousSet.fromJson(Map<String, dynamic> json) => PreviousSet(
@@ -61,12 +74,18 @@ class PreviousSet {
     reps: json['reps'] as int?,
     loadKg: (json['load_kg'] as num?)?.toDouble(),
     durationS: json['duration_s'] as int?,
+    toFailure: json['to_failure'] as bool? ?? false,
+    segments: (json['segments'] as List<dynamic>? ?? const [])
+        .map((s) => PreviousSet.fromJson(s as Map<String, dynamic>))
+        .toList(),
   );
 
   final String kind;
   final int? reps;
   final double? loadKg;
   final int? durationS;
+  final bool toFailure;
+  final List<PreviousSet> segments;
 }
 
 /// Valores sugeridos para uma linha ainda não feita.
@@ -150,28 +169,79 @@ class SessionExercise {
     previousAt: previousAt,
   );
 
+  /// Séries principais (sem os segmentos), na ordem: uma por linha da tela.
+  List<LoggedSet> get mainSets => [
+    for (final s in sets)
+      if (!s.isSegment) s,
+  ];
+
+  /// Segmentos (drop, rest-pause) da série [parentId], na ordem.
+  List<LoggedSet> segmentsOf(String parentId) => [
+    for (final s in sets)
+      if (s.parentSetId == parentId) s,
+  ];
+
   /// Quantas linhas mostrar: o plano, o que já foi feito e as acrescentadas na hora.
   /// Sem plano (exercício avulso), sempre sobra uma linha em branco para a próxima.
   int rowCount({int extra = 0}) {
+    final done = mainSets.length;
     final planned = plannedSets?.length ?? 0;
-    final base = planned == 0 ? sets.length + 1 : planned;
-    final count = base > sets.length ? base : sets.length;
+    final base = planned == 0 ? done + 1 : planned;
+    final count = base > done ? base : done;
     return count + extra;
   }
 
+  /// Técnica que o plano marca para a linha [row] (drop ou rest-pause), se houver.
+  String? technique(int row) {
+    final planned = plannedSets != null && row < plannedSets!.length
+        ? plannedSets![row].kind
+        : null;
+    return segmentKinds.contains(planned) ? planned : null;
+  }
+
   /// Sugestão para a linha [row]: a série de mesma posição na última sessão e, na
-  /// falta dela, o plano da ficha (o mínimo da faixa de repetições).
+  /// falta dela, o plano da ficha (o mínimo da faixa de repetições). Uma série
+  /// planejada como drop ou rest-pause é feita como válida; os segmentos vêm depois.
   SetSuggestion suggestion(int row) {
     final planned = plannedSets != null && row < plannedSets!.length
         ? plannedSets![row]
         : null;
     final last = row < previous.length ? previous[row] : null;
-    final fallback = sets.isNotEmpty ? sets.last : null;
+    final done = mainSets;
+    final fallback = done.isNotEmpty ? done.last : null;
+    final plannedKind = planned == null || segmentKinds.contains(planned.kind)
+        ? null
+        : planned.kind;
     return SetSuggestion(
-      kind: planned?.kind ?? last?.kind ?? SetKind.working,
+      kind: plannedKind ?? last?.kind ?? SetKind.working,
       reps: last?.reps ?? planned?.repsMin ?? fallback?.reps,
       loadKg: last?.loadKg ?? planned?.loadKg ?? fallback?.loadKg,
       durationS: last?.durationS ?? planned?.durationS ?? fallback?.durationS,
+    );
+  }
+
+  /// Sugestão para o próximo segmento [kind] da série [parent] (linha [row]): o
+  /// segmento de mesma posição da última vez; sem ele, o drop tira 20% da carga
+  /// anterior (múltiplo de 2,5 kg) e o rest-pause repete a carga.
+  SetSuggestion segmentSuggestion(int row, LoggedSet parent, String kind) {
+    final done = segmentsOf(parent.id);
+    final last = row < previous.length ? previous[row] : null;
+    final before = last == null
+        ? const <PreviousSet>[]
+        : last.segments.where((s) => s.kind == kind).toList();
+    final index = done.where((s) => s.kind == kind).length;
+    final match = index < before.length ? before[index] : null;
+    final lastLoad = done.isNotEmpty ? done.last.loadKg : parent.loadKg;
+    double? load = lastLoad;
+    if (kind == SetKind.drop && lastLoad != null) {
+      final dropped = (lastLoad * 0.8 / 2.5).round() * 2.5;
+      load = dropped < lastLoad ? dropped : lastLoad - 2.5;
+      if (load <= 0) load = null;
+    }
+    return SetSuggestion(
+      kind: kind,
+      reps: match?.reps,
+      loadKg: match?.loadKg ?? load,
     );
   }
 }

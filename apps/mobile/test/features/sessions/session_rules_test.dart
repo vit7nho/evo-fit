@@ -29,10 +29,17 @@ Map<String, Object?> _exercise(
   'previous_at': previous.isEmpty ? null : '2026-10-30T10:00:00Z',
 };
 
-Map<String, Object?> _set(int position, {int reps = 10, double load = 60}) => {
+Map<String, Object?> _set(
+  int position, {
+  int reps = 10,
+  double load = 60,
+  String kind = 'working',
+  String? parent,
+}) => {
   'id': 's$position',
   'position': position,
-  'kind': 'working',
+  'kind': kind,
+  'parent_set_id': parent,
   'reps': reps,
   'load_kg': load,
   'duration_s': null,
@@ -167,6 +174,117 @@ void main() {
         ),
       );
       expect(entry.suggestion(0).durationS, 45);
+    });
+  });
+
+  group('técnicas', () {
+    test('segmentos não viram linhas: a série com drop conta como uma', () {
+      final entry = _session([
+        _exercise(
+          'supino',
+          planned: [
+            {'kind': 'working', 'reps_min': 8},
+            {'kind': 'working', 'reps_min': 8},
+          ],
+          sets: [
+            _set(0),
+            _set(1, kind: 'drop', parent: 's0', load: 47.5),
+            _set(2, kind: 'drop', parent: 's0', load: 37.5),
+          ],
+        ),
+      ]).exercises.single;
+
+      expect(entry.mainSets.map((s) => s.id), ['s0']);
+      expect(entry.segmentsOf('s0').map((s) => s.loadKg), [47.5, 37.5]);
+      expect(entry.rowCount(), 2);
+      // A sugestão da próxima linha repete a série principal, não o drop.
+      expect(entry.suggestion(1).loadKg, 60);
+    });
+
+    test('série planejada como drop é feita como válida e marca a técnica', () {
+      final entry = _session([
+        _exercise(
+          'supino',
+          planned: [
+            {'kind': 'drop', 'reps_min': 8, 'load_kg': 60},
+            {'kind': 'rest_pause', 'reps_min': 8},
+            {'kind': 'warmup', 'reps_min': 15},
+          ],
+        ),
+      ]).exercises.single;
+
+      expect(entry.suggestion(0).kind, 'working');
+      expect(
+        [entry.technique(0), entry.technique(1), entry.technique(2)],
+        ['drop', 'rest_pause', null],
+      );
+      expect(entry.suggestion(2).kind, 'warmup');
+    });
+
+    test(
+      'drop sugere 20% a menos, em múltiplos de 2,5 kg; rest-pause repete',
+      () {
+        final entry = _session([
+          _exercise(
+            'supino',
+            sets: [
+              _set(0, load: 60),
+              _set(1, kind: 'drop', parent: 's0', load: 47.5),
+            ],
+          ),
+        ]).exercises.single;
+        final parent = entry.mainSets.single;
+
+        // Segundo drop: a partir do primeiro (47,5 → 37,5).
+        expect(entry.segmentSuggestion(0, parent, 'drop').loadKg, 37.5);
+        expect(entry.segmentSuggestion(0, parent, 'rest_pause').loadKg, 47.5);
+        expect(entry.segmentSuggestion(0, parent, 'drop').reps, isNull);
+      },
+    );
+
+    test(
+      'carga pequena: o drop tira ao menos 2,5 kg, e nunca fica negativo',
+      () {
+        SetSuggestion drop(double load) {
+          final entry = _session([
+            _exercise('rosca', sets: [_set(0, load: load)]),
+          ]).exercises.single;
+          return entry.segmentSuggestion(0, entry.mainSets.single, 'drop');
+        }
+
+        expect(drop(10).loadKg, 7.5);
+        expect(drop(5).loadKg, 2.5);
+        expect(drop(2.5).loadKg, isNull);
+      },
+    );
+
+    test('o segmento da última vez vale mais que a conta dos 20%', () {
+      final entry = _session([
+        _exercise(
+          'supino',
+          sets: [_set(0, load: 60)],
+          previous: [
+            {
+              'kind': 'working',
+              'reps': 10,
+              'load_kg': 60,
+              'duration_s': null,
+              'to_failure': true,
+              'segments': [
+                {'kind': 'drop', 'reps': 6, 'load_kg': 40, 'duration_s': null},
+              ],
+            },
+          ],
+        ),
+      ]).exercises.single;
+      final suggestion = entry.segmentSuggestion(
+        0,
+        entry.mainSets.single,
+        'drop',
+      );
+
+      expect(entry.previous.single.toFailure, isTrue);
+      expect((suggestion.loadKg, suggestion.reps), (40.0, 6));
     });
   });
 

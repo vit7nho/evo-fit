@@ -399,7 +399,7 @@ void main() {
     expect(find.text('Série 3'), findsOneWidget);
   });
 
-  testWidgets('treino: cartões, série feita e barra de descanso', (
+  testWidgets('treino: cartões, série feita, drop set e barra de descanso', (
     tester,
   ) async {
     _worstCaseScreen(tester);
@@ -419,7 +419,7 @@ void main() {
                 'exercise_id': id,
                 'planned_sets': [
                   {'kind': 'warmup', 'reps_min': 15, 'reps_max': 20},
-                  {'kind': 'working', 'reps_min': 8, 'reps_max': 12},
+                  {'kind': 'drop', 'reps_min': 8, 'reps_max': 12},
                 ],
                 'rest_s': 90,
                 'notes': null,
@@ -440,6 +440,16 @@ void main() {
               'reps': 12,
               'load_kg': 182.5,
               'duration_s': null,
+              'to_failure': true,
+              'segments': [
+                for (final load in [142.5, 112.5, 87.5])
+                  {
+                    'kind': 'drop',
+                    'reps': 10,
+                    'load_kg': load,
+                    'duration_s': null,
+                  },
+              ],
             },
           ],
         };
@@ -463,5 +473,27 @@ void main() {
     await tester.tap(check);
     await tester.pumpAndSettle();
     expect(find.textContaining('Descanso'), findsOneWidget);
+
+    // Série 2 planejada como drop: a linha do drop abre embaixo.
+    Future<void> tapVisible(Finder finder) async {
+      await tester.ensureVisible(finder);
+      await tester.pumpAndSettle();
+      await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    await tapVisible(
+      find.byTooltip('Concluir série 2 de Supino reto com barra'),
+    );
+    await tapVisible(
+      find.byTooltip('Concluir Drop 1 da série 2 de Supino reto com barra'),
+    );
+    await tapVisible(find.widgetWithText(FilterChip, 'Até a falha'));
+    await tapVisible(
+      find.bySemanticsLabel('Acrescentar rest-pause em Supino reto com barra'),
+    );
+    expect(find.textContaining('Rest-pause 1'), findsOneWidget);
+    await tapVisible(find.bySemanticsLabel(RegExp('Drop 1 da série 2')));
+    expect(find.text('Drop 1 da série 2'), findsOneWidget);
   });
 }

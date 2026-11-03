@@ -24,8 +24,10 @@ from app.modules.users.models import User
 logger = logging.getLogger(__name__)
 
 OPEN = ("in_progress", "paused")
+SEGMENT_KINDS = ("drop", "rest_pause")
 MAX_EXERCISES = 30
 MAX_SETS = 20
+MAX_SEGMENTS = 5
 FREE_NAME = "Treino livre"
 
 
@@ -91,6 +93,12 @@ def _check_set_values(exercise: Exercise, reps: int | None, duration_s: int | No
             raise FieldValidationError("duration_s", f"{exercise.name} é feito por repetições.")
 
 
+def _check_failure(to_failure: bool, rir: int | None) -> None:
+    """Até a falha não sobra repetição: o RIR, se vier, é 0."""
+    if to_failure and rir not in (None, 0):
+        raise FieldValidationError("rir", "Série até a falha não deixa repetições em reserva.")
+
+
 class SessionService:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -136,9 +144,9 @@ class SessionService:
             ).first()
             if row is not None:
                 previous, started_at = row
-                sets = [s for s in previous.sets if s.parent_set_id is None]
-                if sets:
-                    found[exercise_id] = (sets, started_at)
+                # Vão todas: o router junta os segmentos à série principal de cada um.
+                if any(s.parent_set_id is None for s in previous.sets):
+                    found[exercise_id] = (list(previous.sets), started_at)
         return found
 
     # --- ciclo de vida ---
@@ -296,15 +304,18 @@ class SessionService:
                 "kind", f"Um exercício tem até {MAX_SETS} séries por treino."
             )
         _check_set_values(entry.exercise, data.reps, data.duration_s)
+        _check_failure(data.to_failure, data.rir)
+        parent_id = self._check_parent(entry, data.kind, data.parent_set_id)
         entry_set = SetEntry(
             position=max((s.position for s in entry.sets), default=-1) + 1,
             kind=data.kind,
+            parent_set_id=parent_id,
             reps=data.reps,
             load_kg=data.load_kg,
             duration_s=data.duration_s,
             rir=data.rir,
             rpe=data.rpe,
-            to_failure=False,
+            to_failure=data.to_failure,
             completed_at=_now(),
         )
         entry.sets.append(entry_set)
@@ -324,11 +335,23 @@ class SessionService:
         entry = self._entry(session, entry_id)
         entry_set = self._set(entry, set_id)
         changes = data.model_fields_set
-        if "kind" in changes and data.kind is None:
-            raise FieldValidationError("kind", "Campo obrigatório.")
+        for name in ("kind", "to_failure"):
+            if name in changes and getattr(data, name) is None:
+                raise FieldValidationError(name, "Campo obrigatório.")
+        if "kind" in changes and data.kind != entry_set.kind:
+            if entry_set.kind in SEGMENT_KINDS:
+                raise FieldValidationError("kind", "O tipo de um drop ou rest-pause não muda.")
+            if data.kind == "warmup" and self._segments(entry, entry_set):
+                raise FieldValidationError(
+                    "kind", "Aquecimento não tem drop nem rest-pause: apague-os antes."
+                )
         reps = data.reps if "reps" in changes else entry_set.reps
         duration = data.duration_s if "duration_s" in changes else entry_set.duration_s
         _check_set_values(entry.exercise, reps, duration)
+        _check_failure(
+            data.to_failure if "to_failure" in changes else entry_set.to_failure,
+            data.rir if "rir" in changes else entry_set.rir,
+        )
         for name in changes:
             setattr(entry_set, name, getattr(data, name))
         self.db.commit()
@@ -340,7 +363,13 @@ class SessionService:
     ) -> None:
         session = self._open(user, session_id)
         entry = self._entry(session, entry_id)
-        entry.sets.remove(self._set(entry, set_id))
+        entry_set = self._set(entry, set_id)
+        # Segmentos primeiro, num flush à parte: sem relação declarada entre eles, o ORM não
+        # sabe a ordem e o banco já teria apagado os segmentos junto com a série.
+        for segment in self._segments(entry, entry_set):
+            entry.sets.remove(segment)
+        self.db.flush()
+        entry.sets.remove(entry_set)
         self.db.commit()
 
     # --- apoio ---
@@ -364,6 +393,37 @@ class SessionService:
             if entry_set.id == set_id:
                 return entry_set
         raise NotFoundError("Série não encontrada.")
+
+    @staticmethod
+    def _segments(entry: SessionExercise, parent: SetEntry) -> list[SetEntry]:
+        return [s for s in entry.sets if s.parent_set_id == parent.id]
+
+    def _check_parent(
+        self, entry: SessionExercise, kind: str, parent_id: uuid.UUID | None
+    ) -> uuid.UUID | None:
+        """Segmento continua uma série válida do mesmo exercício; as demais não têm pai."""
+        if kind not in SEGMENT_KINDS:
+            if parent_id is not None:
+                raise FieldValidationError(
+                    "parent_set_id", "Só drop set e rest-pause continuam outra série."
+                )
+            return None
+        if parent_id is None:
+            raise FieldValidationError(
+                "parent_set_id", "Informe a série que o drop ou rest-pause continua."
+            )
+        parent = next((s for s in entry.sets if s.id == parent_id), None)
+        if parent is None:
+            raise FieldValidationError("parent_set_id", "Série não encontrada neste exercício.")
+        if parent.kind != "working":
+            raise FieldValidationError(
+                "parent_set_id", "Drop set e rest-pause continuam uma série válida."
+            )
+        if len(self._segments(entry, parent)) >= MAX_SEGMENTS:
+            raise FieldValidationError(
+                "parent_set_id", f"Uma série tem até {MAX_SEGMENTS} drops ou rest-pauses."
+            )
+        return parent.id
 
     @staticmethod
     def _close_pause(session: WorkoutSession, now: datetime) -> None:

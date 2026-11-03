@@ -80,10 +80,11 @@ class SessionController extends AsyncNotifier<WorkoutSession?> {
   }
 
   /// Registra uma série e a acrescenta ao exercício, sem recarregar o treino inteiro.
-  Future<void> logSet(String entryId, Map<String, Object?> body) async {
+  Future<LoggedSet> logSet(String entryId, Map<String, Object?> body) async {
     final session = _session;
     final logged = await _api.addSet(session.id, entryId, body);
     _replaceSets(entryId, (sets) => [...sets, logged]);
+    return logged;
   }
 
   Future<void> updateSet(
@@ -98,13 +99,14 @@ class SessionController extends AsyncNotifier<WorkoutSession?> {
     );
   }
 
+  /// Apaga a série; os segmentos dela (drop, rest-pause) vão junto, como na API.
   Future<void> deleteSet(String entryId, String setId) async {
     await _api.deleteSet(_session.id, entryId, setId);
     _replaceSets(
       entryId,
       (sets) => [
         for (final s in sets)
-          if (s.id != setId) s,
+          if (s.id != setId && s.parentSetId != setId) s,
       ],
     );
   }

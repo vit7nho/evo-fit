@@ -33,17 +33,20 @@ class ExerciseAdd(BaseModel):
 class SetIn(BaseModel):
     """Série executada. Repetições ou duração, conforme o exercício; carga e RIR/RPE opcionais.
 
-    Drop set, rest-pause e falha entram na 2.7.
+    Drop set e rest-pause são segmentos da mesma série: `kind` `drop`/`rest_pause` com
+    `parent_set_id` apontando para a série válida que eles continuam (ADR-033).
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["warmup", "working"] = "working"
+    kind: Literal["warmup", "working", "drop", "rest_pause"] = "working"
+    parent_set_id: uuid.UUID | None = None
     reps: Reps | None = None
     load_kg: Load | None = None
     duration_s: Duration | None = None
     rir: Rir | None = None
     rpe: Rpe | None = None
+    to_failure: bool = False
 
 
 class SetUpdate(BaseModel):
@@ -51,12 +54,14 @@ class SetUpdate(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    # Só entre aquecimento e válida; o tipo de um segmento não muda.
     kind: Literal["warmup", "working"] | None = None
     reps: Reps | None = None
     load_kg: Load | None = None
     duration_s: Duration | None = None
     rir: Rir | None = None
     rpe: Rpe | None = None
+    to_failure: bool | None = None
 
 
 class SessionFinish(BaseModel):
@@ -70,6 +75,8 @@ class SetOut(BaseModel):
     id: uuid.UUID
     position: int
     kind: str
+    # Série que o segmento (drop, rest-pause) continua; nulo nas séries principais.
+    parent_set_id: uuid.UUID | None
     reps: int | None
     load_kg: float | None
     duration_s: int | None
@@ -79,11 +86,21 @@ class SetOut(BaseModel):
     completed_at: datetime
 
 
+class PreviousSegment(BaseModel):
+    kind: str
+    reps: int | None
+    load_kg: float | None
+    duration_s: int | None
+
+
 class PreviousSet(BaseModel):
     kind: str
     reps: int | None
     load_kg: float | None
     duration_s: int | None
+    to_failure: bool
+    # Segmentos feitos depois dela (drop, rest-pause), na ordem.
+    segments: list[PreviousSegment]
 
 
 class SessionExerciseOut(BaseModel):
@@ -116,6 +133,7 @@ class SessionOut(BaseModel):
     notes: str | None
     groups: list[GroupOut]
     exercises: list[SessionExerciseOut]
-    # Resumo: séries válidas (sem aquecimento) e volume (carga x repetições, só carga externa).
+    # Resumo: séries válidas (sem aquecimento nem segmentos: um drop set é uma série só) e
+    # volume (carga x repetições, só carga externa, segmentos incluídos).
     set_count: int
     volume_kg: float

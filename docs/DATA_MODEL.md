@@ -73,7 +73,7 @@ stimulus_methodologies                              (configuração versionada, 
 | `to_failure` | bool | |
 | `completed_at` | timestamptz | |
 
-Restrição: `kind in (drop, rest_pause, cluster)` ⇔ `parent_set_id IS NOT NULL`.
+Restrição: `kind in (drop, rest_pause, cluster)` ⇔ `parent_set_id IS NOT NULL`. A API (2.7) garante também que o pai é uma série `working` do mesmo `session_exercise` (sem segmento de segmento) e limita a 5 segmentos por série; `cluster` ainda não é aceito.
 
 **Recordes pessoais**: **calculados sob demanda** (consultas indexadas por `user_id, exercise_id`), não armazenados. Tipos: maior carga para N reps, maior e1RM estimado (Epley, rotulado como estimativa), maior volume em uma sessão. Uma *materialized view* só será considerada se houver problema de desempenho.
 

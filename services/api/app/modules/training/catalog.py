@@ -16,8 +16,8 @@ GROUP_SIZES: Final = {
     "giant_set": (4, 6),
 }
 
-# Tipo de cada série planejada. Na execução (2.6), drop e rest-pause viram segmentos
-# encadeados à série principal; no plano, marcam onde aplicar a técnica.
+# Tipo de cada série planejada. No plano, drop e rest-pause marcam a série em que aplicar a
+# técnica; na execução (2.7), ela é registrada como válida e os segmentos vêm encadeados.
 SET_KINDS: Final = {
     "warmup": "Aquecimento",
     "working": "Válida",

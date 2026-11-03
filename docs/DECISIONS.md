@@ -215,3 +215,15 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 - **Descartar apaga** (atividade, sessão, exercícios e séries); não existe estado `discarded`.
 - **`activities` nasce agora** (modalidade `strength`), como base da Fase 3; drop, rest-pause e falha (2.7) já têm colunas (`parent_set_id`, `to_failure`, CHECK do segmento), mas a API ainda recusa esses tipos.
 - **Achados no emulador**, corrigidos: o botão preenchido de iniciar ficava com o ícone preto sobre preto (tema dos IconButtons); a sugestão só aparecia ao tocar no campo (rótulo agora sempre no alto); a barra de descanso não ocupava a largura toda. Nos testes, o tempo e a barra de descanso estouravam com fonte em 200% (corrigidos com a faixa do tempo e o `Wrap`).
+
+### ADR-033 — Drop set e rest-pause como segmentos da série
+**Status:** Aceita · Fase 2.7
+**Decisões:**
+- **Segmento, não série nova**: drop e rest-pause são linhas de `set_entries` com `parent_set_id` apontando para a série válida que continuam. A contagem de séries (resumo, e depois histórico e volume por músculo do DATA_MODEL §5) trata a cadeia como uma série; o volume em kg soma tudo.
+- **Regras na API**: o pai é uma série `working` do mesmo exercício no mesmo treino (o que também impede usar a série de outra pessoa); sem segmento de segmento; até 5 por série; o tipo do segmento não muda; apagar a série leva os segmentos (o serviço apaga os segmentos num flush antes da série, porque sem relação declarada o ORM não conhece a ordem).
+- **Falha é uma marca** (`to_failure`) em qualquer série ou segmento, incompatível com RIR acima de 0.
+- **Sem toque longo**: as ações ficam visíveis sob a última série feita (“Drop”, “Rest-pause”, “Até a falha”), alcançáveis pelo TalkBack e sem gesto escondido. Drop só aparece em exercício com carga externa; drop e rest-pause não aparecem em exercício por tempo.
+- **Sugestões**: o segmento da última vez, se houver; senão o drop tira 20% da carga anterior (múltiplo de 2,5 kg, ao menos 2,5 kg) e o rest-pause repete a carga. Repetições do segmento não são inventadas: sem histórico, o usuário digita.
+- **Descanso**: o drop cancela o descanso (é feito em seguida); o rest-pause começa com 15 s; salvar o segmento inicia o descanso normal do exercício.
+- **Plano da ficha**: série planejada como drop/rest-pause é registrada como válida, com aviso na linha, e a linha do segmento abre sozinha depois do ✓.
+- **Achado no emulador**, corrigido: o título da linha do drop e o chip de falha encostavam nos rótulos dos campos logo abaixo (mais espaço vertical).

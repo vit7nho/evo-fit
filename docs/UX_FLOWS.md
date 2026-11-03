@@ -33,7 +33,7 @@ Barra inferior com **5 destinos** (mais que isso fica apertado em telas pequenas
 - A tela da sessão lista os exercícios em cartões; o exercício atual fica expandido.
 - Cada linha de série mostra: tipo (aquecimento/efetiva), carga e reps **pré-preenchidas com a última sessão** (em cinza, como “referência”), e um botão ✓.
 - Toque no ✓ = salva a série (otimista, com retentativa e indicação de erro na linha) e inicia o cronômetro de descanso (barra fixa na base, com +15 s/−15 s/pular).
-- Toque longo/menu na série: transformar em drop set (adiciona segmentos encadeados), rest-pause, marcar falha, observação.
+- Toque longo/menu na série: transformar em drop set (adiciona segmentos encadeados), rest-pause, marcar falha, observação. **Como ficou na 2.7 (ADR-033):** sem toque longo (gesto escondido); abaixo da última série feita aparecem “Drop”, “Rest-pause” e o chip “Até a falha”. O drop abre uma linha recuada com a carga sugerida (20% a menos, múltiplo de 2,5 kg, ou o drop da última vez) e cancela o descanso; o rest-pause começa com 15 s de pausa e repete a carga. Salvar o segmento inicia o descanso normal. Série planejada como drop/rest-pause na ficha avisa na linha e abre o segmento sozinha depois do ✓. Corrigir uma série feita (toque nela) também marca ou desmarca a falha.
 - Bi-set/supersérie: os cartões do grupo aparecem unidos por uma barra lateral colorida e o cronômetro só dispara ao final do grupo.
 
 **Registrar corrida/caminhada:** formulário único: modalidade, data/hora, duração (com seletor h:m:s), distância (opcional para caminhada), RPE (escala 1–10 com descrições), campos avançados recolhidos (FC, elevação), notas. O pace aparece ao vivo quando há distância e duração.

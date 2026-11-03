@@ -171,8 +171,9 @@ def test_log_sets_with_positions_and_summary(client: TestClient, signup) -> None
         (0, {"reps": 0}, "reps"),
         (0, {"reps": 10, "load_kg": 60.1}, "load_kg"),
         (0, {"reps": 10, "rpe": 8.3}, "rpe"),
-        (0, {"reps": 10, "kind": "drop"}, "kind"),
-        (0, {"reps": 10, "to_failure": True}, "to_failure"),
+        (0, {"reps": 10, "kind": "cluster"}, "kind"),
+        (0, {"reps": 10, "kind": "drop"}, "parent_set_id"),
+        (0, {"reps": 10, "to_failure": True, "rir": 2}, "rir"),
         (1, {"reps": 30, "duration_s": 30}, "reps"),  # prancha: por tempo
         (1, {"reps": 30}, "duration_s"),
         (1, {}, "duration_s"),
@@ -225,6 +226,152 @@ def test_update_and_delete_sets(client: TestClient, signup) -> None:
     assert current["exercises"][0]["sets"] == []
 
 
+# --- técnicas: drop set, rest-pause e falha ---
+
+
+def test_drop_set_segments_chain_to_the_working_set(client: TestClient, signup) -> None:
+    headers = signup()
+    session = start(client, headers, template_id=template(client, headers)["id"])
+    main = logged(client, headers, session, 0, reps=10, load_kg=60, to_failure=True)
+    drop1 = logged(
+        client, headers, session, 0, kind="drop", parent_set_id=main["id"], reps=6, load_kg=45
+    )
+    drop2 = logged(
+        client, headers, session, 0, kind="drop", parent_set_id=main["id"], reps=5, load_kg=30
+    )
+
+    assert main["to_failure"] is True and main["parent_set_id"] is None
+    assert drop1["parent_set_id"] == drop2["parent_set_id"] == main["id"]
+    current = client.get(f"{BASE}/{session['id']}", headers=headers).json()
+    assert [s["kind"] for s in current["exercises"][0]["sets"]] == ["working", "drop", "drop"]
+    # Um drop set conta como uma série; o volume soma os segmentos.
+    assert current["set_count"] == 1
+    assert current["volume_kg"] == 60 * 10 + 45 * 6 + 30 * 5
+
+
+def test_rest_pause_and_failure_on_segments(client: TestClient, signup) -> None:
+    headers = signup()
+    session = start(client, headers, template_id=template(client, headers)["id"])
+    main = logged(client, headers, session, 0, reps=8, load_kg=60)
+    pause = logged(
+        client,
+        headers,
+        session,
+        0,
+        kind="rest_pause",
+        parent_set_id=main["id"],
+        reps=3,
+        load_kg=60,
+        to_failure=True,
+        rir=0,
+    )
+    assert (pause["kind"], pause["to_failure"], pause["rir"]) == ("rest_pause", True, 0)
+
+
+@pytest.mark.parametrize("parent", ["warmup", "segment", "other_exercise", "missing", "none"])
+def test_segment_needs_a_working_parent_in_the_same_exercise(
+    client: TestClient, signup, parent: str
+) -> None:
+    headers = signup()
+    session = start(client, headers, template_id=template(client, headers)["id"])
+    warmup = logged(client, headers, session, 0, kind="warmup", reps=15, load_kg=20)
+    main = logged(client, headers, session, 0, reps=10, load_kg=60)
+    drop = logged(client, headers, session, 0, kind="drop", parent_set_id=main["id"], reps=6)
+    other = logged(client, headers, session, 1, reps=12, load_kg=10)
+    parent_id = {
+        "warmup": warmup["id"],
+        "segment": drop["id"],
+        "other_exercise": other["id"],
+        "missing": "00000000-0000-0000-0000-000000000000",
+        "none": None,
+    }[parent]
+
+    response = log(client, headers, session, 0, kind="drop", parent_set_id=parent_id, reps=5)
+    assert response.status_code == 422
+    assert field_errors(response) == ["parent_set_id"]
+
+
+def test_main_sets_have_no_parent_and_segments_are_limited(client: TestClient, signup) -> None:
+    headers = signup()
+    session = start(client, headers, template_id=template(client, headers)["id"])
+    main = logged(client, headers, session, 0, reps=10, load_kg=60)
+
+    response = log(client, headers, session, 0, parent_set_id=main["id"], reps=8)
+    assert field_errors(response) == ["parent_set_id"]
+
+    for _ in range(session_service.MAX_SEGMENTS):
+        logged(client, headers, session, 0, kind="drop", parent_set_id=main["id"], reps=4)
+    response = log(client, headers, session, 0, kind="drop", parent_set_id=main["id"], reps=4)
+    assert field_errors(response) == ["parent_set_id"]
+
+
+def test_update_failure_and_kind_rules(client: TestClient, signup) -> None:
+    headers = signup()
+    session = start(client, headers, template_id=template(client, headers)["id"])
+    entry = session["exercises"][0]["id"]
+    main = logged(client, headers, session, 0, reps=10, load_kg=60, rir=2)
+    drop = logged(client, headers, session, 0, kind="drop", parent_set_id=main["id"], reps=6)
+    sets_url = f"{BASE}/{session['id']}/exercises/{entry}/sets"
+
+    # Falha com RIR 2 não combina; limpando o RIR, vale.
+    response = client.patch(f"{sets_url}/{main['id']}", headers=headers, json={"to_failure": True})
+    assert field_errors(response) == ["rir"]
+    response = client.patch(
+        f"{sets_url}/{main['id']}", headers=headers, json={"to_failure": True, "rir": None}
+    )
+    assert response.status_code == 200 and response.json()["to_failure"] is True
+    assert field_errors(
+        client.patch(f"{sets_url}/{main['id']}", headers=headers, json={"to_failure": None})
+    ) == ["to_failure"]
+
+    # Série com drop não vira aquecimento; o segmento não muda de tipo.
+    assert field_errors(
+        client.patch(f"{sets_url}/{main['id']}", headers=headers, json={"kind": "warmup"})
+    ) == ["kind"]
+    assert field_errors(
+        client.patch(f"{sets_url}/{drop['id']}", headers=headers, json={"kind": "working"})
+    ) == ["kind"]
+    # Mas o segmento pode ser corrigido e marcado como falha.
+    response = client.patch(
+        f"{sets_url}/{drop['id']}", headers=headers, json={"reps": 7, "to_failure": True}
+    )
+    assert response.status_code == 200 and response.json()["reps"] == 7
+
+
+def test_deleting_a_set_deletes_its_segments(client: TestClient, signup) -> None:
+    headers = signup()
+    session = start(client, headers, template_id=template(client, headers)["id"])
+    entry = session["exercises"][0]["id"]
+    main = logged(client, headers, session, 0, reps=10, load_kg=60)
+    logged(client, headers, session, 0, kind="drop", parent_set_id=main["id"], reps=6)
+    other = logged(client, headers, session, 0, reps=9, load_kg=60)
+
+    url = f"{BASE}/{session['id']}/exercises/{entry}/sets/{main['id']}"
+    assert client.delete(url, headers=headers).status_code == 204
+    current = client.get(f"{BASE}/{session['id']}", headers=headers).json()
+    assert [s["id"] for s in current["exercises"][0]["sets"]] == [other["id"]]
+
+
+def test_previous_sets_bring_their_segments(client: TestClient, signup, clock: Clock) -> None:
+    headers = signup()
+    ficha = template(client, headers)
+    first = start(client, headers, template_id=ficha["id"])
+    main = logged(client, headers, first, 0, reps=10, load_kg=60, to_failure=True)
+    logged(client, headers, first, 0, kind="drop", parent_set_id=main["id"], reps=6, load_kg=45)
+    logged(client, headers, first, 0, reps=8, load_kg=60)
+    client.post(f"{BASE}/{first['id']}/finish", headers=headers, json={})
+
+    clock.advance(days=2)
+    second = start(client, headers, template_id=ficha["id"])
+    previous = second["exercises"][0]["previous"]
+    # A ordem das séries principais segue; o drop vem dentro da primeira.
+    assert [(p["reps"], p["to_failure"]) for p in previous] == [(10, True), (8, False)]
+    assert previous[0]["segments"] == [
+        {"kind": "drop", "reps": 6, "load_kg": 45.0, "duration_s": None}
+    ]
+    assert previous[1]["segments"] == []
+
+
 # --- pré-preenchimento ---
 
 
@@ -249,8 +396,22 @@ def test_previous_sets_come_from_the_last_completed_session(
     second = start(client, headers, template_id=ficha["id"])
     supino = second["exercises"][0]
     assert supino["previous"] == [
-        {"kind": "warmup", "reps": 15, "load_kg": 20.0, "duration_s": None},
-        {"kind": "working", "reps": 10, "load_kg": 60.0, "duration_s": None},
+        {
+            "kind": "warmup",
+            "reps": 15,
+            "load_kg": 20.0,
+            "duration_s": None,
+            "to_failure": False,
+            "segments": [],
+        },
+        {
+            "kind": "working",
+            "reps": 10,
+            "load_kg": 60.0,
+            "duration_s": None,
+            "to_failure": False,
+            "segments": [],
+        },
     ]
     assert supino["previous_at"].startswith("2026-11-01T10:00")
     # Sem histórico para este exercício nesta conta.
@@ -435,3 +596,15 @@ def test_sessions_of_another_user_are_invisible(client: TestClient, signup) -> N
         == 404
     )
     assert client.get(url, headers=ana).json()["status"] == "in_progress"
+
+
+def test_segment_cannot_chain_to_another_users_set(client: TestClient, signup) -> None:
+    ana = signup("ana@exemplo.com")
+    bia = signup("bia@exemplo.com", "Bia")
+    anas = start(client, ana, template_id=template(client, ana)["id"])
+    anas_set = logged(client, ana, anas, 0, reps=10, load_kg=60)
+    bias = start(client, bia, template_id=template(client, bia)["id"])
+
+    response = log(client, bia, bias, 0, kind="drop", parent_set_id=anas_set["id"], reps=6)
+    assert response.status_code == 422
+    assert field_errors(response) == ["parent_set_id"]

@@ -201,7 +201,7 @@ A ficha é enviada **inteira** em `POST /workout-templates` e `PUT /workout-temp
 
 - `POST /workout-sessions` — `{"template_id": "…"}` copia da ficha os exercícios, grupos, séries planejadas e descansos (a ficha pode mudar ou sair depois sem afetar o treino); sem `template_id`, treino livre ("Treino livre" ou `name`). Uma sessão aberta (em andamento ou pausada) por usuário: a segunda recebe `409 session_in_progress`, com o id da aberta em `errors[0].message`.
 - **Resposta (`SessionOut`)**: `status` (`in_progress|paused|completed`), `started_at`, `paused_total_s`, `elapsed_s` (tempo ativo calculado no servidor na hora da resposta: o app soma o tempo local, sem depender do relógio do aparelho), `groups`, `exercises` (com `planned_sets`, `rest_s`, `sets` feitas e `previous`: as séries da última sessão concluída com o exercício, base do pré-preenchimento, mais `previous_at`) e o resumo `set_count` (sem aquecimento) e `volume_kg` (carga × repetições, só carga externa).
-- **Séries**: `POST …/sets` com `kind` (`warmup|working`; drop, rest-pause e falha na 2.7), `reps` (1–200) **ou** `duration_s` conforme o exercício seja por tempo, `load_kg` (passo 0,25), `rir` (0–10) e `rpe` (1–10, passo 0,5) opcionais. `PATCH` corrige; `DELETE` apaga. Até 20 séries por exercício e 30 exercícios por treino.
+- **Séries**: `POST …/sets` com `kind` (`warmup|working|drop|rest_pause`), `reps` (1–200) **ou** `duration_s` conforme o exercício seja por tempo, `load_kg` (passo 0,25), `rir` (0–10) e `rpe` (1–10, passo 0,5) opcionais. `PATCH` corrige; `DELETE` apaga. Até 20 séries por exercício e 30 exercícios por treino.
 - **Ciclo**: `pause`/`resume` acumulam `paused_total_s`; `finish` (`perceived_effort` 1–10 e `notes` opcionais) exige ao menos uma série e grava a duração ativa; `discard` apaga o treino aberto (atividade, exercícios e séries).
 
 | Situação | Status | `code` |
@@ -209,5 +209,15 @@ A ficha é enviada **inteira** em `POST /workout-templates` e `PUT /workout-temp
 | Já existe um treino aberto | 409 | `session_in_progress` |
 | Alterar um treino concluído | 409 | `session_closed` |
 | Finalizar sem séries | 422 | `session_empty` |
-| Série sem repetições (ou com duração) num exercício por repetições, e o contrário; tipo fora de `warmup/working`; campo extra | 422 | `validation_error` |
+| Série sem repetições (ou com duração) num exercício por repetições, e o contrário; tipo desconhecido; campo extra | 422 | `validation_error` |
+| Drop/rest-pause sem `parent_set_id`, apontando para aquecimento, outro segmento, outro exercício ou série de outra pessoa; série principal com `parent_set_id`; mais de 5 segmentos | 422 | `validation_error` (`parent_set_id`) |
+| `to_failure` com `rir` maior que 0; mudar o tipo de um segmento; virar aquecimento uma série que tem segmentos | 422 | `validation_error` |
 | Ficha, treino, exercício ou série de outra pessoa (ou inexistente) | 404 | `not_found` |
+
+## Técnicas na sessão (implementadas na etapa 2.7)
+
+- **Drop set e rest-pause são segmentos** da série que continuam: `POST …/sets` com `kind` `drop` ou `rest_pause` e `parent_set_id` = id de uma série **válida** (`working`) do mesmo exercício no mesmo treino. Até 5 segmentos por série. O tipo de um segmento não muda no `PATCH`; apagar a série apaga os segmentos dela.
+- **Até a falha**: `to_failure` (booleano) em qualquer série ou segmento, no `POST` e no `PATCH`. Com `to_failure`, `rir` só pode ser 0 ou vazio.
+- **Resposta**: `SetOut.parent_set_id` (nulo nas séries principais). No resumo, `set_count` conta só as séries principais válidas (um drop set é uma série); `volume_kg` soma os segmentos.
+- **Pré-preenchimento**: cada item de `previous` traz `to_failure` e `segments` (os segmentos daquela série na última sessão).
+- **Na ficha**, uma série planejada como `drop`/`rest_pause` marca onde aplicar a técnica; no treino ela é registrada como `working` e os segmentos vêm depois.

@@ -744,12 +744,13 @@ class FakeAuthServer {
           'id': 'serie-${setBodies.length}',
           'position': sets.length,
           'kind': body['kind'] ?? 'working',
+          'parent_set_id': body['parent_set_id'],
           'reps': body['reps'],
           'load_kg': body['load_kg'],
           'duration_s': body['duration_s'],
           'rir': null,
           'rpe': null,
-          'to_failure': false,
+          'to_failure': body['to_failure'] ?? false,
           'completed_at': '2026-11-01T10:05:00Z',
         };
         sets.add(logged);
@@ -762,8 +763,9 @@ class FakeAuthServer {
         sets[index] = {...sets[index], ...body};
         return FakeHttpAdapter.json(200, sets[index]);
       case ('DELETE', 7):
+        // Como a API: a série leva os segmentos dela.
         (entry(parts[4])['sets']! as List).removeWhere(
-          (s) => (s as Map)['id'] == parts[6],
+          (s) => (s as Map)['id'] == parts[6] || s['parent_set_id'] == parts[6],
         );
         return ResponseBody.fromString('', 204);
     }

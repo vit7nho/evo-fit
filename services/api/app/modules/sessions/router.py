@@ -10,6 +10,7 @@ from app.modules.exercises import catalog as exercise_catalog
 from app.modules.sessions.models import SetEntry, WorkoutSession
 from app.modules.sessions.schemas import (
     ExerciseAdd,
+    PreviousSegment,
     PreviousSet,
     SessionExerciseOut,
     SessionFinish,
@@ -36,6 +37,7 @@ def _set_out(entry_set: SetEntry) -> SetOut:
         id=entry_set.id,
         position=entry_set.position,
         kind=entry_set.kind,
+        parent_set_id=entry_set.parent_set_id,
         reps=entry_set.reps,
         load_kg=entry_set.load_kg,
         duration_s=entry_set.duration_s,
@@ -44,6 +46,28 @@ def _set_out(entry_set: SetEntry) -> SetOut:
         to_failure=entry_set.to_failure,
         completed_at=entry_set.completed_at,
     )
+
+
+def _previous(sets: list[SetEntry]) -> list[PreviousSet]:
+    """Séries principais da última vez, cada uma com os próprios segmentos."""
+    return [
+        PreviousSet(
+            kind=s.kind,
+            reps=s.reps,
+            load_kg=s.load_kg,
+            duration_s=s.duration_s,
+            to_failure=s.to_failure,
+            segments=[
+                PreviousSegment(
+                    kind=g.kind, reps=g.reps, load_kg=g.load_kg, duration_s=g.duration_s
+                )
+                for g in sets
+                if g.parent_set_id == s.id
+            ],
+        )
+        for s in sets
+        if s.parent_set_id is None
+    ]
 
 
 def _out(service: SessionService, user: User, session: WorkoutSession) -> SessionOut:
@@ -59,7 +83,8 @@ def _out(service: SessionService, user: User, session: WorkoutSession) -> Sessio
         for s in entry.sets:
             if s.kind == "warmup":
                 continue
-            set_count += 1
+            if s.parent_set_id is None:
+                set_count += 1
             if exercise.load_type == "external" and s.load_kg and s.reps:
                 volume += s.load_kg * s.reps
         last_sets, last_at = previous.get(entry.exercise_id, ([], None))
@@ -84,12 +109,7 @@ def _out(service: SessionService, user: User, session: WorkoutSession) -> Sessio
                 rest_s=entry.rest_s,
                 notes=entry.notes,
                 sets=[_set_out(s) for s in entry.sets],
-                previous=[
-                    PreviousSet(
-                        kind=s.kind, reps=s.reps, load_kg=s.load_kg, duration_s=s.duration_s
-                    )
-                    for s in last_sets
-                ],
+                previous=_previous(last_sets),
                 previous_at=last_at,
             )
         )

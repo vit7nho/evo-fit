@@ -86,6 +86,12 @@ class _SessionViewState extends ConsumerState<_SessionView> {
   /// Linhas extras acrescentadas na hora ("+ Série"), por exercício.
   final _extraRows = <String, int>{};
 
+  /// Segmento em registro, por exercício: a série que ele continua e a técnica.
+  final _pending = <String, ({String parentId, String kind})>{};
+
+  /// Pausa curta do rest-pause, entre a série e as repetições extras.
+  static const _restPauseS = 15;
+
   WorkoutSession get _session => widget.session;
 
   Future<void> _run(Future<void> Function() action) async {
@@ -106,6 +112,26 @@ class _SessionViewState extends ConsumerState<_SessionView> {
       ref.read(restTimerProvider.notifier).start(rest);
     }
   }
+
+  /// Abre a linha de um drop ou rest-pause logo abaixo da série [parentId]. O drop
+  /// emenda sem descanso; o rest-pause começa com a pausa curta.
+  void _openSegment(String entryId, String parentId, String kind) {
+    setState(() => _pending[entryId] = (parentId: parentId, kind: kind));
+    final timer = ref.read(restTimerProvider.notifier);
+    if (kind == SetKind.restPause) {
+      timer.start(_restPauseS);
+    } else {
+      timer.skip();
+    }
+  }
+
+  Future<void> _toggleFailure(SessionExercise entry, LoggedSet set) => _run(
+    () => ref.read(sessionProvider.notifier).updateSet(entry.id, set.id, {
+      'to_failure': !set.toFailure,
+      // Até a falha não sobra repetição em reserva.
+      if (!set.toFailure && (set.rir ?? 0) > 0) 'rir': null,
+    }),
+  );
 
   Future<void> _addExercises() async {
     final picked = await Navigator.of(context).push<List<TemplateExercise>>(
@@ -334,16 +360,31 @@ class _SessionViewState extends ConsumerState<_SessionView> {
         key: ValueKey(entry.id),
         entry: entry,
         extraRows: _extraRows[entry.id] ?? 0,
+        pending: _pending[entry.id],
+        busy: _busy,
         onAddRow: () => setState(
           () => _extraRows[entry.id] = (_extraRows[entry.id] ?? 0) + 1,
         ),
-        onLogged: () {
+        onLogged: (row, logged) {
           final extra = _extraRows[entry.id] ?? 0;
-          if (extra > 0 && entry.sets.length + 1 >= entry.rowCount()) {
+          if (extra > 0 && entry.mainSets.length + 1 >= entry.rowCount()) {
             _extraRows[entry.id] = extra - 1;
           }
-          _afterSet(index);
+          // Série planejada com técnica: a linha do segmento já abre embaixo.
+          final technique = entry.technique(row);
+          if (technique != null && !logged.isWarmup) {
+            _openSegment(entry.id, logged.id, technique);
+          } else {
+            _afterSet(index);
+          }
         },
+        onOpenSegment: (parent, kind) =>
+            _openSegment(entry.id, parent.id, kind),
+        onSegmentDone: (logged) {
+          setState(() => _pending.remove(entry.id));
+          if (logged != null) _afterSet(index);
+        },
+        onToggleFailure: (set) => _toggleFailure(entry, set),
         onRemove: () => _run(
           () => ref.read(sessionProvider.notifier).removeExercise(entry.id),
         ),
@@ -399,21 +440,71 @@ class _ExerciseCard extends ConsumerWidget {
     super.key,
     required this.entry,
     required this.extraRows,
+    required this.pending,
+    required this.busy,
     required this.onAddRow,
     required this.onLogged,
+    required this.onOpenSegment,
+    required this.onSegmentDone,
+    required this.onToggleFailure,
     required this.onRemove,
   });
 
   final SessionExercise entry;
   final int extraRows;
+  final ({String parentId, String kind})? pending;
+  final bool busy;
   final VoidCallback onAddRow;
-  final VoidCallback onLogged;
+  final void Function(int row, LoggedSet logged) onLogged;
+  final void Function(LoggedSet parent, String kind) onOpenSegment;
+
+  /// Segmento salvo (com a série) ou cancelado (nulo).
+  final void Function(LoggedSet? logged) onSegmentDone;
+  final void Function(LoggedSet set) onToggleFailure;
   final VoidCallback onRemove;
+
+  /// Segmentos e a barra de técnicas abaixo da série feita da linha [row].
+  List<Widget> _afterRow(int row, List<LoggedSet> mains) {
+    final parent = mains[row];
+    final segments = entry.segmentsOf(parent.id);
+    final open = pending?.parentId == parent.id ? pending : null;
+    return [
+      for (final (i, segment) in segments.indexed)
+        _SegmentDoneRow(
+          entry: entry,
+          parentNumber: row + 1,
+          segment: segment,
+          number: segments
+              .take(i + 1)
+              .where((s) => s.kind == segment.kind)
+              .length,
+        ),
+      if (open != null)
+        _SegmentInputRow(
+          key: ValueKey('${entry.id}-seg-${entry.sets.length}'),
+          entry: entry,
+          row: row,
+          parent: parent,
+          kind: open.kind,
+          onDone: onSegmentDone,
+        )
+      // As técnicas valem para a última série feita (a que acabou de terminar).
+      else if (row == mains.length - 1 && !parent.isWarmup && pending == null)
+        _TechniqueBar(
+          entry: entry,
+          parent: parent,
+          busy: busy,
+          onOpenSegment: (kind) => onOpenSegment(parent, kind),
+          onToggleFailure: () => onToggleFailure(parent),
+        ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final rows = entry.rowCount(extra: extraRows);
+    final mains = entry.mainSets;
     final previous = entry.previous
         .where((s) => s.kind != SetKind.warmup)
         .map(_describe)
@@ -462,13 +553,15 @@ class _ExerciseCard extends ConsumerWidget {
                 ),
               ),
             const SizedBox(height: EvoSpace.sm),
-            for (var row = 0; row < rows; row++)
+            for (var row = 0; row < rows; row++) ...[
               _SetRow(
                 key: ValueKey('${entry.id}-$row-${entry.sets.length}'),
                 entry: entry,
                 row: row,
-                onLogged: onLogged,
+                onLogged: (logged) => onLogged(row, logged),
               ),
+              if (row < mains.length) ..._afterRow(row, mains),
+            ],
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
@@ -485,10 +578,336 @@ class _ExerciseCard extends ConsumerWidget {
     );
   }
 
-  static String _describe(PreviousSet s) {
-    if (s.durationS != null) return '${s.durationS} s';
-    final load = s.loadKg == null ? '' : '${formatDecimal(s.loadKg!)} kg × ';
-    return '$load${s.reps ?? '—'}';
+  /// "60 kg × 10 (falha) + 45 kg × 6": a série e os segmentos dela.
+  static String _describe(PreviousSet s) => [
+    '${setValue(reps: s.reps, loadKg: s.loadKg, durationS: s.durationS)}'
+        '${s.toFailure ? ' (falha)' : ''}',
+    for (final g in s.segments)
+      setValue(reps: g.reps, loadKg: g.loadKg, durationS: g.durationS),
+  ].join(' + ');
+}
+
+/// "60 kg × 10", "12" (sem carga) ou "45 s".
+String setValue({int? reps, double? loadKg, int? durationS}) {
+  if (durationS != null) return '$durationS s';
+  final load = loadKg == null ? '' : '${formatDecimal(loadKg)} kg × ';
+  return '$load${reps ?? '—'}';
+}
+
+/// "Drop" ou "Rest-pause".
+String segmentLabel(String kind) =>
+    kind == SetKind.restPause ? 'Rest-pause' : 'Drop';
+
+/// Carga faz sentido para o exercício (não é por tempo nem só com o corpo).
+bool _hasLoad(TemplateExercise exercise) =>
+    exercise.loadType != 'time' && exercise.loadType != 'bodyweight';
+
+/// Abaixo da última série feita: acrescentar drop ou rest-pause e marcar a falha.
+class _TechniqueBar extends StatelessWidget {
+  const _TechniqueBar({
+    required this.entry,
+    required this.parent,
+    required this.busy,
+    required this.onOpenSegment,
+    required this.onToggleFailure,
+  });
+
+  final SessionExercise entry;
+  final LoggedSet parent;
+  final bool busy;
+  final ValueChanged<String> onOpenSegment;
+  final VoidCallback onToggleFailure;
+
+  @override
+  Widget build(BuildContext context) {
+    final timed = entry.exercise.timed;
+    final name = entry.exercise.name;
+    return Padding(
+      padding: const EdgeInsets.only(left: EvoSpace.x3xl, bottom: EvoSpace.md),
+      child: Wrap(
+        spacing: EvoSpace.xs,
+        runSpacing: EvoSpace.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          // Drop tira carga: só em exercício com carga externa.
+          if (entry.exercise.loadType == 'external')
+            TextButton.icon(
+              onPressed: busy ? null : () => onOpenSegment(SetKind.drop),
+              icon: const Icon(Icons.south_rounded, size: 18),
+              label: Text('Drop', semanticsLabel: 'Acrescentar drop em $name'),
+            ),
+          if (!timed)
+            TextButton.icon(
+              onPressed: busy ? null : () => onOpenSegment(SetKind.restPause),
+              icon: const Icon(Icons.replay_rounded, size: 18),
+              label: Text(
+                'Rest-pause',
+                semanticsLabel: 'Acrescentar rest-pause em $name',
+              ),
+            ),
+          FilterChip(
+            label: const Text('Até a falha'),
+            tooltip: 'Última série de $name até a falha',
+            selected: parent.toFailure,
+            onSelected: busy ? null : (_) => onToggleFailure(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Um drop ou rest-pause feito, recuado sob a série: toque para corrigir ou apagar.
+class _SegmentDoneRow extends StatelessWidget {
+  const _SegmentDoneRow({
+    required this.entry,
+    required this.parentNumber,
+    required this.segment,
+    required this.number,
+  });
+
+  final SessionExercise entry;
+  final int parentNumber;
+  final LoggedSet segment;
+
+  /// Posição entre os segmentos do mesmo tipo desta série (Drop 1, Drop 2...).
+  final int number;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final title = '${segmentLabel(segment.kind)} $number';
+    final value =
+        '${setValue(reps: segment.reps, loadKg: segment.loadKg, durationS: segment.durationS)}'
+        '${segment.toFailure ? ' · falha' : ''}';
+    return Semantics(
+      container: true,
+      button: true,
+      label: '$title da série $parentNumber: $value. Toque para corrigir.',
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: () => showDialog<void>(
+          context: context,
+          builder: (_) => _EditSetDialog(
+            entry: entry,
+            set: segment,
+            title: '$title da série $parentNumber',
+          ),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: evoTouchTargetMin),
+          child: Padding(
+            padding: const EdgeInsets.only(left: EvoSpace.x3xl),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '$title  ',
+                          style: theme.textTheme.labelSmall,
+                        ),
+                        TextSpan(text: value),
+                      ],
+                    ),
+                    style: theme.textTheme.bodyLarge,
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.all(EvoSpace.md),
+                  child: Icon(
+                    Icons.check_circle_rounded,
+                    color: EvoColors.success,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Linha para registrar um drop ou rest-pause, com a sugestão em cinza; ✓ salva
+/// (com a sugestão, se nada for digitado) e ✕ desiste.
+class _SegmentInputRow extends ConsumerStatefulWidget {
+  const _SegmentInputRow({
+    super.key,
+    required this.entry,
+    required this.row,
+    required this.parent,
+    required this.kind,
+    required this.onDone,
+  });
+
+  final SessionExercise entry;
+  final int row;
+  final LoggedSet parent;
+  final String kind;
+  final void Function(LoggedSet? logged) onDone;
+
+  @override
+  ConsumerState<_SegmentInputRow> createState() => _SegmentInputRowState();
+}
+
+class _SegmentInputRowState extends ConsumerState<_SegmentInputRow> {
+  final _load = TextEditingController();
+  final _reps = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  SessionExercise get _entry => widget.entry;
+
+  String get _title {
+    final number =
+        _entry
+            .segmentsOf(widget.parent.id)
+            .where((s) => s.kind == widget.kind)
+            .length +
+        1;
+    return '${segmentLabel(widget.kind)} $number';
+  }
+
+  @override
+  void dispose() {
+    _load.dispose();
+    _reps.dispose();
+    super.dispose();
+  }
+
+  Future<void> _log() async {
+    final suggestion = _entry.segmentSuggestion(
+      widget.row,
+      widget.parent,
+      widget.kind,
+    );
+    final typedLoad = _load.text.trim();
+    final load = typedLoad.isEmpty
+        ? suggestion.loadKg
+        : parseDecimal(typedLoad);
+    if (typedLoad.isNotEmpty && load == null) {
+      setState(() => _error = 'Carga inválida.');
+      return;
+    }
+    final reps = int.tryParse(_reps.text.trim()) ?? suggestion.reps;
+    if (reps == null || reps < 1) {
+      setState(() => _error = 'Informe as repetições.');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final logged = await ref.read(sessionProvider.notifier).logSet(
+        _entry.id,
+        {
+          'kind': widget.kind,
+          'parent_set_id': widget.parent.id,
+          'reps': reps,
+          if (_hasLoad(_entry.exercise)) 'load_kg': ?load,
+        },
+      );
+      unawaited(HapticFeedback.lightImpact());
+      widget.onDone(logged);
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final suggestion = _entry.segmentSuggestion(
+      widget.row,
+      widget.parent,
+      widget.kind,
+    );
+    final where =
+        '$_title da série ${widget.row + 1} de ${_entry.exercise.name}';
+    return Padding(
+      padding: const EdgeInsets.only(left: EvoSpace.x3xl, top: EvoSpace.xs),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            widget.kind == SetKind.restPause
+                ? '$_title · pausa curta e mais repetições'
+                : '$_title · menos carga, sem descanso',
+            style: theme.textTheme.labelSmall,
+          ),
+          const SizedBox(height: EvoSpace.md),
+          Row(
+            children: [
+              if (_hasLoad(_entry.exercise)) ...[
+                Expanded(
+                  child: TextField(
+                    controller: _load,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'kg',
+                      hintText: suggestion.loadKg == null
+                          ? null
+                          : formatDecimal(suggestion.loadKg!),
+                      isDense: true,
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: EvoSpace.sm),
+              ],
+              Expanded(
+                child: TextField(
+                  controller: _reps,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    labelText: 'reps',
+                    hintText: '${suggestion.reps ?? ''}',
+                    isDense: true,
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Concluir $where',
+                onPressed: _saving ? null : _log,
+                icon: _saving
+                    ? const SizedBox.square(
+                        dimension: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.2),
+                      )
+                    : const Icon(Icons.check_circle_outline_rounded),
+              ),
+              IconButton(
+                tooltip: 'Desistir do ${_title.toLowerCase()}',
+                onPressed: _saving ? null : () => widget.onDone(null),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: EvoSpace.sm),
+              child: Semantics(
+                liveRegion: true,
+                child: Text(
+                  '$_error Toque em ✓ para tentar de novo.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: EvoColors.danger,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 
@@ -504,7 +923,7 @@ class _SetRow extends ConsumerStatefulWidget {
 
   final SessionExercise entry;
   final int row;
-  final VoidCallback onLogged;
+  final ValueChanged<LoggedSet> onLogged;
 
   @override
   ConsumerState<_SetRow> createState() => _SetRowState();
@@ -519,8 +938,8 @@ class _SetRowState extends ConsumerState<_SetRow> {
 
   SessionExercise get _entry => widget.entry;
   bool get _timed => _entry.exercise.timed;
-  bool get _done => widget.row < _entry.sets.length;
-  bool get _isNext => widget.row == _entry.sets.length;
+  bool get _done => widget.row < _entry.mainSets.length;
+  bool get _isNext => widget.row == _entry.mainSets.length;
 
   @override
   void dispose() {
@@ -565,9 +984,11 @@ class _SetRowState extends ConsumerState<_SetRow> {
       _error = null;
     });
     try {
-      await ref.read(sessionProvider.notifier).logSet(_entry.id, values);
+      final logged = await ref
+          .read(sessionProvider.notifier)
+          .logSet(_entry.id, values);
       unawaited(HapticFeedback.lightImpact());
-      widget.onLogged();
+      widget.onLogged(logged);
     } on ApiException catch (error) {
       // O erro fica na linha, com os valores, para tentar de novo.
       if (mounted) setState(() => _error = error.message);
@@ -579,7 +1000,11 @@ class _SetRowState extends ConsumerState<_SetRow> {
   Future<void> _edit(LoggedSet set) async {
     await showDialog<void>(
       context: context,
-      builder: (_) => _EditSetDialog(entry: _entry, set: set),
+      builder: (_) => _EditSetDialog(
+        entry: _entry,
+        set: set,
+        title: 'Série ${widget.row + 1}',
+      ),
     );
   }
 
@@ -588,12 +1013,13 @@ class _SetRowState extends ConsumerState<_SetRow> {
     final theme = Theme.of(context);
     final suggestion = _entry.suggestion(widget.row);
     final number = '${widget.row + 1}';
+    final technique = _entry.technique(widget.row);
 
     if (_done) {
-      final set = _entry.sets[widget.row];
-      final value = _timed
-          ? '${set.durationS} s'
-          : '${set.loadKg == null ? '' : '${formatDecimal(set.loadKg!)} kg × '}${set.reps}';
+      final set = _entry.mainSets[widget.row];
+      final value =
+          '${setValue(reps: set.reps, loadKg: set.loadKg, durationS: set.durationS)}'
+          '${set.toFailure ? ' · até a falha' : ''}';
       return Semantics(
         container: true,
         button: true,
@@ -624,9 +1050,9 @@ class _SetRowState extends ConsumerState<_SetRow> {
 
     if (!_isNext) {
       // Série futura: só a referência, sem campos (as séries são feitas em ordem).
-      final hint = _timed
-          ? '${suggestion.durationS ?? '—'} s'
-          : '${suggestion.loadKg == null ? '' : '${formatDecimal(suggestion.loadKg!)} kg × '}${suggestion.reps ?? '—'}';
+      final hint =
+          '${_timed ? '${suggestion.durationS ?? '—'} s' : setValue(reps: suggestion.reps, loadKg: suggestion.loadKg)}'
+          '${technique == null ? '' : ' · ${segmentLabel(technique).toLowerCase()}'}';
       return SizedBox(
         height: evoTouchTargetMin,
         child: Row(
@@ -732,6 +1158,19 @@ class _SetRowState extends ConsumerState<_SetRow> {
             ),
           ],
         ),
+        if (technique != null)
+          Padding(
+            padding: const EdgeInsets.only(
+              left: EvoSpace.x3xl,
+              bottom: EvoSpace.xs,
+            ),
+            child: Text(
+              technique == SetKind.drop
+                  ? 'Drop set nesta série: depois do ✓, registre o drop.'
+                  : 'Rest-pause nesta série: depois do ✓, pausa curta e mais repetições.',
+              style: theme.textTheme.labelSmall,
+            ),
+          ),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(
@@ -788,10 +1227,15 @@ class _KindBadge extends StatelessWidget {
 }
 
 class _EditSetDialog extends ConsumerStatefulWidget {
-  const _EditSetDialog({required this.entry, required this.set});
+  const _EditSetDialog({
+    required this.entry,
+    required this.set,
+    required this.title,
+  });
 
   final SessionExercise entry;
   final LoggedSet set;
+  final String title;
 
   @override
   ConsumerState<_EditSetDialog> createState() => _EditSetDialogState();
@@ -805,6 +1249,7 @@ class _EditSetDialogState extends ConsumerState<_EditSetDialog> {
     text:
         '${(widget.entry.exercise.timed ? widget.set.durationS : widget.set.reps) ?? ''}',
   );
+  late bool _toFailure = widget.set.toFailure;
   bool _saving = false;
   String? _error;
 
@@ -834,13 +1279,15 @@ class _EditSetDialogState extends ConsumerState<_EditSetDialog> {
   Widget build(BuildContext context) {
     final timed = widget.entry.exercise.timed;
     final controller = ref.read(sessionProvider.notifier);
+    final segments = widget.entry.segmentsOf(widget.set.id).length;
     return AlertDialog(
-      title: Text('Série ${widget.set.position + 1}'),
+      title: Text(widget.title),
+      scrollable: true,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!timed)
+          if (_hasLoad(widget.entry.exercise))
             TextField(
               controller: _load,
               keyboardType: const TextInputType.numberWithOptions(
@@ -860,6 +1307,21 @@ class _EditSetDialogState extends ConsumerState<_EditSetDialog> {
               labelText: timed ? 'Duração (s)' : 'Repetições',
             ),
           ),
+          if (!widget.set.isWarmup)
+            CheckboxListTile(
+              value: _toFailure,
+              onChanged: (v) => setState(() => _toFailure = v ?? false),
+              title: const Text('Até a falha'),
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+          if (segments > 0)
+            Text(
+              segments == 1
+                  ? 'Apagar esta série apaga também o drop ou rest-pause dela.'
+                  : 'Apagar esta série apaga também os $segments drops ou rest-pauses dela.',
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
           if (_error != null) ...[
             const SizedBox(height: EvoSpace.sm),
             Text(_error!, style: const TextStyle(color: EvoColors.danger)),
@@ -893,7 +1355,13 @@ class _EditSetDialogState extends ConsumerState<_EditSetDialog> {
                   _apply(
                     () => controller.updateSet(widget.entry.id, widget.set.id, {
                       if (timed) 'duration_s': count else 'reps': count,
-                      if (!timed) 'load_kg': load,
+                      if (_hasLoad(widget.entry.exercise)) 'load_kg': load,
+                      if (_toFailure != widget.set.toFailure) ...{
+                        'to_failure': _toFailure,
+                        // Até a falha não sobra repetição em reserva.
+                        if (_toFailure && (widget.set.rir ?? 0) > 0)
+                          'rir': null,
+                      },
                     }),
                   );
                 },
