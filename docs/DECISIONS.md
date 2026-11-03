@@ -250,3 +250,18 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 - **Comparação com a vez anterior** é feita no app a partir de `previous` (volume e melhor série); a API passou a escolher como "vez anterior" a última sessão antes do treino em questão — no detalhe de um treino antigo, antes vinha a mais recente.
 - **Paginação por data** (`before` = início do último item), estável mesmo com treinos novos entrando.
 - **Verificação**: testes de API (inclusive teste de mutação do filtro por usuário) e de app; no emulador, o histórico vazio da conta do usuário foi aberto contra a API real (só leitura), e respostas reais da API com três treinos (conta temporária, apagada depois) foram passadas pelos modelos do app.
+
+### ADR-036 — Site escuro e cinematográfico, com componentes do Spell UI
+**Status:** Aceita · revisão do site (fora das etapas do app)
+**Decisões:**
+- **O site sai do monocromático do app** (ADR-025 continua valendo para o app): fundo escuro e as cores do mapa de estímulo do Meu Corpo (azul, laranja, vermelho) como paleta. As telas do app mostradas no site seguem as cores claras do app.
+- **Componentes do Spell UI** (https://spell.sh, licença MIT, cópia da licença em `apps/web/src/components/spell/LICENSE`): *Animated Gradient* (fundo WebGL do hero) e *Tilt Card* (celulares que inclinam com o mouse). Copiados e adaptados, sem dependência nova: tirado o `next-themes`, `cn` local e, com "reduzir movimento", o gradiente desenha um quadro só e o cartão não inclina. Os componentes que exigiam `motion` ou `three` ficaram de fora; as entradas de texto e a faixa infinita são CSS.
+- **Referência de estilo**: sites de estúdio com hero de impacto e demonstrações em código (sem copiar textos, imagens nem código de terceiros pagos).
+- **O app aparece de verdade**: telas do treino (tabela de séries), do histórico e dos recordes recriadas em HTML, com descrição para leitor de tela.
+- **Honestidade**: cardio, Meu Corpo, nutrição e IA aparecem como "Em breve"; o rodapé diz o que já funciona.
+- **Achados ao conferir no navegador**: o nome acessível do título saía grudado por causa da animação palavra por palavra (o espaço foi para fora de cada palavra); `max-w-3xl` e afins caíam nos tamanhos de espaçamento do tema (3xl = 3rem) e espremiam o texto — trocados por larguras explícitas.
+- **Uma versão editorial (inspirada em um site-demonstração de cafeteria) foi testada e descartada**; ficou esta versão escura, com as animações corrigidas:
+  1. a entrada ligada à rolagem do CSS (`animation-timeline: view()`) não completava perto do fim da página (o último bloco ficava meio transparente) e ignorava o atraso em milissegundos — trocada pelo componente `Reveal` (IntersectionObserver);
+  2. a faixa infinita pulava a cada volta por causa do `gap` — cada item tem o próprio espaço e a trilha anda exatamente uma cópia;
+  3. desfoque animado em texto com gradiente pisca no Chrome/Safari — as entradas usam só transform e opacity, e o gradiente do título fica num elemento sem animação;
+  4. com "reduzir movimento", o gradiente desenhava um quadro só e sumia quando a janela mudava de tamanho (redimensionar apaga o canvas) — agora redesenha a cada redimensionamento.

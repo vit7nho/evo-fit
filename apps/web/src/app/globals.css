@@ -9,22 +9,14 @@
 /* Curva "emphasized decelerate" do Material 3, a mesma das transições do app. */
 @theme {
   --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
-  --animate-enter: enter var(--duration-slow) var(--ease-emphasized) both;
-
-  @keyframes enter {
-    from {
-      opacity: 0;
-      transform: translateY(18px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
+  /* O site é escuro e cinematográfico; as telas do app dentro dele usam os tokens
+     claros do app (bg-base, text-primary...). */
+  --color-site-bg: #070709;
+  --color-site-muted: #a3a3ab;
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 html {
@@ -32,19 +24,105 @@ html {
 }
 
 body {
-  background: var(--color-bg-base);
-  color: var(--color-text-primary);
+  background: var(--color-site-bg);
+  color: #f4f4f2;
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
 ::selection {
-  background: var(--color-text-primary);
-  color: var(--color-bg-surface);
+  background: #3d7bff;
+  color: #fff;
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid #fff;
   outline-offset: 3px;
+}
+
+/* --- Movimento ---
+   Só transform e opacity (baratos e sem piscar). Nada de desfoque em texto com
+   gradiente, que pisca no Chrome e no Safari. Tudo para com "reduzir movimento". */
+
+/* Título que entra palavra por palavra. */
+.site-word {
+  display: inline-block;
+  animation: site-word 900ms var(--ease-emphasized) both;
+}
+
+@keyframes site-word {
+  from {
+    opacity: 0;
+    transform: translateY(0.4em);
+  }
+}
+
+/* Celular flutuando de leve. */
+.site-float {
+  animation: site-float 7s ease-in-out infinite;
+}
+
+@keyframes site-float {
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+/* Etiquetas que flutuam ao lado do celular. */
+.site-chip {
+  border: 1px solid rgb(255 255 255 / 0.15);
+  border-radius: 999px;
+  background: rgb(10 10 14 / 0.6);
+  backdrop-filter: blur(14px);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 18px 50px -20px rgb(0 0 0 / 0.8);
+  animation: site-float 6s ease-in-out infinite;
+}
+
+/* Faixa infinita das técnicas: duas cópias idênticas, cada item com o próprio
+   espaço à direita (sem gap entre as cópias), e a trilha anda uma cópia (−50%). */
+.site-marquee {
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+.site-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: site-marquee 38s linear infinite;
+}
+
+@keyframes site-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Entra quando aparece na tela (o componente Reveal marca data-shown com um
+   IntersectionObserver; funciona até no fim da página e respeita o atraso). */
+.reveal {
+  transition:
+    opacity 0.9s var(--ease-emphasized),
+    transform 0.9s var(--ease-emphasized);
+}
+
+.reveal[data-shown="false"] {
+  opacity: 0;
+  transform: translateY(40px);
+}
+
+/* Tela do celular ampliada: abre crescendo a partir do centro. */
+.phone-dialog[open] {
+  animation: phone-dialog 0.45s var(--ease-emphasized) both;
+}
+
+@keyframes phone-dialog {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -55,8 +133,12 @@ body {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-delay: 0ms !important;
-    transition-duration: 0.01ms !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .reveal[data-shown="false"] {
+    opacity: 1;
+    transform: none;
   }
 }
