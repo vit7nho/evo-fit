@@ -11,12 +11,18 @@ abstract final class SessionStatus {
 }
 
 /// Série registrada. Drop e rest-pause são segmentos: apontam para a série que continuam.
+///
+/// [id] é a identidade no app: o id gerado no aparelho ([clientId]) quando há, senão
+/// o do servidor. Não muda quando uma série guardada sem conexão é enviada (ADR-037),
+/// então a linha da tela continua ligada a ela. [parentSetId] usa a mesma identidade.
 @immutable
 class LoggedSet {
   const LoggedSet({
     required this.id,
     required this.position,
     required this.kind,
+    this.serverId,
+    this.clientId,
     this.parentSetId,
     this.reps,
     this.loadKg,
@@ -24,22 +30,56 @@ class LoggedSet {
     this.rir,
     this.rpe,
     this.toFailure = false,
+    this.raw,
   });
 
-  factory LoggedSet.fromJson(Map<String, dynamic> json) => LoggedSet(
-    id: json['id'] as String,
-    position: json['position'] as int,
-    kind: json['kind'] as String,
-    parentSetId: json['parent_set_id'] as String?,
-    reps: json['reps'] as int?,
-    loadKg: (json['load_kg'] as num?)?.toDouble(),
-    durationS: json['duration_s'] as int?,
-    rir: json['rir'] as int?,
-    rpe: (json['rpe'] as num?)?.toDouble(),
-    toFailure: json['to_failure'] as bool? ?? false,
+  /// Como a API devolve. O pai vem pelo id do servidor; [SessionExercise.fromJson]
+  /// troca pela identidade do app.
+  factory LoggedSet.fromJson(Map<String, dynamic> json) {
+    final serverId = json['id'] as String;
+    final clientId = json['client_id'] as String?;
+    return LoggedSet(
+      id: clientId ?? serverId,
+      serverId: serverId,
+      clientId: clientId,
+      position: json['position'] as int,
+      kind: json['kind'] as String,
+      parentSetId: json['parent_set_id'] as String?,
+      reps: json['reps'] as int?,
+      loadKg: (json['load_kg'] as num?)?.toDouble(),
+      durationS: json['duration_s'] as int?,
+      rir: json['rir'] as int?,
+      rpe: (json['rpe'] as num?)?.toDouble(),
+      toFailure: json['to_failure'] as bool? ?? false,
+      raw: json,
+    );
+  }
+
+  /// Uma série criada no aparelho e ainda não enviada (corpo do POST da API).
+  factory LoggedSet.pending({
+    required String clientId,
+    required int position,
+    required Map<String, dynamic> body,
+    String? parentKey,
+  }) => LoggedSet(
+    id: clientId,
+    clientId: clientId,
+    position: position,
+    kind: body['kind'] as String? ?? SetKind.working,
+    parentSetId: parentKey,
+    reps: body['reps'] as int?,
+    loadKg: (body['load_kg'] as num?)?.toDouble(),
+    durationS: body['duration_s'] as int?,
+    rir: body['rir'] as int?,
+    rpe: (body['rpe'] as num?)?.toDouble(),
+    toFailure: body['to_failure'] as bool? ?? false,
   );
 
   final String id;
+
+  /// Id no servidor; nulo enquanto a série só existe no aparelho.
+  final String? serverId;
+  final String? clientId;
   final int position;
   final String kind;
   final String? parentSetId;
@@ -50,8 +90,55 @@ class LoggedSet {
   final double? rpe;
   final bool toFailure;
 
+  /// O JSON da API, para guardar no rascunho local.
+  final Map<String, dynamic>? raw;
+
   bool get isWarmup => kind == SetKind.warmup;
   bool get isSegment => parentSetId != null;
+
+  /// Guardada no aparelho, esperando a conexão para ir ao servidor.
+  bool get pending => serverId == null;
+
+  LoggedSet withParent(String? parentSetId) => LoggedSet(
+    id: id,
+    serverId: serverId,
+    clientId: clientId,
+    position: position,
+    kind: kind,
+    parentSetId: parentSetId,
+    reps: reps,
+    loadKg: loadKg,
+    durationS: durationS,
+    rir: rir,
+    rpe: rpe,
+    toFailure: toFailure,
+    raw: raw,
+  );
+
+  /// Com as alterações de um PATCH aplicadas (para as correções ainda na fila).
+  LoggedSet withChanges(Map<String, dynamic> changes) => LoggedSet(
+    id: id,
+    serverId: serverId,
+    clientId: clientId,
+    position: position,
+    kind: changes.containsKey('kind') ? changes['kind'] as String : kind,
+    parentSetId: parentSetId,
+    reps: changes.containsKey('reps') ? changes['reps'] as int? : reps,
+    loadKg: changes.containsKey('load_kg')
+        ? (changes['load_kg'] as num?)?.toDouble()
+        : loadKg,
+    durationS: changes.containsKey('duration_s')
+        ? changes['duration_s'] as int?
+        : durationS,
+    rir: changes.containsKey('rir') ? changes['rir'] as int? : rir,
+    rpe: changes.containsKey('rpe')
+        ? (changes['rpe'] as num?)?.toDouble()
+        : rpe,
+    toFailure: changes.containsKey('to_failure')
+        ? changes['to_failure'] as bool
+        : toFailure,
+    raw: raw,
+  );
 }
 
 /// Uma série da última sessão: a referência para preencher a de hoje. As séries
@@ -103,6 +190,17 @@ class SessionExercise {
 
   factory SessionExercise.fromJson(Map<String, dynamic> json) {
     final previousAt = json['previous_at'] as String?;
+    final raw = (json['sets'] as List<dynamic>)
+        .map((s) => LoggedSet.fromJson(s as Map<String, dynamic>))
+        .toList();
+    // O pai vem pelo id do servidor: troca pela identidade do app.
+    final keyOf = {for (final s in raw) s.serverId: s.id};
+    final sets = [
+      for (final s in raw)
+        s.parentSetId == null
+            ? s
+            : s.withParent(keyOf[s.parentSetId] ?? s.parentSetId),
+    ];
     return SessionExercise(
       id: json['id'] as String,
       exercise: TemplateExercise.fromJson(
@@ -115,9 +213,7 @@ class SessionExercise {
           .toList(),
       restS: json['rest_s'] as int?,
       notes: json['notes'] as String?,
-      sets: (json['sets'] as List<dynamic>)
-          .map((s) => LoggedSet.fromJson(s as Map<String, dynamic>))
-          .toList(),
+      sets: sets,
       previous: (json['previous'] as List<dynamic>? ?? const [])
           .map((s) => PreviousSet.fromJson(s as Map<String, dynamic>))
           .toList(),
@@ -182,6 +278,7 @@ class WorkoutSession {
     this.perceivedEffort,
     this.notes,
     this.records = const [],
+    this.raw,
   });
 
   factory WorkoutSession.fromJson(
@@ -208,6 +305,7 @@ class WorkoutSession {
     records: (json['records'] as List<dynamic>? ?? const [])
         .map((r) => RecordEvent.fromJson(r as Map<String, dynamic>))
         .toList(),
+    raw: json,
   );
 
   final String id;
@@ -222,6 +320,9 @@ class WorkoutSession {
 
   /// Recordes batidos neste treino (só quando concluído).
   final List<RecordEvent> records;
+
+  /// O JSON da API, para guardar no rascunho local.
+  final Map<String, dynamic>? raw;
 
   /// Tempo ativo calculado pela API no momento da resposta ([receivedAt]).
   final int elapsedS;
@@ -288,6 +389,7 @@ class WorkoutSession {
         perceivedEffort: perceivedEffort,
         notes: notes,
         records: records,
+        raw: raw,
       );
 }
 

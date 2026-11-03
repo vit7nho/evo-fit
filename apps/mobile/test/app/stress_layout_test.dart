@@ -1,3 +1,4 @@
+import 'package:evofit/features/sessions/data/session_draft.dart';
 import 'package:evofit/app/app.dart';
 import 'package:evofit/app/provider_config.dart';
 import 'package:evofit/core/auth/session_store.dart';
@@ -127,6 +128,7 @@ Future<FakeAuthServer> _pump(
       retry: noAutomaticRetry,
       overrides: [
         httpClientAdapterProvider.overrideWithValue(server.adapter),
+        draftStorageProvider.overrideWithValue(InMemoryDraftStorage()),
         tokenStorageProvider.overrideWithValue(
           InMemoryTokenStorage(signedIn ? 'salvo' : null),
         ),
@@ -403,7 +405,7 @@ void main() {
     tester,
   ) async {
     _worstCaseScreen(tester);
-    await _pump(
+    final server = await _pump(
       tester,
       profile: _maximalProfile(),
       setUp: (s) {
@@ -498,6 +500,37 @@ void main() {
     await tester.pumpAndSettle();
     await tapVisible(find.byTooltip('Nota de $supino'));
     expect(find.text('Nota de $supino'), findsWidgets);
+    Navigator.of(tester.element(find.text('Nota de $supino').first)).pop();
+    await tester.pumpAndSettle();
+
+    // Sem conexão: a série fica guardada e a faixa avisa (com fonte grande).
+    server.offline = true;
+    await tapVisible(
+      find.widgetWithText(OutlinedButton, 'Adicionar série').first,
+    );
+    // A linha nova (o tipo vem da última vez): a primeira por concluir do supino.
+    await tapVisible(
+      find
+          .byWidgetPredicate(
+            (w) =>
+                w is Tooltip &&
+                (w.message ?? '').startsWith('Concluir') &&
+                w.message!.endsWith('de $supino'),
+          )
+          .first,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Tooltip && (w.message ?? '').endsWith('guardada no aparelho'),
+      ),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.textContaining('Sem conexão'),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
   });
 
   testWidgets('histórico: lista, detalhe, recordes e histórico do exercício', (

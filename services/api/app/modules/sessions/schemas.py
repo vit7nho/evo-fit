@@ -45,12 +45,18 @@ class SetIn(BaseModel):
 
     Drop set e rest-pause são segmentos da mesma série: `kind` `drop`/`rest_pause` com
     `parent_set_id` apontando para a série válida que eles continuam (ADR-033).
+
+    `client_id` (opcional, gerado no app) torna o envio idempotente: reenviar a mesma
+    série devolve a já salva. O pai também pode vir por `parent_client_id`, quando o
+    app ainda não conhece o id dele no servidor (rascunho local, ADR-037).
     """
 
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["warmup", "working", "drop", "rest_pause"] = "working"
+    client_id: uuid.UUID | None = None
     parent_set_id: uuid.UUID | None = None
+    parent_client_id: uuid.UUID | None = None
     reps: Reps | None = None
     load_kg: Load | None = None
     duration_s: Duration | None = None
@@ -83,6 +89,8 @@ class SessionFinish(BaseModel):
 
 class SetOut(BaseModel):
     id: uuid.UUID
+    # Id gerado no app, quando veio (ADR-037).
+    client_id: uuid.UUID | None
     position: int
     kind: str
     # Série que o segmento (drop, rest-pause) continua; nulo nas séries principais.

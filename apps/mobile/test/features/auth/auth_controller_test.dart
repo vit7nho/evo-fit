@@ -1,3 +1,4 @@
+import 'package:evofit/features/sessions/data/session_draft.dart';
 import 'package:evofit/app/provider_config.dart';
 import 'package:evofit/core/auth/session_store.dart';
 import 'package:evofit/core/network/api_client.dart';
@@ -17,6 +18,7 @@ void main() {
       retry: noAutomaticRetry,
       overrides: [
         httpClientAdapterProvider.overrideWithValue(server.adapter),
+        draftStorageProvider.overrideWithValue(InMemoryDraftStorage()),
         tokenStorageProvider.overrideWithValue(storage),
       ],
     );

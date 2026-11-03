@@ -626,3 +626,68 @@ def test_adjusting_another_users_or_closed_session(client: TestClient, signup) -
     logged(client, ana, session, 0, reps=10, load_kg=60)
     client.post(f"{BASE}/{session['id']}/finish", headers=ana, json={})
     assert client.patch(url, headers=ana, json={"rest_s": 30}).status_code == 409
+
+
+# --- rascunho local: envio idempotente (ADR-037) ---
+
+CLIENT_A = "7f1c0b7e-0000-4000-8000-00000000000a"
+CLIENT_B = "7f1c0b7e-0000-4000-8000-00000000000b"
+
+
+def test_resending_the_same_set_does_not_duplicate(client: TestClient, signup) -> None:
+    headers = signup()
+    session = start(client, headers, template_id=template(client, headers)["id"])
+
+    first = logged(client, headers, session, 0, client_id=CLIENT_A, reps=10, load_kg=60)
+    again = logged(client, headers, session, 0, client_id=CLIENT_A, reps=10, load_kg=60)
+
+    assert again["id"] == first["id"] and first["client_id"] == CLIENT_A
+    current = client.get(f"{BASE}/{session['id']}", headers=headers).json()
+    assert len(current["exercises"][0]["sets"]) == 1
+
+
+def test_segment_can_point_to_its_parent_by_client_id(client: TestClient, signup) -> None:
+    headers = signup()
+    session = start(client, headers, template_id=template(client, headers)["id"])
+    main = logged(client, headers, session, 0, client_id=CLIENT_A, reps=10, load_kg=60)
+
+    drop = logged(
+        client,
+        headers,
+        session,
+        0,
+        kind="drop",
+        client_id=CLIENT_B,
+        parent_client_id=CLIENT_A,
+        reps=6,
+        load_kg=45,
+    )
+    assert drop["parent_set_id"] == main["id"]
+
+
+@pytest.mark.parametrize("case", ["unknown", "both"])
+def test_parent_client_id_must_exist_and_be_alone(client: TestClient, signup, case: str) -> None:
+    headers = signup()
+    session = start(client, headers, template_id=template(client, headers)["id"])
+    main = logged(client, headers, session, 0, client_id=CLIENT_A, reps=10, load_kg=60)
+    body = {"kind": "drop", "reps": 6, "parent_client_id": CLIENT_B}
+    if case == "both":
+        body = {**body, "parent_client_id": CLIENT_A, "parent_set_id": main["id"]}
+
+    response = log(client, headers, session, 0, **body)
+    assert response.status_code == 422
+    assert field_errors(response) == ["parent_client_id"]
+
+
+def test_client_id_of_another_user_does_not_leak(client: TestClient, signup) -> None:
+    ana = signup("ana@exemplo.com")
+    bia = signup("bia@exemplo.com", "Bia")
+    anas = start(client, ana, template_id=template(client, ana)["id"])
+    logged(client, ana, anas, 0, client_id=CLIENT_A, reps=10, load_kg=60)
+    bias = start(client, bia, template_id=template(client, bia)["id"])
+
+    # O mesmo id do app em outra conta vira uma série nova da Bia, sem tocar na da Ana.
+    bia_set = logged(client, bia, bias, 0, client_id=CLIENT_A, reps=5, load_kg=20)
+    assert bia_set["reps"] == 5
+    response = log(client, bia, bias, 0, kind="drop", parent_client_id=CLIENT_A, reps=3)
+    assert response.json()["parent_set_id"] == bia_set["id"]

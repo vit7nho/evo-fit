@@ -185,8 +185,9 @@ class _SessionViewState extends ConsumerState<_SessionView> {
     final theme = Theme.of(context);
     final paused = _session.isPaused;
     final options = ref.watch(workoutOptionsProvider).value;
-    // Com fonte grande, o resumo rola junto com a lista: fixo, ele somado à barra
-    // de descanso e ao botão de finalizar não cabe em tela pequena.
+    // Com fonte grande, o resumo (e o aviso de séries guardadas) rola junto com a
+    // lista: fixo, somado à barra de descanso e ao botão de finalizar, não cabe em
+    // tela pequena.
     final summaryScrolls = MediaQuery.textScalerOf(context).scale(10) > 13;
     final summary = _SummaryStrip(session: _session);
 
@@ -222,7 +223,7 @@ class _SessionViewState extends ConsumerState<_SessionView> {
         top: false,
         child: Column(
           children: [
-            if (!summaryScrolls) summary,
+            if (!summaryScrolls) ...[summary, const _SyncBanner()],
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(EvoSpace.lg),
@@ -230,7 +231,10 @@ class _SessionViewState extends ConsumerState<_SessionView> {
                   if (summaryScrolls) ...[
                     ClipRRect(
                       borderRadius: BorderRadius.circular(EvoRadius.input),
-                      child: summary,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [summary, const _SyncBanner()],
+                      ),
                     ),
                     const SizedBox(height: EvoSpace.md),
                   ],
@@ -324,6 +328,79 @@ class _SessionViewState extends ConsumerState<_SessionView> {
 }
 
 /// Resumo ao vivo: duração, volume e séries válidas.
+/// Séries guardadas no aparelho (sem conexão) e o envio delas. Some quando a fila
+/// esvazia; uma série recusada pelo servidor aparece aqui até ser dispensada.
+class _SyncBanner extends ConsumerWidget {
+  const _SyncBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sync = ref.watch(sessionSyncProvider);
+    final theme = Theme.of(context);
+    final controller = ref.read(sessionProvider.notifier);
+    if (sync.pending == 0 && sync.error == null) return const SizedBox.shrink();
+
+    final count = sync.pending == 1
+        ? '1 alteração guardada no aparelho'
+        : '${sync.pending} alterações guardadas no aparelho';
+    final String text;
+    final IconData icon;
+    if (sync.error != null && sync.pending == 0) {
+      icon = Icons.error_outline_rounded;
+      text = 'Uma série guardada não foi aceita pelo servidor: ${sync.error}';
+    } else if (sync.syncing) {
+      icon = Icons.cloud_upload_outlined;
+      text = 'Enviando: $count…';
+    } else if (sync.offline) {
+      icon = Icons.cloud_off_rounded;
+      text = 'Sem conexão · $count. Enviamos quando a internet voltar.';
+    } else {
+      icon = Icons.cloud_upload_outlined;
+      text = '$count, esperando envio.';
+    }
+
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: Container(
+        width: double.infinity,
+        color: EvoColors.bgElevated,
+        padding: const EdgeInsets.fromLTRB(
+          EvoSpace.xl,
+          EvoSpace.xs,
+          EvoSpace.sm,
+          EvoSpace.xs,
+        ),
+        child: Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          alignment: WrapAlignment.spaceBetween,
+          spacing: EvoSpace.sm,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18),
+                const SizedBox(width: EvoSpace.sm),
+                Flexible(child: Text(text, style: theme.textTheme.bodyMedium)),
+              ],
+            ),
+            if (sync.pending > 0 && !sync.syncing)
+              TextButton(
+                onPressed: () => controller.flush(),
+                child: const Text('Tentar agora'),
+              )
+            else if (sync.error != null && sync.pending == 0)
+              TextButton(
+                onPressed: controller.dismissSyncError,
+                child: const Text('Entendi'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SummaryStrip extends ConsumerWidget {
   const _SummaryStrip({required this.session});
 

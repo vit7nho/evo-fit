@@ -241,3 +241,9 @@ Só treinos **concluídos**, de atividades não excluídas, do dono do token. Re
 | `max_duration` | por tempo | maior duração numa série |
 
 Aquecimentos não contam; segmentos (drop, rest-pause) só entram no volume. A primeira vez num exercício não conta como recorde batido (não havia com o que comparar).
+
+## Envio idempotente de séries (etapa 2.9)
+
+- `POST …/sets` aceita `client_id` (UUID gerado no app). Reenviar com o mesmo `client_id` no mesmo exercício devolve a série já salva, sem duplicar — vale para resposta perdida, app reaberto com o rascunho ou dois envios simultâneos (índice único `session_exercise_id + client_id`, migração 0007).
+- O pai de um drop ou rest-pause pode vir por `parent_client_id` (o `client_id` da série de cima), para quando o app ainda não sabe o id dela no servidor. Não pode vir junto com `parent_set_id`; inexistente no exercício: `422` (`parent_client_id`).
+- `SetOut` devolve `client_id`.

@@ -46,7 +46,7 @@ Barra inferior com **5 destinos** (mais que isso fica apertado em telas pequenas
 
 ## 3. Estados obrigatórios por tela
 
-Carregando (*skeleton*, não um *spinner* em tela cheia), vazio (explica e oferece a ação principal — ex.: “Nenhuma sessão ainda. Criar ficha”), erro (mensagem humana + tentar novamente; erros de validação no próprio campo), sucesso (feedback discreto: *snackbar*/háptico), offline (faixa informativa; a sessão em andamento continua em rascunho).
+Carregando (*skeleton*, não um *spinner* em tela cheia), vazio (explica e oferece a ação principal — ex.: “Nenhuma sessão ainda. Criar ficha”), erro (mensagem humana + tentar novamente; erros de validação no próprio campo), sucesso (feedback discreto: *snackbar*/háptico), offline (faixa informativa; a sessão em andamento continua em rascunho). Na sessão (2.9): sem conexão, a série é salva no aparelho e a linha mostra um relógio no lugar do ✓ verde; uma faixa diz quantas alterações estão guardadas, com “Tentar agora”; o envio é automático quando a rede volta (e ao reabrir o app). Finalizar espera a fila esvaziar.
 
 ## 4. Identidade visual
 

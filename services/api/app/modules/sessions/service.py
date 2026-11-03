@@ -323,13 +323,31 @@ class SessionService:
     ) -> SetEntry:
         session = self._open(user, session_id)
         entry = self._entry(session, entry_id)
+        # Reenvio da mesma série (o app não recebeu a resposta, ou reabriu com o
+        # rascunho): devolve a que já está salva, sem duplicar.
+        if data.client_id is not None:
+            existing = self._by_client_id(entry, data.client_id)
+            if existing is not None:
+                return existing
         if len(entry.sets) >= MAX_SETS:
             raise FieldValidationError(
                 "kind", f"Um exercício tem até {MAX_SETS} séries por treino."
             )
         _check_set_values(entry.exercise, data.reps, data.duration_s)
         _check_failure(data.to_failure, data.rir)
-        parent_id = self._check_parent(entry, data.kind, data.parent_set_id)
+        parent_set_id = data.parent_set_id
+        if data.parent_client_id is not None:
+            if parent_set_id is not None:
+                raise FieldValidationError(
+                    "parent_client_id", "Informe a série de cima por um id só."
+                )
+            parent = self._by_client_id(entry, data.parent_client_id)
+            if parent is None:
+                raise FieldValidationError(
+                    "parent_client_id", "Série não encontrada neste exercício."
+                )
+            parent_set_id = parent.id
+        parent_id = self._check_parent(entry, data.kind, parent_set_id)
         entry_set = SetEntry(
             position=max((s.position for s in entry.sets), default=-1) + 1,
             kind=data.kind,
@@ -341,9 +359,18 @@ class SessionService:
             rpe=data.rpe,
             to_failure=data.to_failure,
             completed_at=_now(),
+            client_id=data.client_id,
         )
         entry.sets.append(entry_set)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError as error:
+            # Dois envios simultâneos da mesma série: o índice único fica com um só.
+            self.db.rollback()
+            if data.client_id is None or "uq_set_entries_exercise_client_id" not in str(error.orig):
+                raise
+            entry = self._entry(self.get(user, session_id), entry_id)
+            return self._by_client_id(entry, data.client_id)  # type: ignore[return-value]
         self.db.refresh(entry_set)
         return entry_set
 
@@ -417,6 +444,10 @@ class SessionService:
             if entry_set.id == set_id:
                 return entry_set
         raise NotFoundError("Série não encontrada.")
+
+    @staticmethod
+    def _by_client_id(entry: SessionExercise, client_id: uuid.UUID) -> SetEntry | None:
+        return next((s for s in entry.sets if s.client_id == client_id), None)
 
     @staticmethod
     def _segments(entry: SessionExercise, parent: SetEntry) -> list[SetEntry]:

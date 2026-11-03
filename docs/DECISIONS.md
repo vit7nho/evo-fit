@@ -265,3 +265,15 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
   2. a faixa infinita pulava a cada volta por causa do `gap` — cada item tem o próprio espaço e a trilha anda exatamente uma cópia;
   3. desfoque animado em texto com gradiente pisca no Chrome/Safari — as entradas usam só transform e opacity, e o gradiente do título fica num elemento sem animação;
   4. com "reduzir movimento", o gradiente desenhava um quadro só e sumia quando a janela mudava de tamanho (redimensionar apaga o canvas) — agora redesenha a cada redimensionamento.
+
+### ADR-037 — Rascunho local da sessão: cópia do servidor + fila de séries
+**Status:** Aceita · Fase 2.9
+**Decisões:**
+- **O servidor continua sendo a verdade**; o app guarda a última cópia do treino que a API devolveu e, por cima, uma fila das alterações de séries (criar, corrigir, apagar) que ainda não chegaram lá. A tela mostra sempre a cópia com a fila aplicada. Fica no armazenamento seguro do aparelho (o mesmo do login), por conta: são dados de treino da pessoa.
+- **Envio idempotente**: cada série nasce com um id gerado no app (`client_id`, UUID v4). Reenviar a mesma série devolve a já salva (índice único no banco). Resolve resposta perdida, timeout e reabertura do app sem risco de duplicar. Um drop ou rest-pause aponta para a série de cima pelo `parent_client_id`, então a fila não precisa esperar o id do servidor.
+- **Identidade estável no app**: a série é identificada pelo `client_id` quando há (senão pelo id do servidor); a linha da tabela não perde o vínculo quando a série pendente é enviada.
+- **Quando entra na fila**: só falta de conexão ou timeout. Erro de validação continua na linha, como antes. Com a fila não vazia, as novas alterações entram nela (para manter a ordem). A fila é enviada em ordem: ao registrar, a cada 20 s enquanto houver pendência, ao reabrir o app e pelo botão “Tentar agora”. Uma alteração recusada pelo servidor (ex.: treino finalizado em outro aparelho) é descartada com aviso, junto com os segmentos que dependiam dela.
+- **Corrigir ou desfazer uma série ainda na fila** muda o próprio envio pendente, sem chamar o servidor.
+- **Finalizar espera a fila esvaziar** (tenta enviar antes; sem conexão, explica). Pausar, retomar, acrescentar exercício e descartar continuam exigindo conexão.
+- **Limite conhecido**: reabrir o app *sem conexão* para na tela de entrada (o login precisa do servidor para confirmar a conta); o rascunho fica guardado e é enviado assim que o app entra com rede. Abrir o treino totalmente offline exigiria guardar os dados da conta no aparelho — evolução possível.
+- **Verificação**: testes de API (inclusive mutação: sem o índice e sem a checagem, o reenvio duplica) e de app (sem conexão, fechar e reabrir com drop dependente, resposta perdida, correção na fila, finalizar com pendência, layout com fonte grande — que pegou a faixa de aviso estourando a tela e a levou para dentro da rolagem); na API real, o reenvio com o mesmo id devolveu a mesma série. O modo sem conexão não foi exercitado no emulador para não registrar séries na conta pessoal que estava logada nele.

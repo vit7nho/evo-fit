@@ -785,12 +785,19 @@ class _SetRowTileState extends State<_SetRowTile> {
       decimal: false,
     );
 
+    // Guardada no aparelho, esperando conexão: relógio no lugar do ✓ verde (a forma
+    // muda, não só a cor), e o leitor de tela diz que ainda não foi enviada.
+    final pending = widget.logged?.pending ?? false;
     final check = IconButton(
-      tooltip: _done ? 'Desfazer ${widget.name}' : 'Concluir ${widget.name}',
+      tooltip: _done
+          ? 'Desfazer ${widget.name}${pending ? ', guardada no aparelho' : ''}'
+          : 'Concluir ${widget.name}',
       onPressed: widget.saving ? null : widget.onCheck,
       style: _done
           ? IconButton.styleFrom(
-              backgroundColor: EvoColors.success,
+              backgroundColor: pending
+                  ? EvoColors.textSecondary
+                  : EvoColors.success,
               foregroundColor: EvoColors.onAccent,
             )
           : null,
@@ -800,7 +807,11 @@ class _SetRowTileState extends State<_SetRowTile> {
               child: CircularProgressIndicator(strokeWidth: 2.2),
             )
           : Icon(
-              _done ? Icons.check_rounded : Icons.check_circle_outline_rounded,
+              !_done
+                  ? Icons.check_circle_outline_rounded
+                  : pending
+                  ? Icons.schedule_rounded
+                  : Icons.check_rounded,
             ),
     );
 

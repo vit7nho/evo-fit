@@ -119,10 +119,19 @@ class SetEntry(UUIDPrimaryKey, Base):
     rpe: Mapped[float | None] = mapped_column(Numeric(3, 1, asdecimal=False))
     to_failure: Mapped[bool] = mapped_column(Boolean, default=False)
     completed_at: Mapped[datetime]
+    # Id gerado no app (ADR-037): reenviar a mesma série devolve a já salva.
+    client_id: Mapped[uuid.UUID | None]
 
     __table_args__ = (
         CheckConstraint(
             "(kind IN ('drop', 'rest_pause', 'cluster')) = (parent_set_id IS NOT NULL)",
             name="segment_has_parent",
+        ),
+        Index(
+            "uq_set_entries_exercise_client_id",
+            "session_exercise_id",
+            "client_id",
+            unique=True,
+            postgresql_where=text("client_id IS NOT NULL"),
         ),
     )

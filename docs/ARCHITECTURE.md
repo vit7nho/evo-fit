@@ -122,7 +122,7 @@ lib/
 - **go_router** com *shell route* para a navegação inferior e *redirect* baseado no estado de autenticação.
 - **dio** com interceptors para: adicionar o token, renovar com refresh em caso de `401` (com fila para evitar renovações concorrentes) e mapear `problem+json` para erros tipados.
 - **flutter_secure_storage** só para o refresh token. O access token fica em memória.
-- **Persistência local**: na v1, apenas um rascunho da sessão de treino em andamento (para sobreviver ao fechamento do app). O modo *offline-first* completo fica fora do escopo e está documentado como evolução.
+- **Persistência local**: na v1, apenas um rascunho da sessão de treino em andamento (para sobreviver ao fechamento do app). O modo *offline-first* completo fica fora do escopo e está documentado como evolução. Implementado na 2.9 (ADR-037): a última cópia do treino vinda da API mais a fila de séries ainda não enviadas, no armazenamento seguro do aparelho.
 - A lógica de negócio fica fora dos widgets: os widgets observam controllers; os controllers chamam repositórios.
 
 ## 5. Site (`apps/web`)

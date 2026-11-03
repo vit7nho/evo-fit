@@ -37,6 +37,7 @@ _BASE = "/workout-sessions"
 def _set_out(entry_set: SetEntry) -> SetOut:
     return SetOut(
         id=entry_set.id,
+        client_id=entry_set.client_id,
         position=entry_set.position,
         kind=entry_set.kind,
         parent_set_id=entry_set.parent_set_id,

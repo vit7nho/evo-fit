@@ -1,3 +1,4 @@
+import 'package:evofit/features/sessions/data/session_draft.dart';
 import 'package:evofit/app/app.dart';
 import 'package:evofit/app/provider_config.dart';
 import 'package:evofit/core/auth/session_store.dart';
@@ -136,6 +137,7 @@ Future<FakeAuthServer> _pump(
       retry: noAutomaticRetry,
       overrides: [
         httpClientAdapterProvider.overrideWithValue(server.adapter),
+        draftStorageProvider.overrideWithValue(InMemoryDraftStorage()),
         tokenStorageProvider.overrideWithValue(InMemoryTokenStorage('salvo')),
         clockTickProvider.overrideWith((ref) => const Stream.empty()),
       ],

@@ -430,6 +430,12 @@ class FakeAuthServer {
   List<Map<String, Object?>> records = [];
   Map<String, Map<String, Object?>> exerciseHistories = {};
 
+  /// A próxima série é salva, mas a resposta não chega ao app.
+  bool loseNextSetResponse = false;
+
+  /// Séries reenviadas com um client_id já salvo (devolvidas sem duplicar).
+  int resentSets = 0;
+
   /// Recordes que o próximo treino finalizado bate.
   List<Map<String, Object?>> finishRecords = [];
 
@@ -808,7 +814,31 @@ class FakeAuthServer {
         entries.removeWhere((e) => e['id'] == parts[4]);
         return ResponseBody.fromString('', 204);
       case ('POST', 6):
-        setBodies.add(body);
+        final sets = entry(parts[4])['sets']! as List;
+        // Como a API: o mesmo client_id devolve a série já salva (envio idempotente)
+        // e o pai pode vir pelo id do app (parent_client_id).
+        final clientId = body['client_id'] as String?;
+        final existing = sets.cast<Map<String, Object?>>().where(
+          (s) => clientId != null && s['client_id'] == clientId,
+        );
+        if (existing.isNotEmpty) {
+          resentSets++;
+          return FakeHttpAdapter.json(201, existing.first);
+        }
+        final parentClientId = body['parent_client_id'] as String?;
+        final parentId = parentClientId == null
+            ? body['parent_set_id']
+            : sets.cast<Map<String, Object?>>().firstWhere(
+                (s) => s['client_id'] == parentClientId,
+              )['id'];
+        // Nos testes, o corpo fica como antes: sem o id do app e com o pai pelo
+        // id do servidor.
+        setBodies.add({
+          for (final e in body.entries)
+            if (e.key != 'client_id' && e.key != 'parent_client_id')
+              e.key: e.value,
+          'parent_set_id': ?parentId,
+        });
         if (failNextSet) {
           failNextSet = false;
           return _problem(
@@ -817,12 +847,12 @@ class FakeAuthServer {
             'O servidor encontrou um problema.',
           );
         }
-        final sets = entry(parts[4])['sets']! as List;
         final logged = {
           'id': 'serie-${setBodies.length}',
+          'client_id': clientId,
           'position': sets.length,
           'kind': body['kind'] ?? 'working',
-          'parent_set_id': body['parent_set_id'],
+          'parent_set_id': parentId,
           'reps': body['reps'],
           'load_kg': body['load_kg'],
           'duration_s': body['duration_s'],
@@ -832,6 +862,14 @@ class FakeAuthServer {
           'completed_at': '2026-11-01T10:05:00Z',
         };
         sets.add(logged);
+        if (loseNextSetResponse) {
+          // Salvou, mas a resposta "se perdeu" no caminho (o app vê falta de rede).
+          loseNextSetResponse = false;
+          throw DioException.connectionError(
+            requestOptions: RequestOptions(path: path),
+            reason: 'resposta perdida (teste)',
+          );
+        }
         return FakeHttpAdapter.json(201, logged);
       case ('PATCH', 7):
         setBodies.add(body);
