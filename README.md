@@ -1,4 +1,4 @@
-# EvoFit (nome provisório)
+# EvoFit
 
 Plataforma de acompanhamento de atividade física, nutrição e evolução pessoal com IA contextual — projeto de TCC de Engenharia de Software.
 
