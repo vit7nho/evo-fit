@@ -55,7 +55,7 @@ Inspeção do ambiente, avaliação de viabilidade e riscos, arquitetura, modelo
 | 2.7 ✅ | Técnicas: drop set, rest-pause, até a falha, aquecimento | P0 |
 | 2.8 ✅ | Histórico por exercício, recordes, comparação com a sessão anterior | P0 |
 | 2.9 ✅ | Rascunho local da sessão em andamento (sobrevive ao fechamento do app) | P1 |
-| 2.10 | Testes de autorização entre usuários em todos os endpoints | P0 |
+| 2.10 ✅ | Testes de autorização entre usuários em todos os endpoints | P0 |
 
 **Aceite:** um usuário novo cria uma ficha com um bi-set e um drop set, executa a sessão no Android, fecha e reabre o app, finaliza e vê o histórico e os recordes — tudo persistido.
 
@@ -105,4 +105,4 @@ Dados de demonstração identificados (`scripts/seed_demo.py`, usuário `demo@ev
 
 ## Próxima etapa
 
-**Fase 2** em andamento: 2.1 (autenticação) e 2.2 (onboarding, perfil e consentimentos) concluídas, verificadas no emulador com a API real. Depois da 2.2, uma revisão de interface e acessibilidade (ADR-027) corrigiu foco, TalkBack, redução de movimento e fonte grande. 2.3 (metas) concluída: API, app e emulador com a API real. 2.4 (biblioteca de exercícios) concluída, com fotos de 67 exercícios (ADR-030). 2.5 (fichas de treino), 2.6 (sessão de treino), 2.7 (técnicas e tela de séries em tabela), 2.8 (histórico, recordes e comparação) e 2.9 (rascunho local da sessão) concluídas. Próxima: 2.10 (testes de autorização entre usuários). A Fase 1 foi executada na ordem 1.1 → 1.4 → 1.6 → 1.7 → 1.5 → 1.8 → 1.9 → 1.10.
+**Fase 2** em andamento: 2.1 (autenticação) e 2.2 (onboarding, perfil e consentimentos) concluídas, verificadas no emulador com a API real. Depois da 2.2, uma revisão de interface e acessibilidade (ADR-027) corrigiu foco, TalkBack, redução de movimento e fonte grande. 2.3 (metas) concluída: API, app e emulador com a API real. 2.4 (biblioteca de exercícios) concluída, com fotos de 67 exercícios (ADR-030). 2.5 (fichas de treino), 2.6 (sessão de treino), 2.7 (técnicas e tela de séries em tabela), 2.8 (histórico, recordes e comparação), 2.9 (rascunho local da sessão) e 2.10 (testes de autorização entre usuários) concluídas. Próximo: critério de aceite da Fase 2 (fluxo completo no Android com um usuário novo). A Fase 1 foi executada na ordem 1.1 → 1.4 → 1.6 → 1.7 → 1.5 → 1.8 → 1.9 → 1.10.

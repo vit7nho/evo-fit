@@ -91,7 +91,15 @@ def app() -> FastAPI:
 
 @pytest.fixture
 def client(app: FastAPI, db: Session) -> Iterator[TestClient]:
-    app.dependency_overrides[get_db] = lambda: db
+    def request_db() -> Iterator[Session]:
+        # Como em produção (uma sessão por requisição, fechada sem commit): o que a
+        # requisição não confirmou é desfeito — inclusive quando ela termina em erro.
+        try:
+            yield db
+        finally:
+            db.rollback()
+
+    app.dependency_overrides[get_db] = request_db
     with TestClient(app, raise_server_exceptions=False) as test_client:
         yield test_client
     app.dependency_overrides.clear()
