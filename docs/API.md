@@ -47,7 +47,8 @@
 ### Fase 3: modalidades e evolução
 | Método | Caminho | Descrição |
 |---|---|---|
-| GET/POST | `/activities` · GET/PATCH/DELETE `/activities/{id}` | atividades (corpo discriminado por `modality`) |
+| GET/POST ✅ | `/activities` · GET/PATCH/DELETE `/activities/{id}` | atividades de resistência (campos por `modality`) |
+| GET ✅ | `/activity-options` | modalidades, estilos de nado e piscinas (público, cache 1 h) |
 | GET/POST | `/training-plans` · GET `/training-plans/{id}` | planos 5 km/10 km/caminhada |
 | GET | `/analytics/overview?from&to` | frequência, consistência, duração, resumo por modalidade |
 | GET | `/analytics/muscles?from&to` | Meu Corpo: `{methodology_version, period_days, muscles:[{muscle_id, weighted_sets, weighted_sets_per_week, band, frequency, volume_load_kg}]}` |
@@ -247,3 +248,15 @@ Aquecimentos não contam; segmentos (drop, rest-pause) só entram no volume. A p
 - `POST …/sets` aceita `client_id` (UUID gerado no app). Reenviar com o mesmo `client_id` no mesmo exercício devolve a série já salva, sem duplicar — vale para resposta perdida, app reaberto com o rascunho ou dois envios simultâneos (índice único `session_exercise_id + client_id`, migração 0007).
 - O pai de um drop ou rest-pause pode vir por `parent_client_id` (o `client_id` da série de cima), para quando o app ainda não sabe o id dela no servidor. Não pode vir junto com `parent_set_id`; inexistente no exercício: `422` (`parent_client_id`).
 - `SetOut` devolve `client_id`.
+
+## Atividades (implementadas na etapa 3.1)
+
+Corrida (`run`), caminhada (`walk`), ciclismo (`cycle`) e natação (`swim`), registradas à mão (`source = manual`). Musculação continua em `/workout-sessions`: a atividade por trás de um treino responde `404` aqui e não aparece na lista.
+
+- **Corpo** (`POST`, campos planos): `modality`, `started_at` (com fuso; até 5 min no futuro, no máximo 5 anos atrás), `duration_s` (60 s a 24 h), `distance_m` (opcional; limite por modalidade: 300 km, 150 km, 1000 km, 30 km), `perceived_effort` (1–10), `notes` (até 1000). Só no ciclismo: `indoor` (padrão `false`). Só na natação: `pool_length_m` (10–100; sem piscina = águas abertas), `laps` (1–2000), `stroke` (`freestyle|breaststroke|backstroke|butterfly|mixed`). Campo de outra modalidade: `422` no campo, para não ser guardado e ignorado.
+- **Natação na piscina**: sem `distance_m`, a distância é `voltas × piscina`; informada junto, precisa bater (`422 distance_m`). Corrigir voltas ou piscina recalcula a distância.
+- **Resposta**: os campos acima mais `id`, `ended_at` (início + duração), `created_at`, `updated_at`; os de outras modalidades vêm `null`. Pace e velocidade ficam para a 3.2.
+- **Lista**: da mais recente; `modality`, `before` (início da última da página anterior) e `limit` (1–50, padrão 20).
+- **`PATCH`**: parcial; `null` limpa os opcionais; `started_at` e `duration_s` não podem ser `null`; `modality` não muda (`422`).
+- **`DELETE`**: lógico (`deleted_at`), para os indicadores recalcularem o histórico; depois disso, `404`.
+- **Posse**: tudo filtrado pelo dono do token; atividade de outra pessoa = `404`, igual a uma inexistente. As rotas novas entraram na matriz da 2.10.

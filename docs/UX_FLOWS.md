@@ -40,6 +40,8 @@ Barra inferior com **5 destinos** (mais que isso fica apertado em telas pequenas
 
 **Registrar corrida/caminhada:** formulário único: modalidade, data/hora, duração (com seletor h:m:s), distância (opcional para caminhada), RPE (escala 1–10 com descrições), campos avançados recolhidos (FC, elevação), notas. O pace aparece ao vivo quando há distância e duração.
 
+**Atividades** (etapa 3.1; vão para a aba Atividades quando ela existir): cartão no Início → lista da mais recente (modalidade, duração, distância, esforço, dia e hora; “Carregar mais”) → “Registrar atividade”. O formulário tem a modalidade em chips (só na criação), dia e hora (seletores do sistema), duração digitada (“45” = minutos, ou “1:05:30”), distância em km (na natação, em metros), esforço 1–10 e “Como foi?”. Ciclismo: “Em ambiente fechado”. Natação: piscina (25 m, 50 m, águas abertas); na piscina, as voltas substituem a distância e a tela mostra o total. Tocar numa atividade abre a edição, com “Excluir” no topo (confirmação); sair com alterações pede confirmação. O pace e os campos avançados (FC, elevação) chegam na 3.2.
+
 **Meu Corpo:** alternador Frente/Costas · seletor de período (7 d, 30 d, 90 d, personalizado) · legenda das faixas com aviso “referência de volume registrado, não diagnóstico” · toque no músculo → *bottom sheet* com séries ponderadas/semana, frequência, exercícios, evolução de carga, comparação com o período anterior e os botões **Perguntar à IA** e **Sugerir exercícios** (abre o chat com o escopo `muscle`).
 
 **IA:** campo de mensagem com sugestões contextuais; as respostas mostram chips “dados usados” (ferramentas consultadas e período); as propostas aparecem como cartão com diff e os botões Confirmar/Recusar.

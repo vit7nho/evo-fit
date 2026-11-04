@@ -160,6 +160,16 @@ class HomePage extends ConsumerWidget {
             EvoEntrance(
               delay: EvoEntrance.stagger(3),
               child: _LinkCard(
+                icon: Icons.directions_run_rounded,
+                title: 'Atividades',
+                subtitle: 'Corrida, caminhada, ciclismo e natação',
+                onTap: () => context.push(AppRoutes.activities),
+              ),
+            ),
+            const SizedBox(height: EvoSpace.md),
+            EvoEntrance(
+              delay: EvoEntrance.stagger(3),
+              child: _LinkCard(
                 icon: Icons.history_rounded,
                 title: 'Histórico',
                 subtitle: 'Treinos concluídos e recordes',

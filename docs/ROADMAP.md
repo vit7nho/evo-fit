@@ -76,7 +76,7 @@ O aceite encontrou um bug da 2.9: no aparelho, a série concluída às vezes apa
 ## Fase 3 — Evolução e modalidades
 | # | Tarefa | Prio |
 |---|---|---|
-| 3.1 | Atividades multimodais (corrida, caminhada; ciclismo e natação básicos) | P0 |
+| 3.1 ✅ | Atividades multimodais (corrida, caminhada; ciclismo e natação básicos) | P0 |
 | 3.2 | Pace/velocidade calculados; métricas opcionais (FC, elevação) | P0 |
 | 3.3 | Planos progressivos (caminhada, 5 km, 10 km) a partir de templates versionados | P1 |
 | 3.4 | Motor de análise: frequência, consistência, volume, tendências, comparação de períodos | P0 |
@@ -119,4 +119,6 @@ Dados de demonstração identificados (`scripts/seed_demo.py`, usuário `demo@ev
 
 ## Próxima etapa
 
-**Fase 2** concluída: 2.1 (autenticação) e 2.2 (onboarding, perfil e consentimentos) concluídas, verificadas no emulador com a API real. Depois da 2.2, uma revisão de interface e acessibilidade (ADR-027) corrigiu foco, TalkBack, redução de movimento e fonte grande. 2.3 (metas) concluída: API, app e emulador com a API real. 2.4 (biblioteca de exercícios) concluída, com fotos de 67 exercícios (ADR-030). 2.5 (fichas de treino), 2.6 (sessão de treino), 2.7 (técnicas e tela de séries em tabela), 2.8 (histórico, recordes e comparação), 2.9 (rascunho local da sessão) e 2.10 (testes de autorização entre usuários) concluídas. Critério de aceite da Fase 2 cumprido em 2026-11-04 (ver acima): **Fase 2 concluída**. Próxima: Fase 3. A Fase 1 foi executada na ordem 1.1 → 1.4 → 1.6 → 1.7 → 1.5 → 1.8 → 1.9 → 1.10.
+**Fase 2** concluída: 2.1 (autenticação) e 2.2 (onboarding, perfil e consentimentos) concluídas, verificadas no emulador com a API real. Depois da 2.2, uma revisão de interface e acessibilidade (ADR-027) corrigiu foco, TalkBack, redução de movimento e fonte grande. 2.3 (metas) concluída: API, app e emulador com a API real. 2.4 (biblioteca de exercícios) concluída, com fotos de 67 exercícios (ADR-030). 2.5 (fichas de treino), 2.6 (sessão de treino), 2.7 (técnicas e tela de séries em tabela), 2.8 (histórico, recordes e comparação), 2.9 (rascunho local da sessão) e 2.10 (testes de autorização entre usuários) concluídas. Critério de aceite da Fase 2 cumprido em 2026-11-04 (ver acima): **Fase 2 concluída**.
+
+**Fase 3** em andamento: 3.1 (atividades de corrida, caminhada, ciclismo e natação) concluída, verificada no emulador com a API real. Próxima: 3.2 (pace e velocidade; FC e elevação opcionais). A Fase 1 foi executada na ordem 1.1 → 1.4 → 1.6 → 1.7 → 1.5 → 1.8 → 1.9 → 1.10.

@@ -39,6 +39,11 @@ abstract final class AppRoutes {
   static const history = '/historico';
   static String workoutDetail(String id) => '/historico/$id';
 
+  /// Corridas, caminhadas, pedais e nados.
+  static const activities = '/atividades';
+  static const activityNew = '/atividades/nova';
+  static String activityEdit(String id) => '/atividades/$id';
+
   /// Telas abertas a quem não entrou.
   static const public = {login, register};
 }

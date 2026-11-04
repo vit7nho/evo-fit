@@ -17,6 +17,8 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.modules.auth import tokens
+from tests.conftest import Clock
+from tests.test_activities import RUN
 from tests.test_exercises import CUSTOM
 from tests.test_goals import STRENGTH
 from tests.test_sessions import SUPINO, TEMPLATE
@@ -35,6 +37,7 @@ PUBLIC = {
     ("GET", "/api/v1/muscle-groups"),
     ("GET", "/api/v1/exercise-options"),
     ("GET", "/api/v1/workout-options"),
+    ("GET", "/api/v1/activity-options"),
 }
 
 # Operação autenticada -> corpo válido (None: sem corpo). Os ids no caminho são da Ana.
@@ -80,6 +83,11 @@ PROTECTED: dict[tuple[str, str], dict | None] = {
     ): None,
     ("GET", "/api/v1/exercises/{exercise_id}/history"): None,
     ("GET", "/api/v1/analytics/records"): None,
+    ("GET", "/api/v1/activities"): None,
+    ("POST", "/api/v1/activities"): RUN,
+    ("GET", "/api/v1/activities/{activity_id}"): None,
+    ("PATCH", "/api/v1/activities/{activity_id}"): {"duration_s": 60},
+    ("DELETE", "/api/v1/activities/{activity_id}"): None,
 }
 
 # Operações sobre um registro identificado na URL: com o id de outra conta, só 404.
@@ -99,7 +107,7 @@ def ok(response, status: int = 200) -> dict:
 
 
 def build_world(client: TestClient, headers: dict[str, str]) -> dict[str, str]:
-    """Um de cada: consentimento, meta, exercício próprio, ficha e dois treinos."""
+    """Um de cada: consentimento, meta, exercício próprio, ficha, dois treinos e uma corrida."""
     ok(client.put(f"{API}/me/consents/health_data", headers=headers))
     goal = ok(client.post(f"{API}/goals", headers=headers, json=STRENGTH), 201)
     exercise = ok(client.post(f"{API}/exercises", headers=headers, json=CUSTOM), 201)
@@ -138,7 +146,9 @@ def build_world(client: TestClient, headers: dict[str, str]) -> dict[str, str]:
         ),
         201,
     )
+    run = ok(client.post(f"{API}/activities", headers=headers, json=RUN), 201)
     return {
+        "activity_id": run["id"],
         "goal_id": goal["id"],
         "exercise_id": exercise["id"],
         "template_id": template["id"],
@@ -166,6 +176,8 @@ def snapshot(client: TestClient, headers: dict[str, str], ids: dict) -> dict:
         f"{API}/exercises/{SUPINO}/history",
         f"{API}/exercises/{ids['exercise_id']}/history",
         f"{API}/analytics/records",
+        f"{API}/activities",
+        f"{API}/activities/{ids['activity_id']}",
     ]
     return {url: ok(client.get(url, headers=headers)) for url in urls}
 
@@ -181,7 +193,8 @@ def bia(signup) -> dict[str, str]:
 
 
 @pytest.fixture
-def world(client: TestClient, ana: dict[str, str]) -> dict[str, str]:
+def world(client: TestClient, ana: dict[str, str], clock: Clock) -> dict[str, str]:
+    # Relógio parado: o tempo decorrido do treino em andamento não muda entre os retratos.
     return build_world(client, ana)
 
 
@@ -482,6 +495,7 @@ def test_lists_and_derived_data_never_include_another_user(
         f"{SESSIONS}/{session['id']}",
         f"{API}/exercises/{SUPINO}/history",
         f"{API}/analytics/records",
+        f"{API}/activities",
     ]
     for url in urls:
         text = client.get(url, headers=bia).text

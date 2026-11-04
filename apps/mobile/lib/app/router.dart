@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/activities/presentation/activities_page.dart';
+import '../features/activities/presentation/activity_form_page.dart';
 import '../features/auth/application/auth_controller.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/register_page.dart';
@@ -170,6 +172,25 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.activities,
+        pageBuilder: (context, state) => _page(state, const ActivitiesPage()),
+        routes: [
+          // "nova" antes de ":id": o caminho literal tem precedência.
+          GoRoute(
+            path: 'nova',
+            pageBuilder: (context, state) =>
+                _page(state, const ActivityFormPage.create()),
+          ),
+          GoRoute(
+            path: ':id',
+            pageBuilder: (context, state) => _page(
+              state,
+              ActivityFormPage.edit(activityId: state.pathParameters['id']!),
+            ),
           ),
         ],
       ),

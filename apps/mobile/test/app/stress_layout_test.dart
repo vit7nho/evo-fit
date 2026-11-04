@@ -318,6 +318,71 @@ void main() {
     expect(find.text('Dê um nome para a meta.'), findsOneWidget);
   });
 
+  testWidgets('atividades: lista, formulário de natação e edição', (
+    tester,
+  ) async {
+    _worstCaseScreen(tester);
+    await _pump(
+      tester,
+      profile: _maximalProfile(),
+      setUp: (server) => server.activities = [
+        {
+          ...FakeAuthServer.run(durationS: 24 * 3600 - 1, distanceM: 299999),
+          'perceived_effort': 10,
+        },
+        {
+          ...FakeAuthServer.run(id: 'pedal', distanceM: 999999),
+          'modality': 'cycle',
+          'indoor': true,
+        },
+      ],
+    );
+
+    final activities = find.text('Atividades');
+    await tester.scrollUntilVisible(
+      activities,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(activities);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('23:59:59'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Ciclismo'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ciclismo'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Em ambiente fechado'));
+    await tester.pumpAndSettle();
+    await _back(tester);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Registrar atividade'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Natação'));
+    await tester.pumpAndSettle();
+    final pool = find.text('50 m');
+    await tester.ensureVisible(pool);
+    await tester.pumpAndSettle();
+    await tester.tap(pool);
+    await tester.pumpAndSettle();
+    final laps = find.widgetWithText(TextFormField, 'Voltas');
+    await tester.ensureVisible(laps);
+    await tester.enterText(laps, '2000');
+    await tester.pumpAndSettle();
+    expect(find.text('Distância: 100000 m'), findsOneWidget);
+    final stroke = find.text('Borboleta');
+    await tester.ensureVisible(stroke);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Registrar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Informe a duração.'), findsOneWidget);
+  });
+
   testWidgets('exercícios: biblioteca, detalhe e formulário', (tester) async {
     _worstCaseScreen(tester);
     await _pump(tester, profile: _maximalProfile());

@@ -99,6 +99,51 @@ class FakeAuthServer {
     ],
   };
 
+  /// Atividades guardadas (como a API devolve) e o que chegou nas gravações.
+  List<Map<String, Object?>> activities = [];
+  final activityBodies = <Map<String, Object?>>[];
+  final activityCalls = <String>[];
+
+  /// Próxima gravação de atividade responde 422 neste campo.
+  String? rejectActivityField;
+
+  Map<String, Object?> activityOptions = {
+    'modalities': [
+      {'code': 'run', 'label': 'Corrida', 'max_distance_m': 300000},
+      {'code': 'walk', 'label': 'Caminhada', 'max_distance_m': 150000},
+      {'code': 'cycle', 'label': 'Ciclismo', 'max_distance_m': 1000000},
+      {'code': 'swim', 'label': 'Natação', 'max_distance_m': 30000},
+    ],
+    'strokes': [
+      {'code': 'freestyle', 'label': 'Crawl'},
+      {'code': 'breaststroke', 'label': 'Peito'},
+      {'code': 'backstroke', 'label': 'Costas'},
+      {'code': 'butterfly', 'label': 'Borboleta'},
+      {'code': 'mixed', 'label': 'Variado'},
+    ],
+    'pool_lengths_m': [25, 50],
+  };
+
+  static Map<String, Object?> run({
+    String id = 'corrida-1',
+    String startedAt = '2026-11-02T09:00:00Z',
+    int durationS = 1800,
+    int? distanceM = 5000,
+  }) => {
+    'id': id,
+    'modality': 'run',
+    'started_at': startedAt,
+    'ended_at': startedAt,
+    'duration_s': durationS,
+    'distance_m': distanceM,
+    'perceived_effort': 6,
+    'notes': null,
+    'indoor': null,
+    'pool_length_m': null,
+    'laps': null,
+    'stroke': null,
+  };
+
   /// Metas guardadas (como a API devolve) e o que chegou nas gravações.
   List<Map<String, Object?>> goals = [];
   final goalBodies = <Map<String, Object?>>[];
@@ -634,6 +679,26 @@ class FakeAuthServer {
                 body.cast<String, Object?>(),
               )
             : _invalidToken(),
+      ('GET', '/activity-options') => FakeHttpAdapter.json(
+        200,
+        activityOptions,
+      ),
+      ('GET', '/activities') =>
+        _authorized(options)
+            ? FakeHttpAdapter.json(200, _sortedActivities())
+            : _invalidToken(),
+      ('POST', '/activities') =>
+        _authorized(options)
+            ? _createActivity(body.cast<String, Object?>())
+            : _invalidToken(),
+      (final method, final path) when path.startsWith('/activities/') =>
+        _authorized(options)
+            ? _activity(
+                method,
+                path.split('/').last,
+                body.cast<String, Object?>(),
+              )
+            : _invalidToken(),
       ('GET', '/goals') =>
         _authorized(options) ? _listGoals() : _invalidToken(),
       ('POST', '/goals') =>
@@ -998,6 +1063,75 @@ class FakeAuthServer {
         : {...current, ...body};
     exercises[index] = updated;
     return FakeHttpAdapter.json(200, updated);
+  }
+
+  List<Map<String, Object?>> _sortedActivities() => [...activities]
+    ..sort(
+      (a, b) =>
+          (b['started_at']! as String).compareTo(a['started_at']! as String),
+    );
+
+  ResponseBody? _rejectActivity() {
+    final field = rejectActivityField;
+    if (field == null) return null;
+    rejectActivityField = null;
+    return _problem(
+      422,
+      'validation_error',
+      'Verifique os campos informados.',
+      errors: [
+        {'field': field, 'message': 'Recusado pelo servidor.'},
+      ],
+    );
+  }
+
+  /// Natação na piscina sem distância: voltas × tamanho, como a API.
+  static Map<String, Object?> _withSwimDistance(Map<String, Object?> a) {
+    final pool = a['pool_length_m'] as int?;
+    final laps = a['laps'] as int?;
+    return a['distance_m'] == null && pool != null && laps != null
+        ? {...a, 'distance_m': pool * laps}
+        : a;
+  }
+
+  ResponseBody _createActivity(Map<String, Object?> body) {
+    activityCalls.add('POST');
+    activityBodies.add(body);
+    if (_rejectActivity() case final rejected?) return rejected;
+    final activity = _withSwimDistance({
+      'id': 'atividade-${activityCalls.length}',
+      'ended_at': body['started_at'],
+      'distance_m': null,
+      'perceived_effort': null,
+      'notes': null,
+      'indoor': body['modality'] == 'cycle' ? false : null,
+      'pool_length_m': null,
+      'laps': null,
+      'stroke': null,
+      ...body,
+    });
+    activities.add(activity);
+    return FakeHttpAdapter.json(201, activity);
+  }
+
+  ResponseBody _activity(String method, String id, Map<String, Object?> body) {
+    final index = activities.indexWhere((a) => a['id'] == id);
+    if (index < 0) {
+      return _problem(404, 'not_found', 'Atividade não encontrada.');
+    }
+    activityCalls.add('$method $id');
+    switch (method) {
+      case 'DELETE':
+        activities.removeAt(index);
+        return ResponseBody.fromString('', 204);
+      case 'PATCH':
+        activityBodies.add(body);
+        if (_rejectActivity() case final rejected?) return rejected;
+        activities[index] = _withSwimDistance({...activities[index], ...body});
+        return FakeHttpAdapter.json(200, activities[index]);
+      default:
+        return FakeHttpAdapter.json(200, activities[index]);
+    }
   }
 
   ResponseBody _listGoals() {

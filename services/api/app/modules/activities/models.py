@@ -1,14 +1,25 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, SmallInteger, String, Text, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    text,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, Timestamps, UUIDPrimaryKey
 
 
 class Activity(UUIDPrimaryKey, Timestamps, Base):
-    """Base multimodal (DATA_MODEL §3): musculação hoje; corrida, caminhada etc. na Fase 3."""
+    """Base multimodal (DATA_MODEL §3): musculação pela sessão de treino; corrida,
+    caminhada, ciclismo e natação com os detalhes 1:1 abaixo (ARCHITECTURE §6)."""
 
     __tablename__ = "activities"
 
@@ -28,8 +39,22 @@ class Activity(UUIDPrimaryKey, Timestamps, Base):
     # Exclusão lógica: indicadores recalculados com histórico (a da conta é física).
     deleted_at: Mapped[datetime | None]
 
+    # Carregados só quando usados (a musculação não tem detalhes de resistência).
+    endurance: Mapped[EnduranceDetails | None] = relationship(
+        cascade="all, delete-orphan", passive_deletes=True
+    )
+    cycling: Mapped[CyclingDetails | None] = relationship(
+        cascade="all, delete-orphan", passive_deletes=True
+    )
+    swim: Mapped[SwimDetails | None] = relationship(
+        cascade="all, delete-orphan", passive_deletes=True
+    )
+
     __table_args__ = (
         CheckConstraint("perceived_effort BETWEEN 1 AND 10", name="effort_range"),
+        CheckConstraint(
+            "modality IN ('strength', 'run', 'walk', 'cycle', 'swim', 'other')", name="modality"
+        ),
         Index(
             "uq_activities_user_source_external",
             "user_id",
@@ -38,4 +63,51 @@ class Activity(UUIDPrimaryKey, Timestamps, Base):
             unique=True,
             postgresql_where=text("external_id IS NOT NULL"),
         ),
+        # Listas da pessoa, mais recentes primeiro (DATA_MODEL §8).
+        Index(
+            "ix_activities_user_started",
+            "user_id",
+            text("started_at DESC"),
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+
+class EnduranceDetails(Base):
+    """Corrida, caminhada, ciclismo e natação. Pace e velocidade não são guardados."""
+
+    __tablename__ = "endurance_details"
+
+    activity_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("activities.id", ondelete="CASCADE"), primary_key=True
+    )
+    distance_m: Mapped[int | None] = mapped_column(Integer)
+
+    __table_args__ = (CheckConstraint("distance_m > 0", name="distance_positive"),)
+
+
+class CyclingDetails(Base):
+    __tablename__ = "cycling_details"
+
+    activity_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("activities.id", ondelete="CASCADE"), primary_key=True
+    )
+    indoor: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class SwimDetails(Base):
+    __tablename__ = "swim_details"
+
+    activity_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("activities.id", ondelete="CASCADE"), primary_key=True
+    )
+    # Sem piscina: águas abertas.
+    pool_length_m: Mapped[int | None] = mapped_column(SmallInteger)
+    laps: Mapped[int | None] = mapped_column(SmallInteger)
+    # freestyle | breaststroke | backstroke | butterfly | mixed
+    stroke: Mapped[str | None] = mapped_column(String(16))
+
+    __table_args__ = (
+        CheckConstraint("pool_length_m BETWEEN 10 AND 100", name="pool_length_range"),
+        CheckConstraint("laps > 0", name="laps_positive"),
     )

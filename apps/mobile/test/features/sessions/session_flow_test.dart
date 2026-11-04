@@ -3,6 +3,7 @@ import 'package:evofit/app/app.dart';
 import 'package:evofit/app/provider_config.dart';
 import 'package:evofit/core/auth/session_store.dart';
 import 'package:evofit/core/network/api_client.dart';
+import 'package:evofit/features/home/presentation/home_page.dart';
 import 'package:evofit/features/sessions/application/session_controller.dart';
 import 'package:evofit/shared/widgets/evo_selection.dart';
 import 'package:flutter/material.dart';
@@ -512,7 +513,7 @@ void main() {
 
     // Voltar leva ao Início, sem treino aberto.
     await _tap(tester, find.byTooltip('Voltar'));
-    expect(find.text('Olá, Ana!'), findsOneWidget);
+    expect(find.byType(HomePage), findsOneWidget);
     expect(find.text('Treino em andamento'), findsNothing);
   });
 
@@ -535,7 +536,7 @@ void main() {
     await _tap(tester, find.widgetWithText(FilledButton, 'Descartar'));
 
     expect(server.session, isNull);
-    expect(find.text('Olá, Ana!'), findsOneWidget);
+    expect(find.byType(HomePage), findsOneWidget);
   });
 
   testWidgets('treino aberto aparece no início e um novo início leva até ele', (
