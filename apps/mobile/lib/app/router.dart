@@ -24,6 +24,9 @@ import '../features/profile/presentation/profile_page.dart';
 import '../features/profile/presentation/profile_sections.dart';
 import '../features/sessions/presentation/session_page.dart';
 import '../features/system_status/presentation/system_status_page.dart';
+import '../features/plans/presentation/plan_page.dart';
+import '../features/plans/presentation/plan_setup_page.dart';
+import '../features/plans/presentation/plans_page.dart';
 import '../features/training/presentation/template_editor_page.dart';
 import '../features/training/presentation/templates_page.dart';
 import 'routes.dart';
@@ -191,6 +194,36 @@ final routerProvider = Provider<GoRouter>((ref) {
               state,
               ActivityFormPage.edit(activityId: state.pathParameters['id']!),
             ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.plans,
+        pageBuilder: (context, state) => _page(state, const PlansPage()),
+        routes: [
+          GoRoute(
+            path: 'novo/:kind',
+            pageBuilder: (context, state) => _page(
+              state,
+              PlanSetupPage(kind: state.pathParameters['kind']!),
+            ),
+          ),
+          GoRoute(
+            path: ':id',
+            pageBuilder: (context, state) =>
+                _page(state, PlanPage(planId: state.pathParameters['id']!)),
+            routes: [
+              GoRoute(
+                path: 'sessoes/:sessionId/registrar',
+                pageBuilder: (context, state) => _page(
+                  state,
+                  PlanSessionLogPage(
+                    planId: state.pathParameters['id']!,
+                    sessionId: state.pathParameters['sessionId']!,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -47,7 +47,16 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
     final options = ref.watch(activityOptionsProvider).value;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Atividades')),
+      appBar: AppBar(
+        title: const Text('Atividades'),
+        actions: [
+          TextButton.icon(
+            onPressed: () => context.push(AppRoutes.plans),
+            icon: const Icon(Icons.flag_circle_outlined),
+            label: const Text('Planos'),
+          ),
+        ],
+      ),
       body: SafeArea(
         top: false,
         child: activities.when(

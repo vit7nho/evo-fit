@@ -11,6 +11,7 @@ from app.core.errors import AppError, FieldValidationError
 from app.modules.activities.models import Activity, EnduranceDetails
 from app.modules.goals.kinds import HEALTH_KINDS
 from app.modules.goals.models import Goal
+from app.modules.plans.models import HEALTH_FLAGS, TrainingPlan
 from app.modules.users.models import ConsentKind, User, UserConsent, UserProfile
 from app.modules.users.schemas import ProfileUpdate
 
@@ -165,5 +166,13 @@ class ProfileService:
                 )
                 .values(avg_hr=None, max_hr=None)
             )
+            # E, nos planos, os ajustes que vieram das limitações (as sessões ficam).
+            for plan in self.db.scalars(
+                select(TrainingPlan).where(TrainingPlan.user_id == user.id)
+            ):
+                if any(key in plan.adapted_for for key in HEALTH_FLAGS):
+                    plan.adapted_for = {
+                        k: v for k, v in plan.adapted_for.items() if k not in HEALTH_FLAGS
+                    }
         self.db.commit()
         logger.info("consent_revoked", extra={"user_id": str(user.id), "kind": kind.value})

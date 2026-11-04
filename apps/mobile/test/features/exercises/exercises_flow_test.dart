@@ -41,8 +41,17 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _openLibrary(WidgetTester tester) =>
-    _tap(tester, find.text('Exercícios'));
+/// O cartão fica mais abaixo no início (lista preguiçosa): rola até ele.
+Future<void> _openLibrary(WidgetTester tester) async {
+  final card = find.text('Exercícios');
+  await tester.scrollUntilVisible(
+    card,
+    200,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+  await _tap(tester, card);
+}
 
 Finder _chip(String label) => find.widgetWithText(EvoChip, label);
 

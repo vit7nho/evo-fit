@@ -126,7 +126,8 @@ class _EditProfileSectionPageState
         content: const Text(
           'Suas limitações e observações, as metas de peso e a frequência '
           'cardíaca das atividades serão apagadas (o resto das atividades fica). '
-          'Você pode informá-las de novo quando quiser.',
+          'Os planos continuam, sem a menção à limitação. Você pode informar '
+          'esses dados de novo quando quiser.',
         ),
         actions: [
           TextButton(

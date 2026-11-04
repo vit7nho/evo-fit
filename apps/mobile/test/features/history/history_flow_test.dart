@@ -321,6 +321,13 @@ void main() {
     'o detalhe do exercício abre o histórico; sem registros, explica',
     (tester) async {
       await _pump(tester);
+      // O cartão fica mais abaixo no início (lista preguiçosa).
+      await tester.scrollUntilVisible(
+        find.text('Exercícios'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await _tap(tester, find.text('Exercícios'));
       await _tap(tester, find.text(_supino));
       await _tap(

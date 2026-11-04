@@ -44,6 +44,15 @@ abstract final class AppRoutes {
   static const activityNew = '/atividades/nova';
   static String activityEdit(String id) => '/atividades/$id';
 
+  /// Planos de caminhada, 5 km e 10 km.
+  static const plans = '/planos';
+  static String planNew(String kind) => '/planos/novo/$kind';
+  static String plan(String id) => '/planos/$id';
+
+  /// Registrar uma sessão do plano (formulário de atividade preenchido).
+  static String planSessionLog(String planId, String sessionId) =>
+      '/planos/$planId/sessoes/$sessionId/registrar';
+
   /// Telas abertas a quem não entrou.
   static const public = {login, register};
 }

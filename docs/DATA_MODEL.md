@@ -89,6 +89,8 @@ Restrição: `kind in (drop, rest_pause, cluster)` ⇔ `parent_set_id IS NOT NUL
 **plan_sessions**: `plan_id`, `week`, `day_index`, `prescription` (JSONB, ex.: `[{type:"walk", s:300},{type:"run", s:60}, ...]`), `scheduled_date`, `completed_activity_id` (nullable).
 > Os planos são gerados por **templates determinísticos versionados** (não pela IA), ajustados por regras simples (iniciante sem histórico começa com caminhada/intervalos). A IA pode explicar ou propor ajustes via `change_proposals`.
 
+> **Implementado na 3.3 (migração 0010, ADR-041):** `training_plans` com `weekdays` (smallint[], os 3 dias escolhidos) no lugar de `days_per_week`, `status` (`active|completed|ended`, `CHECK`), `ended_at` e índice único parcial `(user_id) WHERE status = 'active'` (um plano em andamento por pessoa). `adapted_for` guarda `experience_level` e as chaves derivadas de saúde (`joint_care`, `medical_clearance_advised`), removidas na revogação. `plan_sessions` ganhou `position` (único por plano), `template_week` (difere de `week` quando há semanas repetidas) e `completed_at`; `completed_activity_id` é `ON DELETE SET NULL` com índice único parcial (uma atividade vale para uma sessão). A prescrição é uma **cópia** do template: mudar o template (com versão nova) não muda planos existentes.
+
 ## 5. Nutrição e corpo
 
 **foods**: `owner_user_id` (NULL = catálogo), `name`, `source` (`user|seed|taco|off`), `source_ref`, valores por 100 g: `kcal`, `protein_g`, `carbs_g`, `fat_g`, `fiber_g` (opcional), `default_portion_g`.

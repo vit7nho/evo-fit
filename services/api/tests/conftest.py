@@ -147,3 +147,14 @@ def clock(monkeypatch: pytest.MonkeyPatch) -> Clock:
     fake = Clock()
     monkeypatch.setattr(session_service, "_now", lambda: fake.now)
     return fake
+
+
+@pytest.fixture
+def plans_from_yesterday(monkeypatch: pytest.MonkeyPatch):
+    """Planos começam "ontem" (fuso do perfil): uma atividade de horas atrás sempre cai
+    dentro do plano, mesmo se o teste rodar logo depois da meia-noite."""
+    from app.modules.plans import service as plan_service
+
+    real = plan_service._today
+    monkeypatch.setattr(plan_service, "_today", lambda user: real(user) - timedelta(days=1))
+    return real

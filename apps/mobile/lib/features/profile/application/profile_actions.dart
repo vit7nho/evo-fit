@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../activities/application/activities_controller.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../goals/application/goals_controller.dart';
+import '../../plans/application/plans_controller.dart';
 import '../data/profile_api.dart';
 import '../domain/profile.dart';
 
@@ -24,8 +25,8 @@ class ProfileActions {
   }
 
   /// Concede ou revoga um consentimento. Revogar `health_data` apaga os dados de
-  /// saúde no servidor (perfil, metas de peso, FC das atividades): a conta, as
-  /// metas e as atividades são recarregadas para refletir isso.
+  /// saúde no servidor (perfil, metas de peso, FC das atividades, ajustes dos
+  /// planos): a conta, as metas, as atividades e os planos são recarregados.
   Future<void> setConsent(String kind, {required bool granted}) async {
     if (granted) {
       await _api.grantConsent(kind);
@@ -36,7 +37,10 @@ class ProfileActions {
     if (!granted && kind == ConsentKinds.healthData) {
       _ref
         ..invalidate(goalsProvider)
-        ..invalidate(activitiesProvider);
+        ..invalidate(activitiesProvider)
+        ..invalidate(plansProvider)
+        ..invalidate(planProvider)
+        ..invalidate(planTemplatesProvider);
     }
   }
 

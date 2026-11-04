@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/application/auth_controller.dart';
+import '../../plans/application/plans_controller.dart';
 import '../../history/domain/history.dart' show Paged;
 import '../data/activities_api.dart';
 import '../domain/activity.dart';
@@ -59,6 +60,10 @@ class ActivitiesController extends AsyncNotifier<Paged<Activity>> {
 
   Future<void> delete(String id) async {
     await _api.delete(id);
+    // Uma sessão de plano feita com ela volta a ficar pendente.
+    ref
+      ..invalidate(planProvider)
+      ..invalidate(plansProvider);
     await _reload();
   }
 

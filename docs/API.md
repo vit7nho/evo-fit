@@ -49,7 +49,8 @@
 |---|---|---|
 | GET/POST ✅ | `/activities` · GET/PATCH/DELETE `/activities/{id}` | atividades de resistência (campos por `modality`) |
 | GET ✅ | `/activity-options` | modalidades, estilos de nado e piscinas (público, cache 1 h) |
-| GET/POST | `/training-plans` · GET `/training-plans/{id}` | planos 5 km/10 km/caminhada |
+| GET ✅ · GET/POST ✅ · GET ✅ | `/training-plan-templates` · `/training-plans` · `/training-plans/{id}` | planos de caminhada, 5 km e 10 km |
+| POST ✅ · PUT/DELETE ✅ | `/training-plans/{id}/end` · `/training-plans/{id}/sessions/{plan_session_id}/activity` | encerrar · marcar/desmarcar a sessão com uma atividade |
 | GET | `/analytics/overview?from&to` | frequência, consistência, duração, resumo por modalidade |
 | GET | `/analytics/muscles?from&to` | Meu Corpo: `{methodology_version, period_days, muscles:[{muscle_id, weighted_sets, weighted_sets_per_week, band, frequency, volume_load_kg}]}` |
 | GET | `/analytics/muscles/{muscle_id}?from&to&compare=previous` | detalhe: exercícios, evolução de cargas, comparação |
@@ -267,3 +268,15 @@ Corrida (`run`), caminhada (`walk`), ciclismo (`cycle`) e natação (`swim`), re
 - **Velocidade improvável**: acima de 30 km/h (corrida), 15 (caminhada), 120 (ciclismo) ou 10 (natação) → `422 distance_m` (“confira a distância e a duração”). Vale no registro e na correção (mudando distância, duração, voltas ou piscina).
 - **Campos opcionais novos** (migração 0009): `elevation_gain_m` (0–10 000; não se aplica à natação → `422`), `avg_hr` (30–230) e `max_hr` (30–250, não menor que a média → `422 max_hr`).
 - **FC é dado de saúde**: gravar `avg_hr`/`max_hr` exige o consentimento `health_data` (`403 consent_required`, como as metas de peso); limpar (`null`) não exige. **Revogar `health_data` apaga a FC de todas as atividades** da pessoa (o resto da atividade fica).
+
+## Planos progressivos (etapa 3.3)
+
+Templates determinísticos e versionados no código (`app/modules/plans/templates.py`, ADR-041); a IA não gera planos.
+
+- `GET /training-plan-templates` (login) — os 3 planos (`walk_habit`, `run_5k`, `run_10k`) com `version`, `title`, `summary`, `modality`, `prerequisite`, `sessions_per_week` (3) e, **já ajustados para a pessoa**, `weeks`, `adaptations` (textos) e `note` (no 10 km, sem uma corrida de 5 km registrada nos últimos 120 dias: sugere o plano de 5 km; não impede).
+- `POST /training-plans` — `kind`, `weekdays` (exatamente 3 dias diferentes, 0 = segunda … 6 = domingo; **na corrida, sem dias seguidos**, domingo e segunda inclusive) e `start_date` (opcional; padrão hoje no fuso do perfil; até 4 semanas à frente). `201` com `Location` e o plano completo; `409 plan_in_progress` se já houver um ativo (o id dele em `errors`).
+- `GET /training-plans` — resumos do mais recente (sem `sessions`): `status` (`active|completed|ended`), `weeks`, `current_week` (a semana da próxima sessão), `total_sessions`, `completed_sessions`, `next_session_id` (a **primeira não feita**, em qualquer data), `adaptations`.
+- `GET /training-plans/{id}` — o resumo + `sessions`: `position`, `week`, `day_index`, `scheduled_date` (sugestão), `blocks` (passos `{type: walk|run, s, effort?, m?}` ou `{repeat, steps}`), `total_s`, `summary` (“5 min caminhando · 8x (1 min correndo + 1:30 caminhando) · 5 min caminhando”), `completed_activity_id`.
+- `PUT /training-plans/{id}/sessions/{plan_session_id}/activity` `{activity_id}` — marca a sessão com uma atividade **da própria pessoa**, não excluída, da modalidade do plano (caminhada aceita caminhada ou corrida; os de corrida, só corrida) e do dia de início em diante; uma atividade vale para uma sessão só. Erros no campo `activity_id` (`422`). Feitas todas, o plano fica `completed`. `DELETE` desmarca (a atividade fica). Excluir a atividade devolve a sessão para pendente.
+- `POST /training-plans/{id}/end` — encerra (`ended`); plano encerrado ou concluído não muda mais (`409 plan_closed`).
+- Ajustes: com `health_data` ativo e limitação em joelho, quadril, tornozelo ou lombar, os planos de corrida repetem as semanas pares (5 km: 13 semanas; 10 km: 11); condição cardíaca ou pressão alta acrescenta o aviso para conversar com o médico. **Revogar `health_data` tira esses ajustes de `adaptations`** (as sessões ficam).

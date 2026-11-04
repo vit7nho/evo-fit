@@ -88,6 +88,15 @@ PROTECTED: dict[tuple[str, str], dict | None] = {
     ("GET", "/api/v1/activities/{activity_id}"): None,
     ("PATCH", "/api/v1/activities/{activity_id}"): {"duration_s": 60},
     ("DELETE", "/api/v1/activities/{activity_id}"): None,
+    ("GET", "/api/v1/training-plan-templates"): None,
+    ("GET", "/api/v1/training-plans"): None,
+    ("POST", "/api/v1/training-plans"): {"kind": "walk_habit", "weekdays": [0, 1, 2]},
+    ("GET", "/api/v1/training-plans/{plan_id}"): None,
+    ("POST", "/api/v1/training-plans/{plan_id}/end"): None,
+    ("PUT", "/api/v1/training-plans/{plan_id}/sessions/{plan_session_id}/activity"): {
+        "activity_id": str(uuid.uuid4())
+    },
+    ("DELETE", "/api/v1/training-plans/{plan_id}/sessions/{plan_session_id}/activity"): None,
 }
 
 # Operações sobre um registro identificado na URL: com o id de outra conta, só 404.
@@ -107,7 +116,8 @@ def ok(response, status: int = 200) -> dict:
 
 
 def build_world(client: TestClient, headers: dict[str, str]) -> dict[str, str]:
-    """Um de cada: consentimento, meta, exercício próprio, ficha, dois treinos e uma corrida."""
+    """Um de cada: consentimento, meta, exercício próprio, ficha, dois treinos, uma corrida
+    e um plano com a corrida marcada na primeira sessão."""
     ok(client.put(f"{API}/me/consents/health_data", headers=headers))
     goal = ok(client.post(f"{API}/goals", headers=headers, json=STRENGTH), 201)
     exercise = ok(client.post(f"{API}/exercises", headers=headers, json=CUSTOM), 201)
@@ -147,7 +157,23 @@ def build_world(client: TestClient, headers: dict[str, str]) -> dict[str, str]:
         201,
     )
     run = ok(client.post(f"{API}/activities", headers=headers, json=RUN), 201)
+    plan = ok(
+        client.post(
+            f"{API}/training-plans", headers=headers, json={"kind": "run_5k", "weekdays": [0, 2, 4]}
+        ),
+        201,
+    )
+    first = plan["sessions"][0]["id"]
+    ok(
+        client.put(
+            f"{API}/training-plans/{plan['id']}/sessions/{first}/activity",
+            headers=headers,
+            json={"activity_id": run["id"]},
+        )
+    )
     return {
+        "plan_id": plan["id"],
+        "plan_session_id": first,
         "activity_id": run["id"],
         "goal_id": goal["id"],
         "exercise_id": exercise["id"],
@@ -178,6 +204,8 @@ def snapshot(client: TestClient, headers: dict[str, str], ids: dict) -> dict:
         f"{API}/analytics/records",
         f"{API}/activities",
         f"{API}/activities/{ids['activity_id']}",
+        f"{API}/training-plans",
+        f"{API}/training-plans/{ids['plan_id']}",
     ]
     return {url: ok(client.get(url, headers=headers)) for url in urls}
 
@@ -193,7 +221,9 @@ def bia(signup) -> dict[str, str]:
 
 
 @pytest.fixture
-def world(client: TestClient, ana: dict[str, str], clock: Clock) -> dict[str, str]:
+def world(
+    client: TestClient, ana: dict[str, str], clock: Clock, plans_from_yesterday
+) -> dict[str, str]:
     # Relógio parado: o tempo decorrido do treino em andamento não muda entre os retratos.
     return build_world(client, ana)
 
@@ -418,6 +448,21 @@ def test_body_cannot_reference_another_users_records(
     )
     assert response.status_code == 422, response.text
 
+    # No próprio plano: marcar a sessão com a corrida da Ana.
+    plan = ok(
+        client.post(
+            f"{API}/training-plans", headers=bia, json={"kind": "run_5k", "weekdays": [1, 3, 5]}
+        ),
+        201,
+    )
+    response = client.put(
+        f"{API}/training-plans/{plan['id']}/sessions/{plan['sessions'][0]['id']}/activity",
+        headers=bia,
+        json={"activity_id": world["activity_id"]},
+    )
+    assert response.status_code == 422, response.text
+    assert field_errors(response) == ["activity_id"]
+
     assert snapshot(client, ana, world) == before
 
 
@@ -428,6 +473,7 @@ def test_body_cannot_reference_another_users_records(
         ("/exercises", {**CUSTOM, "name": "Dona falsa", "owner_id": None}),
         ("/workout-templates", {**TEMPLATE, "user_id": None}),
         ("/workout-sessions", {"user_id": None}),
+        ("/training-plans", {"kind": "walk_habit", "weekdays": [0, 1, 2], "user_id": None}),
     ],
 )
 def test_client_cannot_choose_the_owner(
@@ -496,11 +542,17 @@ def test_lists_and_derived_data_never_include_another_user(
         f"{API}/exercises/{SUPINO}/history",
         f"{API}/analytics/records",
         f"{API}/activities",
+        f"{API}/training-plans",
+        f"{API}/training-plan-templates",
     ]
     for url in urls:
         text = client.get(url, headers=bia).text
         leaked = [marker for marker in markers if marker in text]
         assert leaked == [], (url, leaked)
+
+    # O aviso do 10 km olha só as corridas dela (a Ana correu 5 km).
+    offered = client.get(f"{API}/training-plan-templates", headers=bia).json()
+    assert {t["kind"]: t["note"] for t in offered}["run_10k"] is not None
 
     # Só os consentimentos dela (a Ana autorizou dados de saúde; a Bia, não).
     consents = client.get(f"{API}/me", headers=bia).json()["consents"]

@@ -399,6 +399,86 @@ void main() {
     expect(find.text('Informe a duração.'), findsOneWidget);
   });
 
+  testWidgets('planos: ofertas, configuração, plano e sessão', (tester) async {
+    _worstCaseScreen(tester);
+    const adaptations = [
+      'Algumas semanas se repetem, para o corpo se adaptar com calma à corrida, '
+          'por causa da limitação que você informou.',
+      'Você informou uma condição cardíaca ou pressão alta: converse com seu '
+          'médico antes de começar e mantenha um ritmo em que consiga conversar.',
+    ];
+    await _pump(
+      tester,
+      profile: _maximalProfile(),
+      setUp: (server) => server.planTemplates = [
+        FakeAuthServer.planTemplate(
+          'run_10k',
+          'Rumo aos 10 km',
+          'run',
+          weeks: 11,
+          note:
+              'Para o 10 km, o ideal é já correr 5 km sem parar. Se ainda não '
+              'corre, comece pelo plano “Primeiros 5 km”.',
+          adaptations: adaptations,
+        ),
+      ],
+    );
+
+    final plans = find.text('Planos');
+    await tester.scrollUntilVisible(
+      plans,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(plans);
+    await tester.pumpAndSettle();
+    final offer = find.text('Rumo aos 10 km');
+    await tester.ensureVisible(offer);
+    await tester.pumpAndSettle();
+    await tester.tap(offer);
+    await tester.pumpAndSettle();
+    final sunday = find.text('dom');
+    await tester.scrollUntilVisible(
+      sunday,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(sunday);
+    await tester.pumpAndSettle();
+    expect(find.text('Escolha 3 dias.'), findsOneWidget);
+    await tester.tap(sunday);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Começar plano'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Semana 1 de 11'), findsOneWidget);
+    final next = find.widgetWithText(FilledButton, 'Registrar sessão');
+    await tester.scrollUntilVisible(
+      next,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    final tile = find.bySemanticsLabel(RegExp(r'^Sessão 2, pendente'));
+    await tester.scrollUntilVisible(
+      tile,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(tile.first);
+    await tester.pumpAndSettle();
+    expect(find.text('Desmarcar sessão'), findsNothing);
+    final use = find.text('Usar atividade já registrada').last;
+    await tester.ensureVisible(use);
+    await tester.pumpAndSettle();
+    await tester.tap(use);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Nenhuma corrida registrada'), findsOneWidget);
+  });
+
   testWidgets('exercícios: biblioteca, detalhe e formulário', (tester) async {
     _worstCaseScreen(tester);
     await _pump(tester, profile: _maximalProfile());

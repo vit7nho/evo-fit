@@ -125,6 +125,47 @@ class FakeAuthServer {
     'pool_lengths_m': [25, 50],
   };
 
+  /// Planos oferecidos (como a API devolve) e os planos guardados (com as sessões).
+  List<Map<String, Object?>> planTemplates = [
+    planTemplate('walk_habit', 'Hábito de caminhada', 'walk', weeks: 8),
+    planTemplate('run_5k', 'Primeiros 5 km', 'run', weeks: 9),
+    planTemplate(
+      'run_10k',
+      'Rumo aos 10 km',
+      'run',
+      weeks: 8,
+      note: 'Para o 10 km, o ideal é já correr 5 km sem parar.',
+    ),
+  ];
+  final plans = <Map<String, Object?>>[];
+  final planBodies = <Map<String, Object?>>[];
+  final planCalls = <String>[];
+
+  /// Próxima marcação de sessão responde 422 com esta mensagem.
+  String? rejectPlanLink;
+
+  static Map<String, Object?> planTemplate(
+    String kind,
+    String title,
+    String modality, {
+    required int weeks,
+    String? note,
+    List<String> adaptations = const [],
+  }) => {
+    'kind': kind,
+    'version': 1,
+    'title': title,
+    'summary': '$weeks semanas, 3 sessões por semana.',
+    'modality': modality,
+    'prerequisite': modality == 'run'
+        ? 'Para quem já caminha 30 minutos sem desconforto.'
+        : null,
+    'sessions_per_week': 3,
+    'weeks': weeks,
+    'adaptations': adaptations,
+    'note': note,
+  };
+
   static Map<String, Object?> run({
     String id = 'corrida-1',
     String startedAt = '2026-11-02T09:00:00Z',
@@ -703,6 +744,25 @@ class FakeAuthServer {
                 body.cast<String, Object?>(),
               )
             : _invalidToken(),
+      ('GET', '/training-plan-templates') =>
+        _authorized(options)
+            ? FakeHttpAdapter.json(200, planTemplates)
+            : _invalidToken(),
+      ('GET', '/training-plans') =>
+        _authorized(options)
+            ? FakeHttpAdapter.json(200, [
+                for (final plan in plans.reversed)
+                  {..._planOut(plan)}..remove('sessions'),
+              ])
+            : _invalidToken(),
+      ('POST', '/training-plans') =>
+        _authorized(options)
+            ? _createPlan(body.cast<String, Object?>())
+            : _invalidToken(),
+      (final method, final path) when path.startsWith('/training-plans/') =>
+        _authorized(options)
+            ? _planRoute(method, path, body.cast<String, Object?>())
+            : _invalidToken(),
       ('GET', '/goals') =>
         _authorized(options) ? _listGoals() : _invalidToken(),
       ('POST', '/goals') =>
@@ -1251,6 +1311,9 @@ class FakeAuthServer {
     consents.remove(kind);
     if (kind == 'health_data') {
       goals.removeWhere((g) => g['kind'] == 'weight_loss');
+      for (final plan in plans) {
+        plan['adaptations'] = <String>[];
+      }
       profile = {
         ...profile,
         'limitation_tags': <String>[],
@@ -1301,4 +1364,137 @@ class FakeAuthServer {
     'errors': errors,
     'request_id': 'teste',
   });
+
+  // --- planos ---
+
+  /// Como a API: contagens, próxima sessão e sessões ligadas a atividades que
+  /// ainda existem.
+  Map<String, Object?> _planOut(Map<String, Object?> plan) {
+    final ids = {for (final a in activities) a['id']};
+    final sessions = [
+      for (final s in plan['sessions']! as List<Map<String, Object?>>)
+        {
+          ...s,
+          if (!ids.contains(s['completed_activity_id']))
+            'completed_activity_id': null,
+        },
+    ];
+    final next = sessions
+        .where((s) => s['completed_activity_id'] == null)
+        .firstOrNull;
+    return {
+      ...plan,
+      'sessions': sessions,
+      'completed_sessions': sessions
+          .where((s) => s['completed_activity_id'] != null)
+          .length,
+      'next_session_id': plan['status'] == 'active' ? (next?['id']) : null,
+      'current_week': next?['week'] ?? plan['weeks'],
+    };
+  }
+
+  ResponseBody _createPlan(Map<String, Object?> body) {
+    planCalls.add('POST');
+    planBodies.add(body);
+    final active = plans.where((p) => p['status'] == 'active').firstOrNull;
+    if (active != null) {
+      return _problem(409, 'plan_in_progress', 'Você já tem um plano.');
+    }
+    final template = planTemplates.firstWhere((t) => t['kind'] == body['kind']);
+    final weeks = template['weeks']! as int;
+    final start = DateTime.parse(body['start_date']! as String);
+    final id = 'plano-${plans.length + 1}';
+    final runs = template['modality'] == 'run';
+    plans.add({
+      'id': id,
+      'kind': body['kind'],
+      'title': template['title'],
+      'modality': template['modality'],
+      'template_version': 1,
+      'status': 'active',
+      'start_date': body['start_date'],
+      'weekdays': body['weekdays'],
+      'weeks': weeks,
+      'total_sessions': weeks * 3,
+      'adaptations': template['adaptations'],
+      'created_at': '2026-11-04T10:00:00Z',
+      'ended_at': null,
+      'sessions': <Map<String, Object?>>[
+        for (var i = 0; i < weeks * 3; i++)
+          {
+            'id': '$id-sessao-${i + 1}',
+            'position': i + 1,
+            'week': i ~/ 3 + 1,
+            'day_index': i % 3 + 1,
+            'scheduled_date': start
+                .add(Duration(days: i * 2))
+                .toIso8601String()
+                .substring(0, 10),
+            'blocks': const <Object?>[],
+            'total_s': 1800 + (i ~/ 3) * 60,
+            'summary': runs
+                ? 'Semana ${i ~/ 3 + 1}: 5 min caminhando · 8x (1 min '
+                      'correndo + 1:30 caminhando) · 5 min caminhando'
+                : 'Semana ${i ~/ 3 + 1}: 20 min caminhando em ritmo firme',
+            'completed_activity_id': null,
+            'completed_at': null,
+          },
+      ],
+    });
+    return FakeHttpAdapter.json(201, _planOut(plans.last));
+  }
+
+  ResponseBody _planRoute(
+    String method,
+    String path,
+    Map<String, Object?> body,
+  ) {
+    final parts = path.split('/'); // '', training-plans, id, ...
+    final index = plans.indexWhere((p) => p['id'] == parts[2]);
+    if (index < 0) return _problem(404, 'not_found', 'Plano não encontrado.');
+    final plan = plans[index];
+    planCalls.add('$method ${parts.skip(2).join('/')}');
+    if (parts.length == 3 && method == 'GET') {
+      return FakeHttpAdapter.json(200, _planOut(plan));
+    }
+    if (plan['status'] != 'active') {
+      return _problem(409, 'plan_closed', 'Este plano já foi encerrado.');
+    }
+    if (parts.length == 4 && parts[3] == 'end' && method == 'POST') {
+      plan['status'] = 'ended';
+      plan['ended_at'] = '2026-11-04T12:00:00Z';
+      return FakeHttpAdapter.json(200, _planOut(plan));
+    }
+    if (parts.length == 6 && parts[3] == 'sessions') {
+      final sessions = plan['sessions']! as List<Map<String, Object?>>;
+      final session = sessions.where((s) => s['id'] == parts[4]).firstOrNull;
+      if (session == null) {
+        return _problem(404, 'not_found', 'Sessão não encontrada.');
+      }
+      if (method == 'DELETE') {
+        session['completed_activity_id'] = null;
+        session['completed_at'] = null;
+        return FakeHttpAdapter.json(200, _planOut(plan));
+      }
+      planBodies.add(body);
+      if (rejectPlanLink case final message?) {
+        rejectPlanLink = null;
+        return _problem(
+          422,
+          'validation_error',
+          'Verifique os campos informados.',
+          errors: [
+            {'field': 'activity_id', 'message': message},
+          ],
+        );
+      }
+      session['completed_activity_id'] = body['activity_id'];
+      session['completed_at'] = '2026-11-04T12:00:00Z';
+      if (_planOut(plan)['completed_sessions'] == sessions.length) {
+        plan['status'] = 'completed';
+      }
+      return FakeHttpAdapter.json(200, _planOut(plan));
+    }
+    return _problem(404, 'not_found', 'Rota não encontrada no servidor falso.');
+  }
 }

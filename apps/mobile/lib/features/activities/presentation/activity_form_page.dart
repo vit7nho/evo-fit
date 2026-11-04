@@ -12,6 +12,7 @@ import '../../../shared/widgets/evo_state_views.dart';
 import '../../../shared/widgets/form_focus.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../goals/presentation/goal_format.dart';
+import '../../plans/application/plans_controller.dart';
 import '../../profile/application/profile_actions.dart';
 import '../../profile/domain/profile.dart' show ConsentKinds;
 import '../application/activities_controller.dart';
@@ -25,16 +26,43 @@ int? parseActivityDuration(String text) {
   return parseDuration(trimmed);
 }
 
+/// Sessão de um plano registrada pelo formulário: a atividade criada é marcada nela.
+@immutable
+class PlanSessionTarget {
+  const PlanSessionTarget({
+    required this.planId,
+    required this.sessionId,
+    required this.label,
+    required this.modalities,
+    required this.durationS,
+  });
+
+  final String planId;
+  final String sessionId;
+
+  /// "Primeiros 5 km · semana 2, sessão 1"
+  final String label;
+
+  /// As que contam para a sessão (a primeira já vem escolhida).
+  final List<String> modalities;
+
+  /// Duração prevista, para já vir preenchida.
+  final int durationS;
+}
+
 /// Registro de uma atividade nova ou correção de uma existente.
 ///
 /// Mesmas regras da API (duração de 1 min a 24 h, data até agora, distância até o
 /// limite da modalidade), para avisar antes de enviar.
 class ActivityFormPage extends ConsumerWidget {
-  const ActivityFormPage.create({super.key}) : activityId = null;
+  const ActivityFormPage.create({super.key, this.planSession})
+    : activityId = null;
 
-  const ActivityFormPage.edit({super.key, required String this.activityId});
+  const ActivityFormPage.edit({super.key, required String this.activityId})
+    : planSession = null;
 
   final String? activityId;
+  final PlanSessionTarget? planSession;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -83,15 +111,24 @@ class ActivityFormPage extends ConsumerWidget {
         ),
       );
     }
-    return _ActivityForm(options: loadedOptions, activity: activity?.value);
+    return _ActivityForm(
+      options: loadedOptions,
+      activity: activity?.value,
+      planSession: planSession,
+    );
   }
 }
 
 class _ActivityForm extends ConsumerStatefulWidget {
-  const _ActivityForm({required this.options, required this.activity});
+  const _ActivityForm({
+    required this.options,
+    required this.activity,
+    this.planSession,
+  });
 
   final ActivityOptions options;
   final Activity? activity;
+  final PlanSessionTarget? planSession;
 
   @override
   ConsumerState<_ActivityForm> createState() => _ActivityFormState();
@@ -131,7 +168,12 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
   void initState() {
     super.initState();
     final activity = _activity;
-    _modality = activity?.modality ?? Modalities.run;
+    final planSession = widget.planSession;
+    _modality =
+        activity?.modality ?? planSession?.modalities.first ?? Modalities.run;
+    if (planSession != null) {
+      _duration.text = formatDuration(planSession.durationS);
+    }
     final now = DateTime.now();
     _startedAt =
         activity?.startedAt ??
@@ -274,8 +316,22 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
             .read(profileActionsProvider)
             .setConsent(ConsentKinds.healthData, granted: true);
       }
+      String? planError;
       if (_isNew) {
-        await controller.create({'modality': _modality, ..._body()});
+        final created = await controller.create({
+          'modality': _modality,
+          ..._body(),
+        });
+        if (widget.planSession case final target?) {
+          try {
+            await ref
+                .read(planProvider(target.planId).notifier)
+                .link(target.sessionId, created.id);
+          } on ApiException catch (error) {
+            // A atividade já foi salva: avisa e deixa marcar depois pelo plano.
+            planError = error.fieldErrors['activity_id'] ?? error.message;
+          }
+        }
       } else {
         await controller.updateActivity(_activity!.id, _body());
         ref.invalidate(activityProvider(_activity!.id));
@@ -283,9 +339,13 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            _isNew ? 'Atividade registrada' : 'Atividade atualizada',
-          ),
+          content: Text(switch ((_isNew, widget.planSession, planError)) {
+            (false, _, _) => 'Atividade atualizada',
+            (true, null, _) => 'Atividade registrada',
+            (true, _, null) => 'Sessão concluída. Bom trabalho!',
+            (true, _, final message?) =>
+              'Atividade registrada, mas a sessão não foi marcada: $message',
+          }),
         ),
       );
       _dirty = false;
@@ -431,7 +491,13 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
       onPopInvokedWithResult: _onPopInvoked,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(_isNew ? 'Registrar atividade' : 'Editar atividade'),
+          title: Text(
+            !_isNew
+                ? 'Editar atividade'
+                : widget.planSession != null
+                ? 'Registrar sessão'
+                : 'Registrar atividade',
+          ),
           actions: [
             if (!_isNew)
               IconButton(
@@ -453,13 +519,26 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (_isNew) ...[
+                        if (widget.planSession case final target?) ...[
+                          Text(
+                            target.label,
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: EvoSpace.lg),
+                        ],
+                        if (_isNew &&
+                            (widget.planSession?.modalities.length ?? 2) >
+                                1) ...[
                           const EvoFieldLabel('Modalidade'),
                           EvoChipGroup(
                             single: true,
                             options: [
                               for (final m in options.modalities)
-                                (m.code, m.label),
+                                if (widget.planSession?.modalities.contains(
+                                      m.code,
+                                    ) ??
+                                    true)
+                                  (m.code, m.label),
                             ],
                             selected: {_modality},
                             onChanged: (selected) {
