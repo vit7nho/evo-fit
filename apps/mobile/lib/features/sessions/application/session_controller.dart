@@ -218,8 +218,14 @@ class SessionController extends AsyncNotifier<WorkoutSession?> {
   /// Registra uma série. [body] pode trazer `parent_set_id` com a identidade (no app)
   /// da série que um drop ou rest-pause continua. Sem conexão, a série fica guardada
   /// no aparelho e volta como pendente.
-  Future<LoggedSet> logSet(String entryId, Map<String, Object?> body) async {
-    final clientId = uuidV4();
+  /// [clientId]: quem chama pode gerar o id do app antes, para reconhecer a série
+  /// quando ela aparecer no treino (antes de este método retornar).
+  Future<LoggedSet> logSet(
+    String entryId,
+    Map<String, Object?> body, {
+    String? clientId,
+  }) async {
+    clientId ??= uuidV4();
     final request = <String, dynamic>{...body, 'client_id': clientId};
     final parentKey = request.remove('parent_set_id') as String?;
     if (parentKey != null) {

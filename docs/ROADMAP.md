@@ -43,7 +43,7 @@ Inspeção do ambiente, avaliação de viabilidade e riscos, arquitetura, modelo
 | App (testes) | ✅ `flutter analyze` limpo, 16 testes passam |
 | Segredos | ✅ só `.env.example` com valores de desenvolvimento; `.env` no `.gitignore` |
 
-## Fase 2 — Primeiro fluxo funcional (musculação)
+## Fase 2 — Primeiro fluxo funcional (musculação) ✅
 | # | Tarefa | Prio |
 |---|---|---|
 | 2.1 ✅ | Auth completa (registro, login, refresh rotativo, logout) + testes de segurança | P0 |
@@ -58,6 +58,20 @@ Inspeção do ambiente, avaliação de viabilidade e riscos, arquitetura, modelo
 | 2.10 ✅ | Testes de autorização entre usuários em todos os endpoints | P0 |
 
 **Aceite:** um usuário novo cria uma ficha com um bi-set e um drop set, executa a sessão no Android, fecha e reabre o app, finaliza e vê o histórico e os recordes — tudo persistido.
+
+**Situação em 2026-11-04 — Fase 2 concluída:** aceite executado num emulador separado (`EvoFit_Aceite`, Android 15), com a API real e uma conta nova; a conta pessoal do emulador do dia a dia não foi tocada.
+
+| Passo | Estado |
+|---|---|
+| Conta nova + onboarding | ✅ cadastro, objetivo, modalidades, rotina |
+| Ficha com bi-set e drop set | ✅ “Treino A”: supino (3ª série planejada como drop) + crucifixo e tríceps em bi-set; conferido no banco |
+| Sessão no Android | ✅ séries do supino, drop de 47,5 kg × 6, duas rodadas do bi-set sem descanso entre os exercícios |
+| Fechar e reabrir | ✅ app encerrado à força duas vezes no meio do treino; voltou em “Treino em andamento” com todas as séries |
+| Finalizar, histórico e recordes | ✅ 7 séries, 2.349 kg, esforço 8/10; recordes por exercício (maior carga, 1RM estimado, maior volume); tudo de novo depois de reabrir o app |
+| Persistência | ✅ no banco: treino `completed`, 8 registros (7 séries + o drop), bi-set ligado |
+| Limpeza | ✅ conta de teste apagada (cascata conferida); a conta pessoal continua intacta |
+
+O aceite encontrou um bug da 2.9: no aparelho, a série concluída às vezes aparecia **em dobro** na tabela (o servidor tinha o certo). Causa e correção no ADR-037; teste de regressão em `session_offline_test.dart`.
 
 ## Fase 3 — Evolução e modalidades
 | # | Tarefa | Prio |
@@ -105,4 +119,4 @@ Dados de demonstração identificados (`scripts/seed_demo.py`, usuário `demo@ev
 
 ## Próxima etapa
 
-**Fase 2** em andamento: 2.1 (autenticação) e 2.2 (onboarding, perfil e consentimentos) concluídas, verificadas no emulador com a API real. Depois da 2.2, uma revisão de interface e acessibilidade (ADR-027) corrigiu foco, TalkBack, redução de movimento e fonte grande. 2.3 (metas) concluída: API, app e emulador com a API real. 2.4 (biblioteca de exercícios) concluída, com fotos de 67 exercícios (ADR-030). 2.5 (fichas de treino), 2.6 (sessão de treino), 2.7 (técnicas e tela de séries em tabela), 2.8 (histórico, recordes e comparação), 2.9 (rascunho local da sessão) e 2.10 (testes de autorização entre usuários) concluídas. Próximo: critério de aceite da Fase 2 (fluxo completo no Android com um usuário novo). A Fase 1 foi executada na ordem 1.1 → 1.4 → 1.6 → 1.7 → 1.5 → 1.8 → 1.9 → 1.10.
+**Fase 2** concluída: 2.1 (autenticação) e 2.2 (onboarding, perfil e consentimentos) concluídas, verificadas no emulador com a API real. Depois da 2.2, uma revisão de interface e acessibilidade (ADR-027) corrigiu foco, TalkBack, redução de movimento e fonte grande. 2.3 (metas) concluída: API, app e emulador com a API real. 2.4 (biblioteca de exercícios) concluída, com fotos de 67 exercícios (ADR-030). 2.5 (fichas de treino), 2.6 (sessão de treino), 2.7 (técnicas e tela de séries em tabela), 2.8 (histórico, recordes e comparação), 2.9 (rascunho local da sessão) e 2.10 (testes de autorização entre usuários) concluídas. Critério de aceite da Fase 2 cumprido em 2026-11-04 (ver acima): **Fase 2 concluída**. Próxima: Fase 3. A Fase 1 foi executada na ordem 1.1 → 1.4 → 1.6 → 1.7 → 1.5 → 1.8 → 1.9 → 1.10.

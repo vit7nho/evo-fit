@@ -142,12 +142,14 @@ List<SetRowDraft> buildRows(SessionExercise entry, int Function() nextId) {
 }
 
 /// Acerta as linhas com as séries do servidor: linha cuja série sumiu volta a
-/// ficar por fazer; série que não está em nenhuma linha entra no fim.
+/// ficar por fazer; série que não está em nenhuma linha entra no fim — menos as
+/// de [registering], que uma linha está concluindo e vai receber em seguida.
 List<SetRowDraft> reconcileRows(
   List<SetRowDraft> rows,
   SessionExercise entry,
-  int Function() nextId,
-) {
+  int Function() nextId, {
+  Set<String> registering = const {},
+}) {
   final ids = {for (final s in entry.sets) s.id};
   final result = [
     for (final row in rows)
@@ -158,7 +160,7 @@ List<SetRowDraft> reconcileRows(
   ];
   final known = {for (final r in result) ?r.loggedId};
   for (final set in entry.sets) {
-    if (!known.contains(set.id)) {
+    if (!known.contains(set.id) && !registering.contains(set.id)) {
       result.add(
         SetRowDraft(
           id: nextId(),

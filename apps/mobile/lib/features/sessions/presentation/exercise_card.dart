@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/tokens.g.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/util/uuid.dart';
 import '../../../shared/widgets/evo_button.dart';
 import '../../goals/presentation/goal_format.dart';
 import '../../training/domain/template.dart';
@@ -65,6 +66,10 @@ class _ExerciseCardState extends ConsumerState<ExerciseCard> {
   final _errors = <int, String>{};
   final _saving = <int>{};
 
+  /// Ids do app das séries que esta tela está concluindo: o treino atualizado
+  /// pode chegar antes de a linha saber o id (a gravação do rascunho demora).
+  final _registering = <String>{};
+
   SessionExercise get _entry => widget.session.exercises[widget.index];
   bool get _timed => _entry.exercise.timed;
   String get _name => _entry.exercise.name;
@@ -74,7 +79,7 @@ class _ExerciseCardState extends ConsumerState<ExerciseCard> {
   @override
   void didUpdateWidget(ExerciseCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _rows = reconcileRows(_rows, _entry, _newId);
+    _rows = reconcileRows(_rows, _entry, _newId, registering: _registering);
   }
 
   LoggedSet? _logged(SetRowDraft row) {
@@ -180,10 +185,12 @@ class _ExerciseCardState extends ConsumerState<ExerciseCard> {
       }
       body['parent_set_id'] = parentRow.loggedId;
     }
+    final clientId = uuidV4();
+    _registering.add(clientId);
     await _guard(row.id, () async {
       final logged = await ref
           .read(sessionProvider.notifier)
-          .logSet(_entry.id, body);
+          .logSet(_entry.id, body, clientId: clientId);
       unawaited(HapticFeedback.lightImpact());
       if (!mounted) return;
       setState(() {
@@ -195,6 +202,7 @@ class _ExerciseCardState extends ConsumerState<ExerciseCard> {
       });
       _startRest(_rows.indexWhere((r) => r.id == row.id));
     });
+    _registering.remove(clientId);
   }
 
   /// Depois de uma linha: se a próxima é um drop, segue sem descanso; se é um

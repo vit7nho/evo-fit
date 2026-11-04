@@ -33,13 +33,14 @@ Map<String, Object?> _template(FakeAuthServer s) =>
 
 /// O "aparelho": o servidor falso e os armazenamentos que sobrevivem a fechar o app.
 class _Device {
-  _Device() {
+  _Device({InMemoryDraftStorage? drafts})
+    : drafts = drafts ?? InMemoryDraftStorage() {
     server.templates = [_template(server)];
   }
 
   final server = FakeAuthServer(validRefreshToken: 'salvo');
   final tokens = InMemoryTokenStorage('salvo');
-  final drafts = InMemoryDraftStorage();
+  final InMemoryDraftStorage drafts;
 
   /// Abre (ou reabre) o app.
   Future<void> launch(WidgetTester tester) async {
@@ -67,6 +68,16 @@ class _Device {
   Future<void> close(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
+  }
+}
+
+/// Como o armazenamento seguro do aparelho: gravar leva um tempo, e a tela é
+/// redesenhada enquanto isso.
+class _SlowDraftStorage extends InMemoryDraftStorage {
+  @override
+  Future<void> write(String userId, SessionDraft? draft) async {
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await super.write(userId, draft);
   }
 }
 
@@ -163,6 +174,31 @@ void main() {
       await _tap(tester, find.text('Treino em andamento'));
       expect(_done(1), findsOneWidget);
       expect(find.textContaining('guardada no aparelho'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'gravação lenta do rascunho: a série concluída não aparece em dobro',
+    (tester) async {
+      final device = _Device(drafts: _SlowDraftStorage());
+      await device.launch(tester);
+      await _startTemplate(tester);
+
+      for (var set = 1; set <= 3; set++) {
+        await tester.ensureVisible(_check(set));
+        await tester.tap(_check(set));
+        // Quadros enquanto o rascunho ainda está sendo gravado.
+        for (var frame = 0; frame < 5; frame++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        await tester.pumpAndSettle();
+      }
+
+      for (var set = 1; set <= 3; set++) {
+        expect(_done(set), findsOneWidget);
+      }
+      expect(find.byTooltip('Desfazer série 4 de $_supino'), findsNothing);
+      expect(device.server.setBodies, hasLength(3));
     },
   );
 
