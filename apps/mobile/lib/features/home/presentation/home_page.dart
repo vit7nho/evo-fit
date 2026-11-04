@@ -92,7 +92,7 @@ class HomePage extends ConsumerWidget {
                 incomplete
                     ? 'Complete seu perfil para receber sugestões que '
                           'combinam com você.'
-                    : 'Tudo pronto. Os treinos chegam em breve.',
+                    : 'Bora treinar? Monte uma ficha ou comece um treino livre.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: EvoColors.textSecondary,
                 ),
