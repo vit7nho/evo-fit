@@ -84,12 +84,13 @@ A Organização Mundial da Saúde recomenda de 150 a 300 minutos semanais de ati
 | RF08 | Registrar drop set, rest-pause, série até a falha e aquecimento | ✅ |
 | RF09 | Consultar o histórico, os recordes e a comparação com a sessão anterior | ✅ |
 | RF10 | Continuar a sessão em andamento depois de fechar o app ou ficar sem internet | ✅ |
-| RF11 | Registrar corrida, caminhada, ciclismo e natação, com pace calculado | 🔜 Fase 3 |
-| RF12 | Visualizar o Meu Corpo 2D com o estímulo por grupo muscular | 🔜 Fase 3 |
-| RF13 | Ver dashboard, gráficos e comparativos de períodos | 🔜 Fase 3 |
-| RF14 | Conversar com a IA sobre o próprio histórico e confirmar ou recusar propostas | 🔜 Fase 4 |
-| RF15 | Registrar refeições, metas nutricionais, peso e medidas | 🔜 Fase 5 |
-| RF16 | Exportar os dados e excluir a conta (LGPD) | 🔜 Fase 5 |
+| RF11 | Registrar corrida, caminhada, ciclismo e natação, com pace e velocidade calculados e FC e elevação opcionais | ✅ |
+| RF12 | Seguir planos progressivos de caminhada, 5 km e 10 km, com as sessões marcadas pelas atividades | ✅ |
+| RF13 | Visualizar o Meu Corpo 2D com o estímulo por grupo muscular | 🔜 Fase 3 |
+| RF14 | Ver dashboard, gráficos e comparativos de períodos | 🔜 Fase 3 |
+| RF15 | Conversar com a IA sobre o próprio histórico e confirmar ou recusar propostas | 🔜 Fase 4 |
+| RF16 | Registrar refeições, metas nutricionais, peso e medidas | 🔜 Fase 5 |
+| RF17 | Exportar os dados e excluir a conta (LGPD) | 🔜 Fase 5 |
 
 ### Requisitos não funcionais
 
@@ -108,7 +109,7 @@ A Organização Mundial da Saúde recomenda de 150 a 300 minutos semanais de ati
 
 ## 6. Casos de uso
 
-O usuário se cadastra, configura objetivos e consentimentos, monta fichas e executa a sessão registrando cada série. As técnicas avançadas estendem o registro da série.
+O usuário se cadastra, configura objetivos e consentimentos, monta fichas e executa a sessão registrando cada série. As técnicas avançadas estendem o registro da série. Ele também registra atividades de resistência e pode seguir um plano progressivo de caminhada, 5 km ou 10 km.
 
 ![Casos de uso do EvoFit](docs/img/casos-de-uso.png)
 
@@ -141,21 +142,21 @@ As versões exatas estão fixadas em `pyproject.toml`, `pubspec.yaml` e `package
 - **Autenticação:** Argon2id (BIRYUKOV et al., 2021) e JWT HS256 de 15 min (JONES; BRADLEY; SAKIMURA, 2015), com refresh opaco de 256 bits guardado só como SHA-256.
 - **No app:** refresh token no Android Keystore; access token só em memória; backup automático do Android desligado.
 - **Autorização:** matriz única de testes ligada ao OpenAPI. Se surgir um endpoint novo sem classificação, a suíte quebra (ADR-038). Segue o OWASP API Security Top 10 (OWASP, 2023).
-- **Dados de saúde:** só com o consentimento `health_data`; revogar apaga limitações e metas de peso (ADR-026).
+- **Dados de saúde:** só com o consentimento `health_data`; revogar apaga limitações e metas de peso (ADR-026). A frequência cardíaca das atividades também é tratada como dado de saúde (ADR-040).
 - **Segredos:** só em variáveis de ambiente; `.env` fora do Git.
 
 Detalhes e pendências jurídicas em [SECURITY_PRIVACY](docs/SECURITY_PRIVACY.md).
 
 ## 10. Metodologia e pacotes de entrega
 
-O desenvolvimento é **incremental**: cada fase termina com uma jornada demonstrável, os testes passando e a documentação atualizada. O backlog é priorizado em P0 (indispensável), P1 (importante) e P2 (desejável). As decisões técnicas são registradas como ADRs (NYGARD, 2011) em [DECISIONS](docs/DECISIONS.md) — 38 até agora. Os commits seguem o padrão de commits convencionais (`feat:`, `test:`, ...).
+O desenvolvimento é **incremental**: cada fase termina com uma jornada demonstrável, os testes passando e a documentação atualizada. O backlog é priorizado em P0 (indispensável), P1 (importante) e P2 (desejável). As decisões técnicas são registradas como ADRs (NYGARD, 2011) em [DECISIONS](docs/DECISIONS.md) — 41 até agora. Os commits seguem o padrão de commits convencionais (`feat:`, `test:`, ...).
 
 | Pacote | Conteúdo | Situação |
 |---|---|---|
 | Fase 0 — Planejamento | Ambiente, viabilidade, riscos, arquitetura, modelo de dados, IA, UX e segurança | ✅ |
 | Fase 1 — Fundação técnica | Monorepo, API com `/health`, migrações, app e site com testes e lint, scripts | ✅ |
-| Fase 2 — Musculação | Auth, onboarding, metas, biblioteca, fichas, sessão, técnicas, histórico, rascunho offline, testes de autorização | ✅ 2.1 a 2.10 (falta validar o aceite) |
-| Fase 3 — Evolução e modalidades | Atividades multimodais, motor de análise, Meu Corpo 2D, gráficos, dashboard | 🔜 |
+| Fase 2 — Musculação | Auth, onboarding, metas, biblioteca, fichas, sessão, técnicas, histórico, rascunho offline, testes de autorização | ✅ (aceite cumprido) |
+| Fase 3 — Evolução e modalidades | Atividades multimodais, pace, planos progressivos, motor de análise, Meu Corpo 2D, gráficos, dashboard | 🚧 3.1 a 3.3 prontas |
 | Fase 4 — IA contextual | Camada de LLM, ferramentas, orquestrador, chat, propostas com confirmação | 🔜 |
 | Fase 5 — Nutrição e refinamento | Alimentos, metas, peso e medidas, site completo, LGPD, testes de usabilidade | 🔜 |
 | Fase 6 — Demonstração | Dados de demonstração, testes de integração, APK de release, documentação final | 🔜 |
@@ -166,11 +167,11 @@ Backlog completo e critérios de aceite em [ROADMAP](docs/ROADMAP.md).
 
 | Parte | Ferramentas | Testes |
 |---|---|---|
-| API | pytest (com PostgreSQL de teste) · Ruff (lint e formatação) | 344 |
-| App | flutter_test (widget e fluxo) · flutter analyze | 175 |
+| API | pytest (com PostgreSQL de teste) · Ruff (lint e formatação) | 424 |
+| App | flutter_test (widget e fluxo) · flutter analyze | 203 |
 | Site | Vitest · ESLint · TypeScript | 6 |
 
-São **525 testes automatizados**, todos passando em 2026-11-04. Um único script roda todas as verificações:
+São **633 testes automatizados**, todos passando em 2026-11-04. Um único script roda todas as verificações:
 
 ```powershell
 .\scripts\test-all.ps1                 # tudo
@@ -179,9 +180,14 @@ São **525 testes automatizados**, todos passando em 2026-11-04. Um único scrip
 
 ## 12. Resultados atuais
 
-As etapas 2.1 a 2.10 estão concluídas na API e no app Android: cadastro e login, onboarding com consentimentos, metas, biblioteca com 67 exercícios com fotos (ADR-030), fichas com grupos, sessão de treino com técnicas avançadas, histórico e recordes, rascunho offline da sessão e testes de autorização entre usuários.
+**Fase 2 concluída**, com o critério de aceite cumprido no Android em 2026-11-04: um usuário novo cria uma ficha com bi-set e drop set, executa a sessão, fecha e reabre o app, finaliza e vê o histórico e os recordes, com tudo salvo no PostgreSQL. A biblioteca tem 67 exercícios com fotos (ADR-030).
 
-**Próximo:** validar o critério de aceite da Fase 2 no Android com um usuário novo (criar ficha com bi-set e drop set, executar a sessão, fechar e reabrir o app, finalizar e ver histórico e recordes) e começar a Fase 3 (corrida e caminhada, motor de análise e Meu Corpo 2D).
+**Fase 3 em andamento:** as etapas 3.1 a 3.3 estão prontas e verificadas no emulador com a API real:
+- registro de corrida, caminhada, ciclismo e natação;
+- pace e velocidade calculados, com FC e elevação opcionais (uma corrida de 5 km em 30 min mostra 6:00/km);
+- planos progressivos de caminhada, 5 km e 10 km.
+
+**Próximo:** 3.4, o motor de análise (frequência, consistência, volume, tendências e comparação de períodos).
 
 ## 13. Como executar
 
