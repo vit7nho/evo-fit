@@ -10,7 +10,10 @@ import '../../../shared/widgets/evo_form_error.dart';
 import '../../../shared/widgets/evo_selection.dart';
 import '../../../shared/widgets/evo_state_views.dart';
 import '../../../shared/widgets/form_focus.dart';
+import '../../auth/application/auth_controller.dart';
 import '../../goals/presentation/goal_format.dart';
+import '../../profile/application/profile_actions.dart';
+import '../../profile/domain/profile.dart' show ConsentKinds;
 import '../application/activities_controller.dart';
 import '../data/activities_api.dart';
 import '../domain/activity.dart';
@@ -100,6 +103,9 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
   final _distance = TextEditingController();
   final _laps = TextEditingController();
   final _notes = TextEditingController();
+  final _elevation = TextEditingController();
+  final _avgHr = TextEditingController();
+  final _maxHr = TextEditingController();
   late String _modality;
   late DateTime _startedAt;
   int? _effort;
@@ -108,6 +114,10 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
   String? _stroke;
   bool _saving = false;
   bool _dirty = false;
+  bool _grantHealth = false;
+
+  /// Aviso local (não vem da API), ex.: falta autorizar a FC.
+  String? _hint;
   ApiException? _error;
 
   Activity? get _activity => widget.activity;
@@ -130,6 +140,9 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
       _duration.text = formatDuration(activity.durationS);
       _effort = activity.perceivedEffort;
       _notes.text = activity.notes ?? '';
+      _elevation.text = activity.elevationGainM?.toString() ?? '';
+      _avgHr.text = activity.avgHr?.toString() ?? '';
+      _maxHr.text = activity.maxHr?.toString() ?? '';
       _indoor = activity.indoor ?? false;
       _poolLength = activity.poolLengthM;
       _stroke = activity.stroke;
@@ -146,6 +159,9 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
     _distance.dispose();
     _laps.dispose();
     _notes.dispose();
+    _elevation.dispose();
+    _avgHr.dispose();
+    _maxHr.dispose();
     super.dispose();
   }
 
@@ -184,6 +200,35 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
     return null;
   }
 
+  bool get _hasHealthConsent {
+    final auth = ref.read(authControllerProvider).value;
+    return auth is Authenticated &&
+        auth.user.hasConsent(ConsentKinds.healthData);
+  }
+
+  bool get _sendsHeartRate =>
+      _avgHr.text.trim().isNotEmpty || _maxHr.text.trim().isNotEmpty;
+
+  /// Faixa inteira opcional (vazio passa).
+  String? Function(String?) _range(int min, int max, String unit) => (value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return null;
+    final n = int.tryParse(text);
+    if (n == null || n < min || n > max) return 'Entre $min e $max $unit.';
+    return null;
+  };
+
+  String? _validateMaxHr(String? value) {
+    final error = _range(30, 250, 'bpm')(value);
+    if (error != null) return error;
+    final peak = int.tryParse(value?.trim() ?? '');
+    final avg = int.tryParse(_avgHr.text.trim());
+    if (peak != null && avg != null && peak < avg) {
+      return 'Não pode ser menor que a média.';
+    }
+    return null;
+  }
+
   Map<String, Object?> _body() {
     final laps = int.tryParse(_laps.text.trim());
     final notes = _notes.text.trim();
@@ -194,6 +239,9 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
       'distance_m': _distanceFromLaps ? null : _distanceMeters,
       'perceived_effort': _effort,
       'notes': notes.isEmpty ? null : notes,
+      'avg_hr': int.tryParse(_avgHr.text.trim()),
+      'max_hr': int.tryParse(_maxHr.text.trim()),
+      if (!_swim) 'elevation_gain_m': int.tryParse(_elevation.text.trim()),
       if (_modality == Modalities.cycle) 'indoor': _indoor,
       if (_swim) ...{
         'pool_length_m': _poolLength,
@@ -207,14 +255,25 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
 
   Future<void> _save() async {
     if (_saving || !validateAndFocusFirstError(_formKey.currentState!)) return;
+    final needsConsent = _sendsHeartRate && !_hasHealthConsent;
+    if (needsConsent && !_grantHealth) {
+      setState(() => _hint = 'Autorize os dados de saúde para salvar a FC.');
+      return;
+    }
     FocusScope.of(context).unfocus();
     setState(() {
       _saving = true;
       _error = null;
+      _hint = null;
     });
     final controller = ref.read(activitiesProvider.notifier);
     final messenger = ScaffoldMessenger.of(context);
     try {
+      if (needsConsent) {
+        await ref
+            .read(profileActionsProvider)
+            .setConsent(ConsentKinds.healthData, granted: true);
+      }
       if (_isNew) {
         await controller.create({'modality': _modality, ..._body()});
       } else {
@@ -360,6 +419,12 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
     final fromLaps = _poolLength != null && laps != null
         ? _poolLength! * laps
         : null;
+    final rhythm = liveRhythm(
+      _modality,
+      _distanceFromLaps ? fromLaps : _distanceMeters,
+      parseActivityDuration(_duration.text),
+    );
+    final needsConsent = _sendsHeartRate && !_hasHealthConsent;
 
     return PopScope(
       canPop: !_dirty || _saving,
@@ -463,7 +528,10 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
                           textInputAction: TextInputAction.next,
                           forceErrorText: errors['duration_s'],
                           validator: _validateDuration,
-                          onChanged: (_) => _changed(),
+                          onChanged: (_) {
+                            setState(() {});
+                            _changed();
+                          },
                           decoration: const InputDecoration(
                             labelText: 'Duração',
                             hintText: 'Ex.: 45 (min) ou 1:05:30',
@@ -551,7 +619,10 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
                             textInputAction: TextInputAction.next,
                             forceErrorText: errors['distance_m'],
                             validator: _validateDistance,
-                            onChanged: (_) => _changed(),
+                            onChanged: (_) {
+                              setState(() {});
+                              _changed();
+                            },
                             decoration: InputDecoration(
                               labelText: 'Distância (opcional)',
                               suffixText: _swim ? 'm' : 'km',
@@ -559,6 +630,16 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
                           ),
                         ] else if (errors['distance_m'] case final message?)
                           _ServerError(message),
+                        if (rhythm != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: EvoSpace.sm),
+                            child: Text(
+                              _modality == Modalities.cycle
+                                  ? 'Velocidade média: $rhythm'
+                                  : 'Pace: $rhythm',
+                              style: theme.textTheme.titleSmall,
+                            ),
+                          ),
                         if (_swim) ...[
                           const SizedBox(height: EvoSpace.xl),
                           const EvoFieldLabel('Estilo', hint: 'Opcional.'),
@@ -578,7 +659,95 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
                             },
                           ),
                         ],
-                        const SizedBox(height: EvoSpace.xl),
+                        const SizedBox(height: EvoSpace.lg),
+                        ExpansionTile(
+                          // Mantidos montados: o Form valida mesmo recolhidos.
+                          maintainState: true,
+                          tilePadding: EdgeInsets.zero,
+                          childrenPadding: EdgeInsets.zero,
+                          shape: const Border(),
+                          collapsedShape: const Border(),
+                          initiallyExpanded:
+                              _activity?.avgHr != null ||
+                              _activity?.maxHr != null ||
+                              _activity?.elevationGainM != null,
+                          title: Text(
+                            'Mais detalhes',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          subtitle: Text(
+                            _swim
+                                ? 'Frequência cardíaca'
+                                : 'Frequência cardíaca e elevação',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          children: [
+                            // Espaço para o rótulo flutuante do primeiro campo.
+                            const SizedBox(height: EvoSpace.sm),
+                            if (!_swim) ...[
+                              _NumberField(
+                                controller: _elevation,
+                                label: 'Ganho de elevação (opcional)',
+                                suffix: 'm',
+                                error: errors['elevation_gain_m'],
+                                validator: _range(0, 10000, 'm'),
+                                onChanged: _changed,
+                              ),
+                              const SizedBox(height: EvoSpace.lg),
+                            ],
+                            _NumberField(
+                              controller: _avgHr,
+                              label: 'FC média (opcional)',
+                              suffix: 'bpm',
+                              error: errors['avg_hr'],
+                              validator: _range(30, 230, 'bpm'),
+                              onChanged: () {
+                                setState(() {});
+                                _changed();
+                              },
+                            ),
+                            const SizedBox(height: EvoSpace.lg),
+                            _NumberField(
+                              controller: _maxHr,
+                              label: 'FC máxima (opcional)',
+                              suffix: 'bpm',
+                              error: errors['max_hr'],
+                              validator: _validateMaxHr,
+                              onChanged: () {
+                                setState(() {});
+                                _changed();
+                              },
+                            ),
+                            if (needsConsent) ...[
+                              const SizedBox(height: EvoSpace.lg),
+                              Card(
+                                child: SwitchListTile(
+                                  value: _grantHealth,
+                                  onChanged: (value) {
+                                    setState(() => _grantHealth = value);
+                                    _changed();
+                                  },
+                                  title: Text(
+                                    'Autorizo o uso dos meus dados de saúde',
+                                    style: theme.textTheme.titleMedium,
+                                  ),
+                                  subtitle: Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: EvoSpace.xs,
+                                    ),
+                                    child: Text(
+                                      'Frequência cardíaca é dado de saúde. Você pode '
+                                      'revogar no perfil a qualquer momento — a FC das '
+                                      'atividades é apagada junto.',
+                                      style: theme.textTheme.bodyMedium,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: EvoSpace.lg),
                         const EvoFieldLabel(
                           'Esforço percebido',
                           hint: 'Opcional. 1 = muito leve, 10 = máximo.',
@@ -629,7 +798,7 @@ class _ActivityFormState extends ConsumerState<_ActivityForm> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      EvoFormError(message: _error?.message),
+                      EvoFormError(message: _hint ?? _error?.message),
                       EvoButton(
                         label: _isNew ? 'Registrar' : 'Salvar',
                         isLoading: _saving,
@@ -657,6 +826,38 @@ class _ServerError extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: EvoSpace.sm),
       child: Text(message, style: const TextStyle(color: EvoColors.danger)),
+    );
+  }
+}
+
+class _NumberField extends StatelessWidget {
+  const _NumberField({
+    required this.controller,
+    required this.label,
+    required this.suffix,
+    required this.error,
+    required this.validator,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String suffix;
+  final String? error;
+  final String? Function(String?) validator;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      textInputAction: TextInputAction.next,
+      forceErrorText: error,
+      validator: validator,
+      onChanged: (_) => onChanged(),
+      decoration: InputDecoration(labelText: label, suffixText: suffix),
     );
   }
 }

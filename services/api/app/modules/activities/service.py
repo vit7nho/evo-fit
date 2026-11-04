@@ -16,7 +16,8 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.errors import FieldValidationError, NotFoundError
 from app.modules.activities.models import Activity, CyclingDetails, EnduranceDetails, SwimDetails
 from app.modules.activities.schemas import ActivityCreate, ActivityUpdate
-from app.modules.users.models import User
+from app.modules.users.models import ConsentKind, User
+from app.modules.users.service import ConsentRequiredError, active_consent
 
 logger = logging.getLogger(__name__)
 
@@ -26,15 +27,17 @@ class ModalitySpec:
     code: str
     label: str
     max_distance_m: int
+    # Acima disso é quase certo um erro de digitação (5 km em 1 min, por exemplo).
+    max_speed_kmh: float
 
 
 MODALITIES = {
     m.code: m
     for m in (
-        ModalitySpec("run", "Corrida", 300_000),
-        ModalitySpec("walk", "Caminhada", 150_000),
-        ModalitySpec("cycle", "Ciclismo", 1_000_000),
-        ModalitySpec("swim", "Natação", 30_000),
+        ModalitySpec("run", "Corrida", 300_000, 30),
+        ModalitySpec("walk", "Caminhada", 150_000, 15),
+        ModalitySpec("cycle", "Ciclismo", 1_000_000, 120),
+        ModalitySpec("swim", "Natação", 30_000, 10),
     )
 }
 STROKES = {
@@ -51,6 +54,8 @@ _PAST = timedelta(days=5 * 365)
 _CLOCK_SKEW = timedelta(minutes=5)
 _CYCLING_FIELDS = {"indoor"}
 _SWIM_FIELDS = {"pool_length_m", "laps", "stroke"}
+_LAND_FIELDS = {"elevation_gain_m"}
+_HR_FIELDS = {"avg_hr", "max_hr"}
 PAGE_SIZE = 20
 
 
@@ -104,6 +109,8 @@ class ActivityService:
         _check_started_at(data.started_at)
         values["distance_m"] = _distance(data.modality, values)
         values["notes"] = data.notes or None
+        self._check_hr(user, values, data.model_fields_set)
+        _check_speed(data.modality, values)
 
         activity = Activity(
             user_id=user.id,
@@ -140,12 +147,24 @@ class ActivityService:
             values["notes"] = data.notes or None
         if changes & ({"distance_m"} | _SWIM_FIELDS):
             values["distance_m"] = _distance(activity.modality, values, changed=changes)
+        self._check_hr(user, values, changes)
+        if changes & ({"distance_m", "duration_s"} | _SWIM_FIELDS):
+            _check_speed(activity.modality, values)
         _apply(activity, values)
         self.db.commit()
         logger.info(
             "activity_updated", extra={"user_id": str(user.id), "activity_id": str(activity.id)}
         )
         return self.get(user, activity.id)
+
+    def _check_hr(self, user: User, values: dict, changes: set[str]) -> None:
+        """FC é dado de saúde: gravar exige o consentimento (limpar, não)."""
+        avg, peak = values["avg_hr"], values["max_hr"]
+        if avg is not None and peak is not None and peak < avg:
+            raise FieldValidationError("max_hr", "A FC máxima não pode ser menor que a média.")
+        sending = any(values[name] is not None for name in _HR_FIELDS & changes)
+        if sending and active_consent(self.db, user.id, ConsentKind.HEALTH_DATA) is None:
+            raise ConsentRequiredError(ConsentKind.HEALTH_DATA)
 
     def delete(self, user: User, activity_id: uuid.UUID) -> None:
         activity = self.get(user, activity_id)
@@ -159,7 +178,9 @@ class ActivityService:
 def _check_fields(modality: str, fields: set[str]) -> None:
     """Campo de outra modalidade é recusado, para não ser guardado e ignorado em silêncio."""
     allowed = {"cycle": _CYCLING_FIELDS, "swim": _SWIM_FIELDS}.get(modality, set())
-    for name in sorted((_CYCLING_FIELDS | _SWIM_FIELDS) - allowed):
+    if modality != "swim":
+        allowed = allowed | _LAND_FIELDS
+    for name in sorted((_CYCLING_FIELDS | _SWIM_FIELDS | _LAND_FIELDS) - allowed):
         if name in fields:
             label = MODALITIES[modality].label.lower()
             raise FieldValidationError(name, f"Não se aplica a {label}.")
@@ -193,9 +214,50 @@ def _distance(modality: str, values: dict, changed: set[str] | None = None) -> i
     return distance
 
 
+def _check_speed(modality: str, values: dict) -> None:
+    spec = MODALITIES[modality]
+    speed = speed_kmh(values["distance_m"], values["duration_s"])
+    if speed is not None and speed > spec.max_speed_kmh:
+        shown = f"{speed:.1f}".replace(".", ",")
+        raise FieldValidationError(
+            "distance_m",
+            f"{shown} km/h é rápido demais para {spec.label.lower()}: "
+            "confira a distância e a duração.",
+        )
+
+
+def speed_kmh(distance_m: int | None, duration_s: int | None) -> float | None:
+    if not distance_m or not duration_s:
+        return None
+    return distance_m / duration_s * 3.6
+
+
+def paces(modality: str, distance_m: int | None, duration_s: int) -> dict[str, float | None]:
+    """Pace e velocidade, calculados na hora (não são guardados). Natação: pace por 100 m;
+    as outras: pace por km e km/h."""
+    empty: dict[str, float | None] = {
+        "pace_s_per_km": None,
+        "speed_kmh": None,
+        "pace_s_per_100m": None,
+    }
+    speed = speed_kmh(distance_m, duration_s)
+    if speed is None or distance_m is None:
+        return empty
+    if modality == "swim":
+        return empty | {"pace_s_per_100m": round(duration_s / distance_m * 100)}
+    return empty | {
+        "pace_s_per_km": round(duration_s / distance_m * 1000),
+        "speed_kmh": round(speed, 1),
+    }
+
+
 def _current(activity: Activity) -> dict:
     swim = activity.swim
+    endurance = activity.endurance
     return {
+        "elevation_gain_m": endurance.elevation_gain_m if endurance else None,
+        "avg_hr": endurance.avg_hr if endurance else None,
+        "max_hr": endurance.max_hr if endurance else None,
         "started_at": activity.started_at,
         "duration_s": activity.duration_s,
         "distance_m": activity.endurance.distance_m if activity.endurance else None,
@@ -217,6 +279,9 @@ def _apply(activity: Activity, values: dict) -> None:
     if activity.endurance is None:
         activity.endurance = EnduranceDetails()
     activity.endurance.distance_m = values["distance_m"]
+    activity.endurance.elevation_gain_m = values["elevation_gain_m"]
+    activity.endurance.avg_hr = values["avg_hr"]
+    activity.endurance.max_hr = values["max_hr"]
     if activity.modality == "cycle":
         if activity.cycling is None:
             activity.cycling = CyclingDetails()

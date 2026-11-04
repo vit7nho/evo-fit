@@ -22,6 +22,12 @@ class Activity {
     this.distanceM,
     this.perceivedEffort,
     this.notes,
+    this.elevationGainM,
+    this.avgHr,
+    this.maxHr,
+    this.paceSPerKm,
+    this.speedKmh,
+    this.paceSPer100m,
     this.indoor,
     this.poolLengthM,
     this.laps,
@@ -36,6 +42,12 @@ class Activity {
     distanceM: json['distance_m'] as int?,
     perceivedEffort: json['perceived_effort'] as int?,
     notes: json['notes'] as String?,
+    elevationGainM: json['elevation_gain_m'] as int?,
+    avgHr: json['avg_hr'] as int?,
+    maxHr: json['max_hr'] as int?,
+    paceSPerKm: json['pace_s_per_km'] as int?,
+    speedKmh: (json['speed_kmh'] as num?)?.toDouble(),
+    paceSPer100m: json['pace_s_per_100m'] as int?,
     indoor: json['indoor'] as bool?,
     poolLengthM: json['pool_length_m'] as int?,
     laps: json['laps'] as int?,
@@ -49,6 +61,25 @@ class Activity {
   final int? distanceM;
   final int? perceivedEffort;
   final String? notes;
+  final int? elevationGainM;
+
+  /// Frequência cardíaca (bpm): dado de saúde.
+  final int? avgHr;
+  final int? maxHr;
+
+  /// Calculados pela API com distância e duração (não são guardados).
+  final int? paceSPerKm;
+  final double? speedKmh;
+  final int? paceSPer100m;
+
+  /// O ritmo como a modalidade costuma ver: km/h no ciclismo, pace por 100 m na
+  /// natação, pace por km nas outras. Nulo sem distância.
+  String? get rhythm => switch (modality) {
+    Modalities.cycle => speedKmh == null ? null : formatSpeed(speedKmh!),
+    Modalities.swim =>
+      paceSPer100m == null ? null : formatPace(paceSPer100m!, per: '100 m'),
+    _ => paceSPerKm == null ? null : formatPace(paceSPerKm!, per: 'km'),
+  };
 
   /// Só no ciclismo.
   final bool? indoor;
@@ -121,6 +152,33 @@ IconData modalityIcon(String modality) => switch (modality) {
   Modalities.swim => Icons.pool_rounded,
   _ => Icons.timer_outlined,
 };
+
+/// Pace como "6:00 /km" ou "2:05 /100 m".
+String formatPace(int seconds, {required String per}) =>
+    '${formatDuration(seconds)} /$per';
+
+/// Velocidade como "28,4 km/h".
+String formatSpeed(double kmh) => '${formatDecimal(kmh)} km/h';
+
+/// O ritmo calculado na hora, enquanto a pessoa digita (mesma conta da API).
+String? liveRhythm(String modality, int? distanceM, int? durationS) {
+  if (distanceM == null ||
+      distanceM < 1 ||
+      durationS == null ||
+      durationS < 1) {
+    return null;
+  }
+  return switch (modality) {
+    Modalities.cycle => formatSpeed(
+      double.parse((distanceM / durationS * 3.6).toStringAsFixed(1)),
+    ),
+    Modalities.swim => formatPace(
+      (durationS / distanceM * 100).round(),
+      per: '100 m',
+    ),
+    _ => formatPace((durationS / distanceM * 1000).round(), per: 'km'),
+  };
+}
 
 /// Natação em metros; as outras em km a partir de 1 km ("5,27 km", "800 m").
 String formatDistance(int meters, {required String modality}) {

@@ -82,8 +82,18 @@ class EnduranceDetails(Base):
         ForeignKey("activities.id", ondelete="CASCADE"), primary_key=True
     )
     distance_m: Mapped[int | None] = mapped_column(Integer)
+    elevation_gain_m: Mapped[int | None] = mapped_column(Integer)
+    # Frequência cardíaca (bpm): dado de saúde, exige o consentimento health_data.
+    avg_hr: Mapped[int | None] = mapped_column(SmallInteger)
+    max_hr: Mapped[int | None] = mapped_column(SmallInteger)
 
-    __table_args__ = (CheckConstraint("distance_m > 0", name="distance_positive"),)
+    __table_args__ = (
+        CheckConstraint("distance_m > 0", name="distance_positive"),
+        CheckConstraint("elevation_gain_m BETWEEN 0 AND 10000", name="elevation_range"),
+        CheckConstraint("avg_hr BETWEEN 30 AND 230", name="avg_hr_range"),
+        CheckConstraint("max_hr BETWEEN 30 AND 250", name="max_hr_range"),
+        CheckConstraint("max_hr >= avg_hr", name="max_hr_not_below_avg"),
+    )
 
 
 class CyclingDetails(Base):

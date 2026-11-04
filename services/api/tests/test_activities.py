@@ -146,7 +146,8 @@ def test_validation_points_to_the_field(
 
 def test_distance_limit_depends_on_modality(client: TestClient, signup) -> None:
     headers = signup()
-    assert create(client, headers, modality="cycle", distance_m=300_001).status_code == 201
+    long_ride = {"modality": "cycle", "distance_m": 300_001, "duration_s": 12 * 3600}
+    assert create(client, headers, **long_ride).status_code == 201
     response = create(client, headers, modality="swim", distance_m=30_001)
     assert field_errors(response) == ["distance_m"]
 
@@ -283,3 +284,126 @@ def test_logs_do_not_contain_notes(
     created(client, signup(), notes="Dor no joelho esquerdo")
     assert "joelho" not in caplog.text
     assert "activity_created" in caplog.text
+
+
+# --- pace, velocidade e métricas opcionais (3.2) ---
+
+
+def test_run_pace_and_speed(client: TestClient, signup) -> None:
+    # Aceite da Fase 3: 5 km em 30 min = 6:00/km.
+    body = created(client, signup())
+    assert (body["pace_s_per_km"], body["speed_kmh"], body["pace_s_per_100m"]) == (
+        360,
+        10.0,
+        None,
+    )
+
+
+def test_cycling_speed_and_swim_pace(client: TestClient, signup) -> None:
+    headers = signup()
+    ride = created(client, headers, modality="cycle", distance_m=30_000, duration_s=3600)
+    assert (ride["speed_kmh"], ride["pace_s_per_km"]) == (30.0, 120)
+
+    swim = created(client, headers, modality="swim", distance_m=1000, duration_s=1200)
+    assert (swim["pace_s_per_100m"], swim["pace_s_per_km"], swim["speed_kmh"]) == (
+        120,
+        None,
+        None,
+    )
+
+
+def test_no_distance_no_pace(client: TestClient, signup) -> None:
+    body = created(client, signup(), modality="walk", distance_m=None)
+    assert (body["pace_s_per_km"], body["speed_kmh"], body["pace_s_per_100m"]) == (
+        None,
+        None,
+        None,
+    )
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"distance_m": 5000, "duration_s": 60},
+        {"modality": "walk", "distance_m": 20_000, "duration_s": 3600},
+        {"modality": "swim", "distance_m": 3000, "duration_s": 600},
+    ],
+)
+def test_impossible_speed_is_rejected(client: TestClient, signup, changes: dict) -> None:
+    response = create(client, signup(), **changes)
+    assert response.status_code == 422
+    assert field_errors(response) == ["distance_m"]
+    assert "rápido demais" in response.json()["errors"][0]["message"]
+
+
+def test_update_cannot_make_the_speed_impossible(client: TestClient, signup) -> None:
+    headers = signup()
+    run = created(client, headers)
+    response = client.patch(f"{BASE}/{run['id']}", headers=headers, json={"duration_s": 60})
+    assert field_errors(response) == ["distance_m"]
+    body = client.patch(f"{BASE}/{run['id']}", headers=headers, json={"duration_s": 1500})
+    assert body.json()["pace_s_per_km"] == 300
+
+
+def test_elevation_gain_except_swimming(client: TestClient, signup) -> None:
+    headers = signup()
+    assert created(client, headers, elevation_gain_m=120)["elevation_gain_m"] == 120
+    response = create(client, headers, modality="swim", elevation_gain_m=10)
+    assert field_errors(response) == ["elevation_gain_m"]
+    assert field_errors(create(client, headers, elevation_gain_m=10_001)) == ["elevation_gain_m"]
+
+
+def test_heart_rate_requires_health_consent(client: TestClient, signup) -> None:
+    headers = signup()
+
+    response = create(client, headers, avg_hr=150)
+    assert response.status_code == 403
+    assert response.json()["code"] == "consent_required"
+    assert client.get(BASE, headers=headers).json() == []
+
+    client.put("/api/v1/me/consents/health_data", headers=headers)
+    body = created(client, headers, avg_hr=150, max_hr=178)
+    assert (body["avg_hr"], body["max_hr"]) == (150, 178)
+
+
+@pytest.mark.parametrize(
+    ("changes", "field"),
+    [
+        ({"avg_hr": 160, "max_hr": 150}, "max_hr"),
+        ({"avg_hr": 29}, "avg_hr"),
+        ({"max_hr": 251}, "max_hr"),
+    ],
+)
+def test_heart_rate_validation(client: TestClient, signup, changes: dict, field: str) -> None:
+    headers = signup()
+    client.put("/api/v1/me/consents/health_data", headers=headers)
+    assert field_errors(create(client, headers, **changes)) == [field]
+
+
+def test_revoking_health_consent_erases_heart_rate_only(client: TestClient, signup) -> None:
+    headers = signup()
+    client.put("/api/v1/me/consents/health_data", headers=headers)
+    run = created(client, headers, avg_hr=150, max_hr=178, elevation_gain_m=80)
+
+    assert client.delete("/api/v1/me/consents/health_data", headers=headers).status_code == 204
+    body = client.get(f"{BASE}/{run['id']}", headers=headers).json()
+    assert (body["avg_hr"], body["max_hr"]) == (None, None)
+    assert (body["distance_m"], body["elevation_gain_m"]) == (5000, 80)
+
+    # Sem consentimento: limpar pode, gravar de novo não.
+    url = f"{BASE}/{run['id']}"
+    assert client.patch(url, headers=headers, json={"avg_hr": None}).status_code == 200
+    assert client.patch(url, headers=headers, json={"avg_hr": 140}).status_code == 403
+
+
+def test_logs_do_not_contain_heart_rate(
+    client: TestClient, signup, caplog: pytest.LogCaptureFixture
+) -> None:
+    headers = signup()
+    client.put("/api/v1/me/consents/health_data", headers=headers)
+    caplog.set_level(logging.DEBUG)
+    created(client, headers, avg_hr=163, max_hr=187)
+    assert "activity_created" in caplog.text
+    for record in caplog.records:
+        assert not {"avg_hr", "max_hr"} & vars(record).keys()
+        assert "avg_hr" not in record.getMessage()

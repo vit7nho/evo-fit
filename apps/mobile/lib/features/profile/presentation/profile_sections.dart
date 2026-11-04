@@ -397,8 +397,9 @@ class HealthEditor extends StatelessWidget {
             subtitle: Padding(
               padding: const EdgeInsets.only(top: EvoSpace.xs),
               child: Text(
-                'Só para evitar sugestões de treino inadequadas. Você pode '
-                'revogar no perfil a qualquer momento — os dados são apagados.',
+                'Limitações, peso e frequência cardíaca: só para evitar sugestões '
+                'inadequadas e acompanhar sua evolução. Você pode revogar no '
+                'perfil a qualquer momento — os dados são apagados.',
                 style: theme.textTheme.bodyMedium,
               ),
             ),

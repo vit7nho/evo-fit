@@ -260,3 +260,10 @@ Corrida (`run`), caminhada (`walk`), ciclismo (`cycle`) e natação (`swim`), re
 - **`PATCH`**: parcial; `null` limpa os opcionais; `started_at` e `duration_s` não podem ser `null`; `modality` não muda (`422`).
 - **`DELETE`**: lógico (`deleted_at`), para os indicadores recalcularem o histórico; depois disso, `404`.
 - **Posse**: tudo filtrado pelo dono do token; atividade de outra pessoa = `404`, igual a uma inexistente. As rotas novas entraram na matriz da 2.10.
+
+## Pace, velocidade, FC e elevação (etapa 3.2)
+
+- **Calculados, nunca guardados** (com distância e duração; sem distância, `null`): corrida, caminhada e ciclismo devolvem `pace_s_per_km` (inteiro) e `speed_kmh` (1 casa); a natação, `pace_s_per_100m`. 5 km em 30 min = `pace_s_per_km: 360` (6:00/km).
+- **Velocidade improvável**: acima de 30 km/h (corrida), 15 (caminhada), 120 (ciclismo) ou 10 (natação) → `422 distance_m` (“confira a distância e a duração”). Vale no registro e na correção (mudando distância, duração, voltas ou piscina).
+- **Campos opcionais novos** (migração 0009): `elevation_gain_m` (0–10 000; não se aplica à natação → `422`), `avg_hr` (30–230) e `max_hr` (30–250, não menor que a média → `422 max_hr`).
+- **FC é dado de saúde**: gravar `avg_hr`/`max_hr` exige o consentimento `health_data` (`403 consent_required`, como as metas de peso); limpar (`null`) não exige. **Revogar `health_data` apaga a FC de todas as atividades** da pessoa (o resto da atividade fica).

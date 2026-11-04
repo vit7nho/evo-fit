@@ -3,11 +3,12 @@
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.errors import AppError, FieldValidationError
+from app.modules.activities.models import Activity, EnduranceDetails
 from app.modules.goals.kinds import HEALTH_KINDS
 from app.modules.goals.models import Goal
 from app.modules.users.models import ConsentKind, User, UserConsent, UserProfile
@@ -153,6 +154,16 @@ class ProfileService:
             # Metas de peso também são dados de saúde.
             self.db.execute(
                 delete(Goal).where(Goal.user_id == user.id, Goal.kind.in_(HEALTH_KINDS))
+            )
+            # E a frequência cardíaca das atividades (o resto da atividade fica).
+            self.db.execute(
+                update(EnduranceDetails)
+                .where(
+                    EnduranceDetails.activity_id.in_(
+                        select(Activity.id).where(Activity.user_id == user.id)
+                    )
+                )
+                .values(avg_hr=None, max_hr=None)
             )
         self.db.commit()
         logger.info("consent_revoked", extra={"user_id": str(user.id), "kind": kind.value})

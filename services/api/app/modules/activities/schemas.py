@@ -17,11 +17,15 @@ Notes = Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)
 Distance = Annotated[int, Field(ge=1)]
 PoolLength = Annotated[int, Field(ge=10, le=100)]
 Laps = Annotated[int, Field(ge=1, le=2000)]
+Elevation = Annotated[int, Field(ge=0, le=10_000)]
+AvgHr = Annotated[int, Field(ge=30, le=230)]
+MaxHr = Annotated[int, Field(ge=30, le=250)]
 
 
 class ActivityCreate(BaseModel):
     """Campos comuns + os da modalidade: `indoor` só no ciclismo; piscina, voltas e
-    estilo só na natação. Distância em metros, opcional em todas."""
+    estilo só na natação; ganho de elevação fora da natação. Distância em metros,
+    opcional em todas. FC (bpm) exige o consentimento health_data."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -31,6 +35,9 @@ class ActivityCreate(BaseModel):
     distance_m: Distance | None = None
     perceived_effort: Effort | None = None
     notes: Notes | None = None
+    elevation_gain_m: Elevation | None = None
+    avg_hr: AvgHr | None = None
+    max_hr: MaxHr | None = None
     indoor: bool | None = None
     pool_length_m: PoolLength | None = None
     laps: Laps | None = None
@@ -47,6 +54,9 @@ class ActivityUpdate(BaseModel):
     distance_m: Distance | None = None
     perceived_effort: Effort | None = None
     notes: Notes | None = None
+    elevation_gain_m: Elevation | None = None
+    avg_hr: AvgHr | None = None
+    max_hr: MaxHr | None = None
     indoor: bool | None = None
     pool_length_m: PoolLength | None = None
     laps: Laps | None = None
@@ -62,6 +72,14 @@ class ActivityOut(BaseModel):
     distance_m: int | None
     perceived_effort: int | None
     notes: str | None
+    elevation_gain_m: int | None
+    avg_hr: int | None
+    max_hr: int | None
+    # Calculados na hora, com distância e duração: corrida, caminhada e ciclismo têm
+    # pace por km e km/h; a natação, pace por 100 m.
+    pace_s_per_km: int | None
+    speed_kmh: float | None
+    pace_s_per_100m: int | None
     # Só no ciclismo (nas outras, null).
     indoor: bool | None
     # Só na natação (nas outras, null).

@@ -21,6 +21,7 @@ from app.modules.activities.service import (
     POOL_LENGTHS_M,
     STROKES,
     ActivityService,
+    paces,
 )
 from app.modules.auth.dependencies import CurrentUser
 from app.modules.users.schemas import Option
@@ -32,13 +33,19 @@ DbSession = Annotated[Session, Depends(get_db)]
 
 def _out(activity: Activity) -> ActivityOut:
     swim = activity.swim
+    endurance = activity.endurance
+    distance = endurance.distance_m if endurance else None
     return ActivityOut(
+        **paces(activity.modality, distance, activity.duration_s),  # type: ignore[arg-type]
+        elevation_gain_m=endurance.elevation_gain_m if endurance else None,
+        avg_hr=endurance.avg_hr if endurance else None,
+        max_hr=endurance.max_hr if endurance else None,
         id=activity.id,
         modality=activity.modality,  # type: ignore[arg-type]
         started_at=activity.started_at,
         ended_at=activity.ended_at,  # type: ignore[arg-type]
         duration_s=activity.duration_s,  # type: ignore[arg-type]
-        distance_m=activity.endurance.distance_m if activity.endurance else None,
+        distance_m=distance,
         perceived_effort=activity.perceived_effort,
         notes=activity.notes,
         indoor=activity.cycling.indoor if activity.cycling else None,

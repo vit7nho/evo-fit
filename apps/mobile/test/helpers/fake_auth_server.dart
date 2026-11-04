@@ -103,6 +103,7 @@ class FakeAuthServer {
   List<Map<String, Object?>> activities = [];
   final activityBodies = <Map<String, Object?>>[];
   final activityCalls = <String>[];
+  int activityListCalls = 0;
 
   /// Próxima gravação de atividade responde 422 neste campo.
   String? rejectActivityField;
@@ -129,7 +130,7 @@ class FakeAuthServer {
     String startedAt = '2026-11-02T09:00:00Z',
     int durationS = 1800,
     int? distanceM = 5000,
-  }) => {
+  }) => _derived({
     'id': id,
     'modality': 'run',
     'started_at': startedAt,
@@ -142,7 +143,10 @@ class FakeAuthServer {
     'pool_length_m': null,
     'laps': null,
     'stroke': null,
-  };
+    'elevation_gain_m': null,
+    'avg_hr': null,
+    'max_hr': null,
+  });
 
   /// Metas guardadas (como a API devolve) e o que chegou nas gravações.
   List<Map<String, Object?>> goals = [];
@@ -685,7 +689,7 @@ class FakeAuthServer {
       ),
       ('GET', '/activities') =>
         _authorized(options)
-            ? FakeHttpAdapter.json(200, _sortedActivities())
+            ? FakeHttpAdapter.json(200, _sortedActivities(count: true))
             : _invalidToken(),
       ('POST', '/activities') =>
         _authorized(options)
@@ -1065,7 +1069,12 @@ class FakeAuthServer {
     return FakeHttpAdapter.json(200, updated);
   }
 
-  List<Map<String, Object?>> _sortedActivities() => [...activities]
+  List<Map<String, Object?>> _sortedActivities({bool count = false}) {
+    if (count) activityListCalls++;
+    return _sortActivities();
+  }
+
+  List<Map<String, Object?>> _sortActivities() => [...activities]
     ..sort(
       (a, b) =>
           (b['started_at']! as String).compareTo(a['started_at']! as String),
@@ -1085,25 +1094,52 @@ class FakeAuthServer {
     );
   }
 
-  /// Natação na piscina sem distância: voltas × tamanho, como a API.
-  static Map<String, Object?> _withSwimDistance(Map<String, Object?> a) {
+  /// Como a API: natação na piscina sem distância = voltas × tamanho; pace e
+  /// velocidade calculados com distância e duração.
+  static Map<String, Object?> _derived(Map<String, Object?> a) {
     final pool = a['pool_length_m'] as int?;
     final laps = a['laps'] as int?;
-    return a['distance_m'] == null && pool != null && laps != null
+    final withDistance = a['distance_m'] == null && pool != null && laps != null
         ? {...a, 'distance_m': pool * laps}
         : a;
+    final distance = withDistance['distance_m'] as int?;
+    final duration = withDistance['duration_s']! as int;
+    final swim = withDistance['modality'] == 'swim';
+    return {
+      ...withDistance,
+      'pace_s_per_km': distance == null || swim
+          ? null
+          : (duration / distance * 1000).round(),
+      'speed_kmh': distance == null || swim
+          ? null
+          : double.parse((distance / duration * 3.6).toStringAsFixed(1)),
+      'pace_s_per_100m': distance == null || !swim
+          ? null
+          : (duration / distance * 100).round(),
+    };
   }
+
+  /// FC é dado de saúde: sem o consentimento, a API recusa (403).
+  ResponseBody? _heartRateWithoutConsent(Map<String, Object?> body) =>
+      (body['avg_hr'] != null || body['max_hr'] != null) &&
+          !consents.contains('health_data')
+      ? _problem(403, 'consent_required', 'Autorize os dados de saúde.')
+      : null;
 
   ResponseBody _createActivity(Map<String, Object?> body) {
     activityCalls.add('POST');
     activityBodies.add(body);
     if (_rejectActivity() case final rejected?) return rejected;
-    final activity = _withSwimDistance({
+    if (_heartRateWithoutConsent(body) case final refused?) return refused;
+    final activity = _derived({
       'id': 'atividade-${activityCalls.length}',
       'ended_at': body['started_at'],
       'distance_m': null,
       'perceived_effort': null,
       'notes': null,
+      'elevation_gain_m': null,
+      'avg_hr': null,
+      'max_hr': null,
       'indoor': body['modality'] == 'cycle' ? false : null,
       'pool_length_m': null,
       'laps': null,
@@ -1127,7 +1163,8 @@ class FakeAuthServer {
       case 'PATCH':
         activityBodies.add(body);
         if (_rejectActivity() case final rejected?) return rejected;
-        activities[index] = _withSwimDistance({...activities[index], ...body});
+        if (_heartRateWithoutConsent(body) case final refused?) return refused;
+        activities[index] = _derived({...activities[index], ...body});
         return FakeHttpAdapter.json(200, activities[index]);
       default:
         return FakeHttpAdapter.json(200, activities[index]);

@@ -169,6 +169,7 @@ class _ActivityCard extends StatelessWidget {
       formatDuration(activity.durationS),
       if (activity.distanceM case final meters?)
         formatDistance(meters, modality: activity.modality),
+      ?activity.rhythm,
       if (activity.perceivedEffort case final effort?) 'esforço $effort/10',
     ];
 

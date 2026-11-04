@@ -83,7 +83,7 @@ Restrição: `kind in (drop, rest_pause, cluster)` ⇔ `parent_set_id IS NOT NUL
 
 **cycling_details**: `avg_power_w`, `indoor` (bool). **swim_details**: `pool_length_m`, `laps`, `stroke` (`freestyle|mixed|...`).
 
-> **Implementado na 3.1 (migração 0008, ADR-039):** `endurance_details` só com `distance_m` (inteiro, metros, > 0), `cycling_details` só com `indoor`, `swim_details` com `pool_length_m` (10–100, nulo = águas abertas), `laps` (> 0) e `stroke`. Todos 1:1 com `activities`, chave = `activity_id`, `ON DELETE CASCADE`. FC, elevação, cadência, tempo em movimento e potência entram com a 3.2. A migração também criou o `CHECK` das modalidades em `activities` e o índice `(user_id, started_at DESC) WHERE deleted_at IS NULL`.
+> **Implementado na 3.1 (migração 0008, ADR-039):** `endurance_details` só com `distance_m` (inteiro, metros, > 0), `cycling_details` só com `indoor`, `swim_details` com `pool_length_m` (10–100, nulo = águas abertas), `laps` (> 0) e `stroke`. Todos 1:1 com `activities`, chave = `activity_id`, `ON DELETE CASCADE`. FC média e máxima e ganho de elevação entraram na 3.2 (migração 0009, com `CHECK` das faixas e `max_hr >= avg_hr`); cadência, tempo em movimento e potência ficam para quando houver importação de relógios. A migração também criou o `CHECK` das modalidades em `activities` e o índice `(user_id, started_at DESC) WHERE deleted_at IS NULL`.
 
 **training_plans**: `user_id`, `kind` (`walk_habit|run_5k|run_10k`), `template_version`, `start_date`, `days_per_week`, `status`, `adapted_for` (JSONB: experiência e limitações consideradas na geração).
 **plan_sessions**: `plan_id`, `week`, `day_index`, `prescription` (JSONB, ex.: `[{type:"walk", s:300},{type:"run", s:60}, ...]`), `scheduled_date`, `completed_activity_id` (nullable).

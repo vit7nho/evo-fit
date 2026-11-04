@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../activities/application/activities_controller.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../goals/application/goals_controller.dart';
 import '../data/profile_api.dart';
+import '../domain/profile.dart';
 
 /// Gravações do perfil. Cada uma atualiza a conta em memória com a resposta da API,
 /// para que todas as telas (e o roteador) vejam o estado novo na hora.
@@ -21,7 +24,8 @@ class ProfileActions {
   }
 
   /// Concede ou revoga um consentimento. Revogar `health_data` apaga os dados de
-  /// saúde no servidor; a conta recarregada já reflete isso.
+  /// saúde no servidor (perfil, metas de peso, FC das atividades): a conta, as
+  /// metas e as atividades são recarregadas para refletir isso.
   Future<void> setConsent(String kind, {required bool granted}) async {
     if (granted) {
       await _api.grantConsent(kind);
@@ -29,6 +33,11 @@ class ProfileActions {
       await _api.revokeConsent(kind);
     }
     _auth.replaceUser(await _api.me());
+    if (!granted && kind == ConsentKinds.healthData) {
+      _ref
+        ..invalidate(goalsProvider)
+        ..invalidate(activitiesProvider);
+    }
   }
 
   /// Envia as respostas do onboarding e o marca como concluído.
