@@ -44,8 +44,17 @@ class MuscleStimulus:
 
 
 def band_for(per_week: float, bands: dict[str, list[float | None]]) -> str:
-    """Faixa pelo intervalo [mínimo, máximo) da configuração; o último não tem teto."""
+    """Faixa pelo intervalo [mínimo, máximo) da configuração; o último não tem teto.
+    Um intervalo [x, x] vale só para x exato e tem prioridade (a v2 usa `none: [0, 0]`:
+    qualquer estímulo acima de zero já entra na faixa seguinte). Não depende da ordem
+    das chaves, que o JSONB não guarda."""
+    points = {name: low for name, (low, high) in bands.items() if high is not None and low == high}
+    for name, value in points.items():
+        if per_week == value:
+            return name
     for name, (low, high) in bands.items():
+        if name in points:
+            continue
         if per_week >= (low or 0) and (high is None or per_week < high):
             return name
     return "none"
@@ -115,8 +124,11 @@ def muscle_stimulus(
     weeks = days / 7
     for muscle_id, row in result.items():
         row.weighted_sets = round(row.weighted_sets, 2)
-        row.weighted_sets_per_week = round(row.weighted_sets / weeks, 2) if weeks else 0.0
-        row.band = band_for(row.weighted_sets_per_week, config["bands_weekly_sets"])
+        per_week = row.weighted_sets / weeks if weeks else 0.0
+        row.weighted_sets_per_week = round(per_week, 2)
+        # A faixa usa o valor sem arredondar: um estímulo pequeno num período longo
+        # (0,17 série em 366 dias) não pode virar zero e cair na faixa "nenhuma".
+        row.band = band_for(per_week, config["bands_weekly_sets"])
         row.frequency = len(trained_days[muscle_id])
         row.volume_load_kg = round(row.volume_load_kg, 2)
         row.exercises = {k: round(v, 2) for k, v in row.exercises.items()}

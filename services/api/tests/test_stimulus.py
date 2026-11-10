@@ -1,4 +1,5 @@
-"""Metodologia de estímulo v1 (3.5): a matriz de casos do DATA_MODEL §6.
+"""Metodologia de estímulo v1 (3.5) e v2 (faixa "nenhuma" só para zero): a matriz de
+casos do DATA_MODEL §6.
 
 Casos obrigatórios: sem histórico; período sem sessões; série sem reps; exercício só com
 músculos primários; com secundários; drop set com 3 segmentos (teto); rest-pause;
@@ -14,7 +15,7 @@ from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.modules.activities.models import Activity
-from app.modules.analytics.models import METHODOLOGY_V1, StimulusMethodology
+from app.modules.analytics.models import METHODOLOGY_V1, METHODOLOGY_V2, StimulusMethodology
 from app.modules.analytics.stimulus import MuscleRef, SetRow, band_for, muscle_stimulus
 from app.modules.sessions.models import WorkoutSession
 from tests.conftest import Clock
@@ -131,6 +132,38 @@ def test_band_limits(per_week: float, band: str) -> None:
     assert band_for(per_week, METHODOLOGY_V1["bands_weekly_sets"]) == band
 
 
+@pytest.mark.parametrize(
+    ("per_week", "band"),
+    [(0, "none"), (0.001, "low"), (0.47, "low"), (5.99, "low"), (6, "mid"), (12, "high")],
+)
+def test_v2_band_limits_regardless_of_key_order(per_week: float, band: str) -> None:
+    bands = METHODOLOGY_V2["bands_weekly_sets"]
+    # O JSONB devolve as chaves em outra ordem (por tamanho): high, low, mid, none.
+    shuffled = {k: bands[k] for k in ("high", "low", "mid", "none")}
+    assert band_for(per_week, bands) == band
+    assert band_for(per_week, shuffled) == band
+
+
+def test_v2_one_session_in_a_month_is_low_not_none() -> None:
+    # 2 séries em 30 dias = 0,47 por semana: "nenhuma" na v1, "baixa" na v2.
+    sets = [s(), s()]
+    assert run(sets, days=30)["chest"].band == "none"
+    v2 = run(sets, days=30, config=METHODOLOGY_V2)
+    assert (v2["chest"].weighted_sets_per_week, v2["chest"].band) == (0.47, "low")
+    assert v2["abs"].band == "none"
+
+
+def test_band_uses_the_unrounded_rate() -> None:
+    # Um segmento de rest-pause em secundário (0,165) em 366 dias arredonda para 0,0
+    # por semana, mas houve estímulo: a faixa não pode ser "nenhuma".
+    working = s(PLANK, reps=None, load=None, duration_s=60, kind="warmup")
+    pause = s(PLANK, kind="rest_pause", parent=working.id, reps=3, load=None)
+    rows = run([working, pause], days=366, config=METHODOLOGY_V2)
+    assert rows["obliques"].weighted_sets > 0
+    assert rows["obliques"].weighted_sets_per_week == 0.0
+    assert rows["obliques"].band == "low"
+
+
 def test_frequency_counts_distinct_days() -> None:
     rows = run([s(day=date(2026, 10, 27)), s(day=date(2026, 10, 27)), s(day=DAY)])
     assert rows["chest"].frequency == 2
@@ -193,10 +226,11 @@ def by_id(body: dict) -> dict:
 def test_without_history_every_muscle_comes_back(client: TestClient, signup) -> None:
     body = muscles(client, signup(), **WEEK)
 
-    assert body["methodology_version"] == "v1"
+    assert body["methodology_version"] == "v2"
     assert body["period_days"] == 7
     assert "não diagnóstico" in body["notice"]
     assert body["bands"]["high"] == [12, None]
+    assert body["bands"]["none"] == [0, 0]
     assert len(body["muscles"]) == 13
     assert body["muscles"][0]["muscle_id"] == "chest"  # ordem do catálogo
     assert {m["band"] for m in body["muscles"]} == {"none"}

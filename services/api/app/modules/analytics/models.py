@@ -26,6 +26,18 @@ METHODOLOGY_V1 = {
     },
 }
 
+# v2 (migração 0012, ADR-044): igual à v1, mas "nenhuma" só para zero. Com a v1, um
+# treino de peito em 30 dias (0,47 série/semana) ficava cinza no mapa do corpo.
+METHODOLOGY_V2 = {
+    **METHODOLOGY_V1,
+    "bands_weekly_sets": {
+        "none": [0, 0],
+        "low": [0, 6],
+        "mid": [6, 12],
+        "high": [12, None],
+    },
+}
+
 
 class StimulusMethodology(Base):
     """Versões da metodologia de estímulo. Uma ativa por vez; a resposta da API sempre

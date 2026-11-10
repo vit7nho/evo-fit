@@ -129,6 +129,8 @@ Por que faixas absolutas por semana, e não “relativas ao músculo mais treina
 
 > **Implementado na 3.5 (migração 0011, ADR-043):** `stimulus_methodologies` com `version` (PK), `config` (JSONB), `active` (índice único parcial: uma ativa), `description` e `created_at`; a migração grava a v1 como ativa, com uma cópia fixa da configuração. A função é `analytics/stimulus.py` (`set_values`, `muscle_stimulus`, `band_for`). Decisões: a série sem repetições **e** sem tempo não conta (a por tempo, como a prancha, conta); um segmento cuja série principal não contou ainda vale o próprio peso, dentro do teto; o volume entra para cada músculo multiplicado pelo papel (secundário = metade); os músculos de cada exercício são os de hoje (editar um exercício próprio muda o histórico calculado dele).
 
+> **v2 (migração 0012, ADR-044), ativa:** igual à v1, mas `"none": [0, 0]` e `"low": [0, 6]`: a faixa “nenhuma” vale só para zero, e qualquer estímulo registrado já é “baixa”. Um intervalo `[x, x]` vale só para x exato e tem prioridade sobre os outros (a ordem das chaves no JSONB não importa). A faixa é calculada sobre as séries por semana **sem arredondar**. A v1 continua na tabela, inativa.
+
 Casos de teste obrigatórios: sem histórico; período sem sessões; série sem reps; exercício só com músculos primários; exercício com secundários; drop set com 3 segmentos (aplicação do teto); rest-pause; aquecimento ignorado; sessão excluída depois; períodos de 7 vs. 30 dias; mudança de versão da metodologia.
 
 ## 7. IA
