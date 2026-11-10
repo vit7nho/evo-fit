@@ -127,6 +127,8 @@ Algoritmo (função pura, `analytics/stimulus.py`):
 
 Por que faixas absolutas por semana, e não “relativas ao músculo mais treinado”: com normalização relativa, quem treinou só um músculo veria esse músculo em vermelho, como se tivesse alto volume. As faixas são referências gerais configuráveis, **não prescrições**, e a interface exibe esse aviso. Uma visão alternativa “distribuição relativa (%)” é oferecida como gráfico separado.
 
+> **Implementado na 3.5 (migração 0011, ADR-043):** `stimulus_methodologies` com `version` (PK), `config` (JSONB), `active` (índice único parcial: uma ativa), `description` e `created_at`; a migração grava a v1 como ativa, com uma cópia fixa da configuração. A função é `analytics/stimulus.py` (`set_values`, `muscle_stimulus`, `band_for`). Decisões: a série sem repetições **e** sem tempo não conta (a por tempo, como a prancha, conta); um segmento cuja série principal não contou ainda vale o próprio peso, dentro do teto; o volume entra para cada músculo multiplicado pelo papel (secundário = metade); os músculos de cada exercício são os de hoje (editar um exercício próprio muda o histórico calculado dele).
+
 Casos de teste obrigatórios: sem histórico; período sem sessões; série sem reps; exercício só com músculos primários; exercício com secundários; drop set com 3 segmentos (aplicação do teto); rest-pause; aquecimento ignorado; sessão excluída depois; períodos de 7 vs. 30 dias; mudança de versão da metodologia.
 
 ## 7. IA

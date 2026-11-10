@@ -108,3 +108,74 @@ class CompareOut(BaseModel):
     percent: float | None
     # Qual período foi melhor: a, b ou same (nulo sem valores).
     better: Literal["a", "b", "same"] | None
+
+
+# --- estímulo muscular (3.5) ---
+
+Band = Literal["none", "low", "mid", "high"]
+
+
+class MuscleOut(BaseModel):
+    muscle_id: str
+    name: str
+    # front | back | both (onde aparece no mapa do corpo)
+    view: str
+    weighted_sets: float
+    weighted_sets_per_week: float
+    band: Band
+    # Dias distintos com estímulo no período.
+    frequency: int
+    # Carga externa vezes repetições, ponderada pelo papel do músculo no exercício.
+    volume_load_kg: float
+
+
+class MusclesOut(BaseModel):
+    methodology_version: str
+    from_date: date
+    to_date: date
+    period_days: int
+    # Limites das faixas, em séries ponderadas por semana: [mínimo, máximo).
+    bands: dict[str, list[float | None]]
+    notice: str
+    muscles: list[MuscleOut]
+
+
+class MuscleExerciseOut(BaseModel):
+    exercise_id: str
+    name: str
+    role: Literal["primary", "secondary"]
+    weighted_sets: float
+    # Séries válidas (sem aquecimento; segmentos não contam como série nova).
+    sets: int
+    # Maior carga no período (só exercícios com carga externa).
+    best_load_kg: float | None
+
+
+class LoadPointOut(BaseModel):
+    day: date
+    exercise_id: str
+    best_load_kg: float
+
+
+class PreviousOut(BaseModel):
+    from_date: date
+    to_date: date
+    weighted_sets_per_week: float
+    frequency: int
+    band: Band
+    # Atual menos anterior; percentual só com base válida (anterior > 0).
+    difference: float
+    percent: float | None
+
+
+class MuscleDetailOut(BaseModel):
+    methodology_version: str
+    from_date: date
+    to_date: date
+    period_days: int
+    notice: str
+    muscle: MuscleOut
+    exercises: list[MuscleExerciseOut]
+    # Maior carga por dia em cada exercício do músculo (evolução das cargas).
+    loads: list[LoadPointOut]
+    previous: PreviousOut | None

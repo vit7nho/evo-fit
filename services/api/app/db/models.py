@@ -2,6 +2,7 @@
 
 from app.db.base import Base
 from app.modules.activities.models import Activity, CyclingDetails, EnduranceDetails, SwimDetails
+from app.modules.analytics.models import StimulusMethodology
 from app.modules.auth.models import RefreshToken
 from app.modules.exercises.models import Exercise, ExerciseMuscle, MuscleGroupRow
 from app.modules.goals.models import Goal
@@ -24,6 +25,7 @@ __all__ = [
     "RefreshToken",
     "SessionExercise",
     "SetEntry",
+    "StimulusMethodology",
     "SwimDetails",
     "TemplateItem",
     "TrainingPlan",

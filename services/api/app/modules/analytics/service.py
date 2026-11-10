@@ -5,16 +5,22 @@ concluídos ficam de fora. Os dias são os do fuso do perfil: uma corrida às 23
 domingo conta no domingo, mesmo já sendo segunda em UTC.
 """
 
+import uuid
 import zoneinfo
+from collections import defaultdict
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.errors import FieldValidationError
+from app.core.errors import AppError, FieldValidationError
 from app.modules.activities.models import Activity
 from app.modules.analytics.metrics import STRENGTH, Entry
-from app.modules.sessions.models import SessionExercise, WorkoutSession
+from app.modules.analytics.models import StimulusMethodology
+from app.modules.analytics.stimulus import MuscleRef, SetRow
+from app.modules.exercises.models import Exercise, ExerciseMuscle, MuscleGroupRow
+from app.modules.sessions.models import SessionExercise, SetEntry, WorkoutSession
 from app.modules.users.models import User
 
 ENDURANCE = ("run", "walk", "cycle", "swim")
@@ -46,6 +52,23 @@ def period(
     if (end - start).days + 1 > MAX_DAYS:
         raise FieldValidationError(end_field, f"Escolha um período de até {MAX_DAYS} dias.")
     return start, end
+
+
+class MethodologyUnavailableError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            503,
+            "methodology_unavailable",
+            "Metodologia indisponível",
+            "Nenhuma versão da metodologia de estímulo está ativa.",
+        )
+
+
+@dataclass(frozen=True)
+class Stimulus:
+    sets: list[SetRow]
+    refs: dict[uuid.UUID, list[MuscleRef]]
+    exercises: dict[uuid.UUID, Exercise]
 
 
 def weekly_target(user: User) -> int | None:
@@ -127,3 +150,62 @@ class AnalyticsService:
                     )
                 )
         return sorted(result, key=lambda e: e.day)
+
+    # --- estímulo muscular (3.5) ---
+
+    def methodology(self) -> StimulusMethodology:
+        active = self.db.scalar(
+            select(StimulusMethodology).where(StimulusMethodology.active.is_(True))
+        )
+        if active is None:
+            raise MethodologyUnavailableError
+        return active
+
+    def muscles(self) -> list[MuscleGroupRow]:
+        return list(self.db.scalars(select(MuscleGroupRow).order_by(MuscleGroupRow.position)))
+
+    def stimulus(self, user: User, start: date, end: date) -> Stimulus:
+        """Séries do dono, de treinos concluídos e não excluídos, no período (dias no
+        fuso do perfil), com os músculos de cada exercício e a metodologia ativa."""
+        zone = tz(user)
+        lower = datetime.combine(start, time.min, zone).astimezone(UTC)
+        upper = datetime.combine(end + timedelta(days=1), time.min, zone).astimezone(UTC)
+        rows = self.db.execute(
+            select(SetEntry, SessionExercise.exercise_id, Activity.started_at, Exercise)
+            .join(SessionExercise, SessionExercise.id == SetEntry.session_exercise_id)
+            .join(WorkoutSession, WorkoutSession.id == SessionExercise.session_id)
+            .join(Activity, Activity.id == WorkoutSession.activity_id)
+            .join(Exercise, Exercise.id == SessionExercise.exercise_id)
+            .where(
+                WorkoutSession.user_id == user.id,
+                WorkoutSession.status == "completed",
+                Activity.deleted_at.is_(None),
+                Activity.started_at >= lower,
+                Activity.started_at < upper,
+            )
+            .order_by(Activity.started_at, SessionExercise.position, SetEntry.position)
+        ).all()
+        sets: list[SetRow] = []
+        exercises: dict[uuid.UUID, Exercise] = {}
+        for entry, exercise_id, started_at, exercise in rows:
+            exercises[exercise_id] = exercise
+            sets.append(
+                SetRow(
+                    id=entry.id,
+                    day=started_at.astimezone(zone).date(),
+                    exercise_id=exercise_id,
+                    kind=entry.kind,
+                    parent_set_id=entry.parent_set_id,
+                    reps=entry.reps,
+                    duration_s=entry.duration_s,
+                    load_kg=entry.load_kg,
+                    load_type=exercise.load_type,
+                )
+            )
+        refs: dict[uuid.UUID, list[MuscleRef]] = defaultdict(list)
+        if exercises:
+            for link in self.db.scalars(
+                select(ExerciseMuscle).where(ExerciseMuscle.exercise_id.in_(exercises))
+            ):
+                refs[link.exercise_id].append(MuscleRef(link.muscle_group_id, link.role.value))
+        return Stimulus(sets=sets, refs=dict(refs), exercises=exercises)

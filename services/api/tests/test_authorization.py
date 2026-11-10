@@ -86,6 +86,8 @@ PROTECTED: dict[tuple[str, str], dict | None] = {
     ("GET", "/api/v1/analytics/overview"): None,
     ("GET", "/api/v1/analytics/endurance"): None,
     ("GET", "/api/v1/analytics/compare"): None,
+    ("GET", "/api/v1/analytics/muscles"): None,
+    ("GET", "/api/v1/analytics/muscles/{muscle_id}"): None,
     ("GET", "/api/v1/activities"): None,
     ("POST", "/api/v1/activities"): RUN,
     ("GET", "/api/v1/activities/{activity_id}"): None,
@@ -103,7 +105,8 @@ PROTECTED: dict[tuple[str, str], dict | None] = {
 }
 
 # Operações sobre um registro identificado na URL: com o id de outra conta, só 404.
-OWNED = [op for op in PROTECTED if "_id}" in op[1]]
+# (O músculo é do catálogo, de todos: o que muda são os dados de cada um, testados abaixo.)
+OWNED = [op for op in PROTECTED if "_id}" in op[1] and "{muscle_id}" not in op[1]]
 
 
 def send(client: TestClient, op: tuple[str, str], headers: dict[str, str], ids: dict):
@@ -188,6 +191,7 @@ def build_world(client: TestClient, headers: dict[str, str]) -> dict[str, str]:
         "done_session_id": done["id"],
         "done_entry_id": done_entry,
         "kind": "health_data",
+        "muscle_id": "chest",
     }
 
 
@@ -513,7 +517,7 @@ def test_lists_and_derived_data_never_include_another_user(
     client: TestClient, world: dict, ana: dict, bia: dict
 ) -> None:
     ana_view = snapshot(client, ana, world)
-    markers = {value for key, value in world.items() if key != "kind"}
+    markers = {value for key, value in world.items() if key not in {"kind", "muscle_id"}}
     markers |= {CUSTOM["name"], ana_view[f"{API}/me"]["email"], "Ana"}
 
     # A Bia treina o mesmo supino (exercício do catálogo) que a Ana.
@@ -573,6 +577,16 @@ def test_lists_and_derived_data_never_include_another_user(
         headers=bia,
     ).json()
     assert compared["b"]["value"] == 0
+
+    # Meu Corpo só com as séries dela: 1 série de supino (a Ana fez 2 no mesmo dia).
+    body = client.get(f"{API}/analytics/muscles?from=2026-10-26&to=2026-11-01", headers=bia).json()
+    chest = next(m for m in body["muscles"] if m["muscle_id"] == "chest")
+    assert (chest["weighted_sets"], chest["volume_load_kg"]) == (1.0, 100.0)
+    detail = client.get(
+        f"{API}/analytics/muscles/chest?from=2026-10-26&to=2026-11-01", headers=bia
+    ).json()
+    assert [e["sets"] for e in detail["exercises"]] == [1]
+    assert [p["best_load_kg"] for p in detail["loads"]] == [20.0]
 
     # Só os consentimentos dela (a Ana autorizou dados de saúde; a Bia, não).
     consents = client.get(f"{API}/me", headers=bia).json()["consents"]
