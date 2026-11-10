@@ -155,6 +155,18 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
 }
 
+/// O cartão fica mais abaixo no início (lista preguiçosa): rola até ele.
+Future<void> _openHistory(WidgetTester tester) async {
+  final card = find.text('Histórico');
+  await tester.scrollUntilVisible(
+    card,
+    200,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+  await _tap(tester, card);
+}
+
 void main() {
   testWidgets('lista de treinos com resumo e recordes; o detalhe compara', (
     tester,
@@ -166,7 +178,7 @@ void main() {
         s.historyItems = [_summary('passado-1', 'Peito', records: 1)];
       },
     );
-    await _tap(tester, find.text('Histórico'));
+    await _openHistory(tester);
 
     expect(find.text('Peito'), findsOneWidget);
     expect(find.text('45 min · 4 séries · 3.420 kg'), findsOneWidget);
@@ -213,7 +225,7 @@ void main() {
         ];
       },
     );
-    await _tap(tester, find.text('Histórico'));
+    await _openHistory(tester);
     expect(find.text('Treino B'), findsOneWidget);
     expect(find.text('Treino A'), findsNothing);
 
@@ -225,7 +237,7 @@ void main() {
 
   testWidgets('sem treinos nem recordes, os vazios explicam', (tester) async {
     await _pump(tester);
-    await _tap(tester, find.text('Histórico'));
+    await _openHistory(tester);
     expect(find.text('Nenhum treino concluído ainda'), findsOneWidget);
 
     await _tap(tester, find.text('Recordes'));
@@ -293,7 +305,7 @@ void main() {
         };
       },
     );
-    await _tap(tester, find.text('Histórico'));
+    await _openHistory(tester);
     await _tap(tester, find.text('Recordes'));
     expect(find.bySemanticsLabel('Maior carga: 62,5 kg × 8'), findsOneWidget);
     expect(find.bySemanticsLabel('1RM estimado: 80 kg'), findsOneWidget);

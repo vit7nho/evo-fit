@@ -479,6 +479,67 @@ void main() {
     expect(find.textContaining('Nenhuma corrida registrada'), findsOneWidget);
   });
 
+  testWidgets('evolução: números grandes, meta, modalidades e corrida', (
+    tester,
+  ) async {
+    _worstCaseScreen(tester);
+    await _pump(
+      tester,
+      profile: _maximalProfile(),
+      setUp: (server) => server
+        ..analyticsOverview = FakeAuthServer.overview(
+          days: 90,
+          sessions: 999,
+          activeDays: 90,
+          durationS: 999 * 3600 + 59 * 60,
+          weeklyTarget: 7,
+          weeks: 14,
+          activeWeeks: 14,
+          weeksOnTarget: 13,
+          streak: 14,
+          modalities: [
+            for (final modality in ['strength', 'run', 'walk', 'cycle', 'swim'])
+              {
+                'modality': modality,
+                'sessions': 199,
+                'duration_s': 199 * 3600,
+                'distance_m': modality == 'strength' ? null : 999999,
+                'sets': modality == 'strength' ? 9999 : null,
+                'volume_kg': modality == 'strength' ? 9999999.0 : null,
+              },
+          ],
+        )
+        ..comparisons = {
+          'sessions': FakeAuthServer.comparison(1, 999, percent: 99800),
+          'duration_s': FakeAuthServer.comparison(999 * 3600, 1),
+        }
+        ..runEndurance = FakeAuthServer.endurance(
+          sessions: 199,
+          distanceM: 999999,
+          paceSPerKm: 3599,
+          trend: 'flat',
+        ),
+    );
+
+    final card = find.text('Evolução');
+    await tester.scrollUntilVisible(
+      card,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('90 dias'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Distância semanal estável'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('exercícios: biblioteca, detalhe e formulário', (tester) async {
     _worstCaseScreen(tester);
     await _pump(tester, profile: _maximalProfile());

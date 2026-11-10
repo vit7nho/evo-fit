@@ -148,7 +148,7 @@ Corrida, caminhada e ciclismo compartilham `endurance_details` porque têm as me
 
 ## 7. Motor de análise e Meu Corpo
 
-- `modules/analytics` expõe funções puras: `muscle_stimulus(sets, weights, period)`, `compare_periods(a, b)`, `personal_records(...)`, `endurance_trend(...)`, `consistency(...)`.
+- `modules/analytics` expõe funções puras: `muscle_stimulus(sets, weights, period)`, `compare_periods(a, b)`, `personal_records(...)`, `endurance_trend(...)`, `consistency(...)`. **Implementado na 3.4** em `analytics/metrics.py` (`weekly`, `consistency`, `by_modality`, `endurance_weeks`, `rhythm`, `complete_weeks`, `trend`, `metric_value`, `compare`), sobre `Entry` montadas por `analytics/service.py` (a única parte que lê o banco). Os recordes continuam no módulo `history` (2.8).
 - A metodologia de estímulo é versionada (`methodology_version`) e parametrizada por configuração (ver `DATA_MODEL.md` §6).
 - O app recebe para o Meu Corpo uma lista `{muscle_id, weighted_sets, band}`, e o **renderer** (SVG 2D hoje, GLB 3D no futuro) só mapeia `muscle_id → região visual`. Trocar o renderer não altera os cálculos (ADR-010).
 

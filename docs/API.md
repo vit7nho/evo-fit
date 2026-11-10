@@ -51,11 +51,11 @@
 | GET ✅ | `/activity-options` | modalidades, estilos de nado e piscinas (público, cache 1 h) |
 | GET ✅ · GET/POST ✅ · GET ✅ | `/training-plan-templates` · `/training-plans` · `/training-plans/{id}` | planos de caminhada, 5 km e 10 km |
 | POST ✅ · PUT/DELETE ✅ | `/training-plans/{id}/end` · `/training-plans/{id}/sessions/{plan_session_id}/activity` | encerrar · marcar/desmarcar a sessão com uma atividade |
-| GET | `/analytics/overview?from&to` | frequência, consistência, duração, resumo por modalidade |
+| GET ✅ | `/analytics/overview?from&to` | frequência, consistência, duração, resumo por modalidade |
 | GET | `/analytics/muscles?from&to` | Meu Corpo: `{methodology_version, period_days, muscles:[{muscle_id, weighted_sets, weighted_sets_per_week, band, frequency, volume_load_kg}]}` |
 | GET | `/analytics/muscles/{muscle_id}?from&to&compare=previous` | detalhe: exercícios, evolução de cargas, comparação |
-| GET | `/analytics/endurance?modality&from&to` | distância/pace por semana |
-| GET | `/analytics/compare?metric&a_from&a_to&b_from&b_to` | comparação de períodos (percentual só com base válida) |
+| GET ✅ | `/analytics/endurance?modality&from&to` | distância/pace por semana |
+| GET ✅ | `/analytics/compare?metric&a_from&a_to&b_from&b_to` | comparação de períodos (percentual só com base válida) |
 | GET ✅ | `/analytics/records` | recordes pessoais |
 
 ### Fase 4: IA
@@ -280,3 +280,11 @@ Templates determinísticos e versionados no código (`app/modules/plans/template
 - `PUT /training-plans/{id}/sessions/{plan_session_id}/activity` `{activity_id}` — marca a sessão com uma atividade **da própria pessoa**, não excluída, da modalidade do plano (caminhada aceita caminhada ou corrida; os de corrida, só corrida) e do dia de início em diante; uma atividade vale para uma sessão só. Erros no campo `activity_id` (`422`). Feitas todas, o plano fica `completed`. `DELETE` desmarca (a atividade fica). Excluir a atividade devolve a sessão para pendente.
 - `POST /training-plans/{id}/end` — encerra (`ended`); plano encerrado ou concluído não muda mais (`409 plan_closed`).
 - Ajustes: com `health_data` ativo e limitação em joelho, quadril, tornozelo ou lombar, os planos de corrida repetem as semanas pares (5 km: 13 semanas; 10 km: 11); condição cardíaca ou pressão alta acrescenta o aviso para conversar com o médico. **Revogar `health_data` tira esses ajustes de `adaptations`** (as sessões ficam).
+
+## Motor de análise (etapa 3.4)
+
+Só leitura, sempre com os registros do dono do token: atividades não excluídas e treinos de musculação **concluídos**. Os dias são os do fuso do perfil; semanas começam na segunda. Período: `from`/`to` (datas, inclusive; padrão os últimos 30 dias até hoje; no máximo 366 dias; início depois do fim ou período longo → `422` no campo).
+
+- `GET /analytics/overview` — `sessions`, `active_days` (dias com algum registro), `duration_s`, `weekly_target` (dias por semana do perfil, se informados), `weeks` (por semana: `active_days`, `sessions`, `duration_s`; as das pontas podem ser parciais), `consistency` (`weeks`, `active_weeks`, `weeks_on_target` — semanas com pelo menos a meta de dias, nulo sem meta —, `current_streak_weeks`: semanas ativas seguidas até agora; a semana em curso ainda vazia não quebra a sequência) e `modalities` (por modalidade: `sessions`, `duration_s`, `distance_m` só do que tem distância, e na musculação `sets` — sem aquecimento; drop e rest-pause não são séries novas — e `volume_kg`, carga externa × repetições, com os segmentos).
+- `GET /analytics/endurance?modality=run|walk|cycle|swim` — totais e por semana: `sessions`, `duration_s`, `distance_m` e o ritmo **ponderado** (soma do tempo ÷ soma da distância, só das atividades com distância): `pace_s_per_km` e `speed_kmh`, ou `pace_s_per_100m` na natação. `distance_trend`: reta de mínimos quadrados pela distância semanal **só das semanas inteiras** do período (a em andamento fica de fora), `direction` `up|down|flat` (`flat` quando varia menos de 5% da média por semana) e `per_week` (m/semana); nulos com menos de 3 semanas inteiras ou sem distância.
+- `GET /analytics/compare?metric&a_from&a_to&b_from&b_to[&modality]` — `metric`: `sessions`, `active_days`, `duration_s`, `strength_sets`, `strength_volume_kg`, `distance_m` e `pace_s_per_km` (estes dois exigem `modality`; pace só corrida ou caminhada). Responde `a` e `b` (`from_date`, `to_date`, `value`), `difference` (b − a), `percent` (**só quando a > 0**: de 0 para 3 não é “+∞%”), `higher_is_better` e `better` (`a`, `b` ou `same`; no pace, menor é melhor). Sem valor (pace sem distância), tudo nulo — nunca compara com um zero inventado.

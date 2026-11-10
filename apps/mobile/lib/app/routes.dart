@@ -44,6 +44,9 @@ abstract final class AppRoutes {
   static const activityNew = '/atividades/nova';
   static String activityEdit(String id) => '/atividades/$id';
 
+  /// Frequência, consistência e comparativos.
+  static const evolution = '/evolucao';
+
   /// Planos de caminhada, 5 km e 10 km.
   static const plans = '/planos';
   static String planNew(String kind) => '/planos/novo/$kind';

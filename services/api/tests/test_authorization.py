@@ -83,6 +83,9 @@ PROTECTED: dict[tuple[str, str], dict | None] = {
     ): None,
     ("GET", "/api/v1/exercises/{exercise_id}/history"): None,
     ("GET", "/api/v1/analytics/records"): None,
+    ("GET", "/api/v1/analytics/overview"): None,
+    ("GET", "/api/v1/analytics/endurance"): None,
+    ("GET", "/api/v1/analytics/compare"): None,
     ("GET", "/api/v1/activities"): None,
     ("POST", "/api/v1/activities"): RUN,
     ("GET", "/api/v1/activities/{activity_id}"): None,
@@ -553,6 +556,23 @@ def test_lists_and_derived_data_never_include_another_user(
     # O aviso do 10 km olha só as corridas dela (a Ana correu 5 km).
     offered = client.get(f"{API}/training-plan-templates", headers=bia).json()
     assert {t["kind"]: t["note"] for t in offered}["run_10k"] is not None
+
+    # Indicadores só com os registros dela: a corrida da Ana (de hoje) não aparece.
+    summary = client.get(f"{API}/analytics/overview", headers=bia).json()
+    assert "run" not in [m["modality"] for m in summary["modalities"]]
+    # Os treinos (relógio parado em 01/11/2026): só o dela, não os da Ana.
+    week = client.get(f"{API}/analytics/overview?from=2026-10-26&to=2026-11-01", headers=bia).json()
+    assert week["sessions"] == 1
+    assert week["modalities"][0]["volume_kg"] == 100  # 5 x 20 kg (a Ana chegou a 100 kg)
+    runs = client.get(f"{API}/analytics/endurance?modality=run", headers=bia).json()
+    assert (runs["sessions"], runs["distance_m"]) == (0, 0)
+    today = summary["to_date"]
+    compared = client.get(
+        f"{API}/analytics/compare?metric=distance_m&modality=run"
+        f"&a_from={today}&a_to={today}&b_from={today}&b_to={today}",
+        headers=bia,
+    ).json()
+    assert compared["b"]["value"] == 0
 
     # Só os consentimentos dela (a Ana autorizou dados de saúde; a Bia, não).
     consents = client.get(f"{API}/me", headers=bia).json()["consents"]

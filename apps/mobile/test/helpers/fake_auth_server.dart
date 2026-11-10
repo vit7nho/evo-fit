@@ -141,6 +141,100 @@ class FakeAuthServer {
   final planBodies = <Map<String, Object?>>[];
   final planCalls = <String>[];
 
+  /// Respostas do motor de análise (como a API devolve) e as consultas recebidas.
+  Map<String, Object?> analyticsOverview = overview();
+  Map<String, Map<String, Object?>> comparisons = {
+    'sessions': comparison(0, 0),
+    'duration_s': comparison(0, 0),
+  };
+  Map<String, Object?> runEndurance = endurance();
+  final analyticsQueries = <String>[];
+
+  static Map<String, Object?> overview({
+    int days = 30,
+    int sessions = 0,
+    int activeDays = 0,
+    int durationS = 0,
+    int? weeklyTarget,
+    int weeks = 5,
+    int activeWeeks = 0,
+    int? weeksOnTarget,
+    int streak = 0,
+    List<Map<String, Object?>> modalities = const [],
+  }) => {
+    'from_date': '2026-10-06',
+    'to_date': '2026-11-04',
+    'days': days,
+    'sessions': sessions,
+    'active_days': activeDays,
+    'duration_s': durationS,
+    'weekly_target': weeklyTarget,
+    'consistency': {
+      'weeks': weeks,
+      'active_weeks': activeWeeks,
+      'weeks_on_target': weeksOnTarget,
+      'current_streak_weeks': streak,
+    },
+    'weeks': [
+      for (var i = 0; i < weeks; i++)
+        {
+          'week_start': DateTime(
+            2026,
+            10,
+            5 + i * 7,
+          ).toIso8601String().substring(0, 10),
+          'active_days': i < activeWeeks ? 2 : 0,
+          'sessions': i < activeWeeks ? 2 : 0,
+          'duration_s': i < activeWeeks ? 3600 : 0,
+        },
+    ],
+    'modalities': modalities,
+  };
+
+  static Map<String, Object?> comparison(
+    num? previous,
+    num? current, {
+    num? percent,
+    String? better,
+  }) => {
+    'metric': 'sessions',
+    'label': 'Treinos e atividades',
+    'modality': null,
+    'higher_is_better': true,
+    'a': {
+      'from_date': '2026-09-06',
+      'to_date': '2026-10-05',
+      'value': previous,
+    },
+    'b': {'from_date': '2026-10-06', 'to_date': '2026-11-04', 'value': current},
+    'difference': previous == null || current == null
+        ? null
+        : current - previous,
+    'percent': percent,
+    'better':
+        better ??
+        (previous == null || current == null
+            ? null
+            : current == previous
+            ? 'same'
+            : current > previous
+            ? 'b'
+            : 'a'),
+  };
+
+  static Map<String, Object?> endurance({
+    int sessions = 0,
+    int distanceM = 0,
+    int? paceSPerKm,
+    String? trend,
+  }) => {
+    'modality': 'run',
+    'sessions': sessions,
+    'distance_m': distanceM,
+    'pace_s_per_km': paceSPerKm,
+    'distance_trend': {'direction': trend, 'per_week': null},
+  };
+
   /// Próxima marcação de sessão responde 422 com esta mensagem.
   String? rejectPlanLink;
 
@@ -743,6 +837,22 @@ class FakeAuthServer {
                 path.split('/').last,
                 body.cast<String, Object?>(),
               )
+            : _invalidToken(),
+      ('GET', '/analytics/overview') =>
+        _authorized(options)
+            ? _analytics(options, analyticsOverview)
+            : _invalidToken(),
+      ('GET', '/analytics/compare') =>
+        _authorized(options)
+            ? _analytics(
+                options,
+                comparisons[options.queryParameters['metric']] ??
+                    comparison(null, null),
+              )
+            : _invalidToken(),
+      ('GET', '/analytics/endurance') =>
+        _authorized(options)
+            ? _analytics(options, runEndurance)
             : _invalidToken(),
       ('GET', '/training-plan-templates') =>
         _authorized(options)
@@ -1496,5 +1606,13 @@ class FakeAuthServer {
       return FakeHttpAdapter.json(200, _planOut(plan));
     }
     return _problem(404, 'not_found', 'Rota não encontrada no servidor falso.');
+  }
+
+  ResponseBody _analytics(RequestOptions options, Map<String, Object?> body) {
+    final query = options.queryParameters.entries
+        .map((e) => '${e.key}=${e.value}')
+        .join('&');
+    analyticsQueries.add('${options.path.split('/').last}?$query');
+    return FakeHttpAdapter.json(200, body);
   }
 }
