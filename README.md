@@ -86,8 +86,8 @@ A Organização Mundial da Saúde recomenda de 150 a 300 minutos semanais de ati
 | RF10 | Continuar a sessão em andamento depois de fechar o app ou ficar sem internet | ✅ |
 | RF11 | Registrar corrida, caminhada, ciclismo e natação, com pace e velocidade calculados e FC e elevação opcionais | ✅ |
 | RF12 | Seguir planos progressivos de caminhada, 5 km e 10 km, com as sessões marcadas pelas atividades | ✅ |
-| RF13 | Visualizar o Meu Corpo 2D com o estímulo por grupo muscular | 🔜 Fase 3 |
-| RF14 | Ver dashboard, gráficos e comparativos de períodos | 🔜 Fase 3 |
+| RF13 | Visualizar o Meu Corpo 2D com o estímulo por grupo muscular | 🚧 cálculo pronto (API); tela em andamento |
+| RF14 | Ver dashboard, gráficos e comparativos de períodos | 🚧 tela Evolução com comparativo pronta |
 | RF15 | Conversar com a IA sobre o próprio histórico e confirmar ou recusar propostas | 🔜 Fase 4 |
 | RF16 | Registrar refeições, metas nutricionais, peso e medidas | 🔜 Fase 5 |
 | RF17 | Exportar os dados e excluir a conta (LGPD) | 🔜 Fase 5 |
@@ -149,14 +149,14 @@ Detalhes e pendências jurídicas em [SECURITY_PRIVACY](docs/SECURITY_PRIVACY.md
 
 ## 10. Metodologia e pacotes de entrega
 
-O desenvolvimento é **incremental**: cada fase termina com uma jornada demonstrável, os testes passando e a documentação atualizada. O backlog é priorizado em P0 (indispensável), P1 (importante) e P2 (desejável). As decisões técnicas são registradas como ADRs (NYGARD, 2011) em [DECISIONS](docs/DECISIONS.md) — 41 até agora. Os commits seguem o padrão de commits convencionais (`feat:`, `test:`, ...).
+O desenvolvimento é **incremental**: cada fase termina com uma jornada demonstrável, os testes passando e a documentação atualizada. O backlog é priorizado em P0 (indispensável), P1 (importante) e P2 (desejável). As decisões técnicas são registradas como ADRs (NYGARD, 2011) em [DECISIONS](docs/DECISIONS.md) — 44 até agora. Os commits seguem o padrão de commits convencionais (`feat:`, `test:`, ...).
 
 | Pacote | Conteúdo | Situação |
 |---|---|---|
 | Fase 0 — Planejamento | Ambiente, viabilidade, riscos, arquitetura, modelo de dados, IA, UX e segurança | ✅ |
 | Fase 1 — Fundação técnica | Monorepo, API com `/health`, migrações, app e site com testes e lint, scripts | ✅ |
 | Fase 2 — Musculação | Auth, onboarding, metas, biblioteca, fichas, sessão, técnicas, histórico, rascunho offline, testes de autorização | ✅ (aceite cumprido) |
-| Fase 3 — Evolução e modalidades | Atividades multimodais, pace, planos progressivos, motor de análise, Meu Corpo 2D, gráficos, dashboard | 🚧 3.1 a 3.3 prontas |
+| Fase 3 — Evolução e modalidades | Atividades multimodais, pace, planos progressivos, motor de análise, Meu Corpo 2D, gráficos, dashboard | 🚧 3.1 a 3.5 prontas |
 | Fase 4 — IA contextual | Camada de LLM, ferramentas, orquestrador, chat, propostas com confirmação | 🔜 |
 | Fase 5 — Nutrição e refinamento | Alimentos, metas, peso e medidas, site completo, LGPD, testes de usabilidade | 🔜 |
 | Fase 6 — Demonstração | Dados de demonstração, testes de integração, APK de release, documentação final | 🔜 |
@@ -182,12 +182,14 @@ São **633 testes automatizados**, todos passando em 2026-11-04. Um único scrip
 
 **Fase 2 concluída**, com o critério de aceite cumprido no Android em 2026-11-04: um usuário novo cria uma ficha com bi-set e drop set, executa a sessão, fecha e reabre o app, finaliza e vê o histórico e os recordes, com tudo salvo no PostgreSQL. A biblioteca tem 67 exercícios com fotos (ADR-030).
 
-**Fase 3 em andamento:** as etapas 3.1 a 3.3 estão prontas e verificadas no emulador com a API real:
+**Fase 3 em andamento:** as etapas 3.1 a 3.5 estão prontas:
 - registro de corrida, caminhada, ciclismo e natação;
 - pace e velocidade calculados, com FC e elevação opcionais (uma corrida de 5 km em 30 min mostra 6:00/km);
-- planos progressivos de caminhada, 5 km e 10 km.
+- planos progressivos de caminhada, 5 km e 10 km;
+- motor de análise e tela **Evolução**: frequência, consistência, resumo por modalidade e comparação com o período anterior (7, 30 ou 90 dias);
+- metodologia versionada de estímulo muscular, que calcula as séries ponderadas de cada um dos 13 músculos (base do Meu Corpo).
 
-**Próximo:** 3.4, o motor de análise (frequência, consistência, volume, tendências e comparação de períodos).
+**Próximo:** a tela **Meu Corpo** em 2D (frente e costas), usando o cálculo de estímulo da etapa 3.5.
 
 ## 13. Como executar
 

@@ -35,3 +35,6 @@ apps/mobile/android/key.properties
 !.vscode/extensions.json
 .DS_Store
 Thumbs.db
+
+# Material de preparação da banca (fica só local)
+docs/banca/

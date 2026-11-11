@@ -32,16 +32,16 @@ Decisão: o monorepositório fica em `desck/evofit/`, ao lado do SDK, para que o
 | Chrome / Edge | 156 | OK (útil para testar o site e, opcionalmente, o app Flutter na web). |
 | Visual Studio (C++) | — | Ausente. Só necessário para app desktop Windows — **fora do escopo**. |
 
-### Pendências de ambiente (ação do usuário, antes ou durante a Fase 1)
+### Pendências de ambiente (ações manuais, antes ou durante a Fase 1)
 
 1. **Abrir o Docker Desktop** (necessário para PostgreSQL e testes de integração do backend).
 2. **Android Studio → SDK Manager → SDK Tools → “Android SDK Command-line Tools (latest)”**.
-3. Rodar `flutter doctor --android-licenses` e aceitar as licenças (ação sua: é aceite de termos).
+3. Rodar `flutter doctor --android-licenses` e aceitar as licenças (exige aceite manual dos termos).
 4. **Device Manager**: verificar o AVD `Medium_Phone_API_35`; se não iniciar, baixar a imagem do sistema (recomendado: API 35 ou 36, x86_64, Google APIs).
 
-Nada disso foi executado por mim: envolvem aceite de licenças e downloads grandes.
+Esses passos são manuais porque envolvem aceite de licenças e downloads grandes.
 
-**Atualização 2026-10-28:** pendências resolvidas pelo usuário e verificadas — Docker Engine 29.9.2 em execução; `flutter doctor` com Android toolchain ✔; AVD `Medium_Phone_API_35` (Android 15, x86_64) inicializa e é reconhecido pelo Flutter como `emulator-5554`. Observação: existe uma segunda pasta de SDK em `C:\Android\Sdk` que não é usada pelo projeto.
+**Atualização 2026-10-28:** pendências resolvidas e verificadas — Docker Engine 29.9.2 em execução; `flutter doctor` com Android toolchain ✔; AVD `Medium_Phone_API_35` (Android 15, x86_64) inicializa e é reconhecido pelo Flutter como `emulator-5554`. Observação: existe uma segunda pasta de SDK em `C:\Android\Sdk` que não é usada pelo projeto.
 
 ## 3. Versões candidatas (consultadas em 2026-10-28)
 
@@ -91,7 +91,7 @@ Consultadas em PyPI, npm e pub.dev. Serão fixadas no `pyproject.toml`, `package
 
 | Recurso | Dependência | Custo / licença | Quando |
 |---|---|---|---|
-| Chat de IA contextual | API de LLM com *tool calling* (recomendado: Anthropic Claude; a camada aceita outros) | Pago por token. Chave **somente no backend**. Precisa da sua conta/chave. | Fase 4 |
+| Chat de IA contextual | API de LLM com *tool calling* (recomendado: Anthropic Claude; a camada aceita outros) | Pago por token. Chave **somente no backend**. Exige conta e chave no fornecedor. | Fase 4 |
 | Modelo anatômico 3D | Arquivo GLB com músculos separados. Candidatos: **Z-Anatomy** (CC BY-SA 4.0, derivado do BodyParts3D) ou modelo comercial. Renderização: `model_viewer_plus` (WebView) ou `flutter_scene` (Flutter GPU, ainda imaturo). | CC BY-SA exige atribuição e *share-alike* sobre o modelo derivado — avaliar antes de usar. | Pós-Fase 3 (opcional) |
 | Mapa muscular 2D | SVG próprio (frente/costas). Há pacotes no pub.dev (`muscle_selector`, `flutter_body_atlas`, etc.), mas a licença e a qualidade de cada um precisam ser verificadas. | Próprio = sem custo e sem risco de licença. | Fase 3 |
 | Base de alimentos | TACO (UNICAMP) e/ou Open Food Facts (ODbL) | Gratuitas; termos de reutilização a verificar. Alternativa: alimentos criados pelo usuário + seed pequeno próprio. | Fase 5 |
