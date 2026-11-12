@@ -70,6 +70,8 @@ class WeekSummary {
     required this.activeDays,
     required this.sessions,
     required this.durationS,
+    this.strengthSets = 0,
+    this.strengthVolumeKg = 0,
   });
 
   factory WeekSummary.fromJson(Map<String, dynamic> json) => WeekSummary(
@@ -77,12 +79,18 @@ class WeekSummary {
     activeDays: json['active_days'] as int,
     sessions: json['sessions'] as int,
     durationS: json['duration_s'] as int,
+    strengthSets: json['strength_sets'] as int? ?? 0,
+    strengthVolumeKg: (json['strength_volume_kg'] as num?)?.toDouble() ?? 0,
   );
 
   final DateTime weekStart;
   final int activeDays;
   final int sessions;
   final int durationS;
+
+  /// Só da musculação (séries válidas e volume em kg).
+  final int strengthSets;
+  final double strengthVolumeKg;
 }
 
 @immutable
@@ -168,32 +176,76 @@ class Overview {
       modalities.where((m) => m.modality == code).firstOrNull;
 }
 
-/// Distância e pace da corrida (GET /analytics/endurance).
+/// Uma semana de uma modalidade de resistência. O ritmo é nulo sem distância.
+@immutable
+class EnduranceWeek {
+  const EnduranceWeek({
+    required this.weekStart,
+    required this.sessions,
+    required this.distanceM,
+    this.paceSPerKm,
+    this.speedKmh,
+    this.paceSPer100m,
+  });
+
+  factory EnduranceWeek.fromJson(Map<String, dynamic> json) => EnduranceWeek(
+    weekStart: DateTime.parse(json['week_start'] as String),
+    sessions: json['sessions'] as int,
+    distanceM: json['distance_m'] as int,
+    paceSPerKm: json['pace_s_per_km'] as int?,
+    speedKmh: (json['speed_kmh'] as num?)?.toDouble(),
+    paceSPer100m: json['pace_s_per_100m'] as int?,
+  );
+
+  final DateTime weekStart;
+  final int sessions;
+  final int distanceM;
+  final int? paceSPerKm;
+  final double? speedKmh;
+  final int? paceSPer100m;
+}
+
+/// Distância e ritmo de uma modalidade (GET /analytics/endurance).
 @immutable
 class EnduranceSummary {
   const EnduranceSummary({
     required this.sessions,
     required this.distanceM,
+    this.modality = 'run',
     this.paceSPerKm,
+    this.speedKmh,
+    this.paceSPer100m,
     this.trend,
+    this.weeks = const [],
   });
 
   factory EnduranceSummary.fromJson(Map<String, dynamic> json) =>
       EnduranceSummary(
+        modality: json['modality'] as String? ?? 'run',
         sessions: json['sessions'] as int,
         distanceM: json['distance_m'] as int,
         paceSPerKm: json['pace_s_per_km'] as int?,
+        speedKmh: (json['speed_kmh'] as num?)?.toDouble(),
+        paceSPer100m: json['pace_s_per_100m'] as int?,
         trend:
             (json['distance_trend'] as Map<String, dynamic>)['direction']
                 as String?,
+        weeks: [
+          for (final w in json['weeks'] as List<dynamic>? ?? const [])
+            EnduranceWeek.fromJson(w as Map<String, dynamic>),
+        ],
       );
 
+  final String modality;
   final int sessions;
   final int distanceM;
   final int? paceSPerKm;
+  final double? speedKmh;
+  final int? paceSPer100m;
 
   /// up | down | flat; nulo com poucas semanas.
   final String? trend;
+  final List<EnduranceWeek> weeks;
 }
 
 /// Um indicador em dois períodos (GET /analytics/compare). [percent] só vem com
@@ -206,9 +258,15 @@ class Comparison {
     this.difference,
     this.percent,
     this.better,
+    this.metric = '',
+    this.label = '',
+    this.higherIsBetter = true,
   });
 
   factory Comparison.fromJson(Map<String, dynamic> json) => Comparison(
+    metric: json['metric'] as String? ?? '',
+    label: json['label'] as String? ?? '',
+    higherIsBetter: json['higher_is_better'] as bool? ?? true,
     previous: ((json['a'] as Map<String, dynamic>)['value'] as num?)
         ?.toDouble(),
     current: ((json['b'] as Map<String, dynamic>)['value'] as num?)?.toDouble(),
@@ -216,6 +274,12 @@ class Comparison {
     percent: (json['percent'] as num?)?.toDouble(),
     better: json['better'] as String?,
   );
+
+  final String metric;
+  final String label;
+
+  /// Falso no pace: menor é melhor.
+  final bool higherIsBetter;
 
   final double? previous;
   final double? current;

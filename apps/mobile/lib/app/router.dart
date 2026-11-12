@@ -25,6 +25,7 @@ import '../features/profile/presentation/profile_sections.dart';
 import '../features/sessions/presentation/session_page.dart';
 import '../features/system_status/presentation/system_status_page.dart';
 import '../features/analytics/presentation/body_page.dart';
+import '../features/analytics/presentation/compare_page.dart';
 import '../features/analytics/presentation/evolution_page.dart';
 import '../features/plans/presentation/plan_page.dart';
 import '../features/plans/presentation/plan_setup_page.dart';
@@ -206,6 +207,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.body,
         pageBuilder: (context, state) => _page(state, const BodyPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.compare,
+        pageBuilder: (context, state) => _page(state, const ComparePage()),
       ),
       GoRoute(
         path: AppRoutes.plans,

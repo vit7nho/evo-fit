@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/routes.dart';
 import '../../../app/theme/tokens.g.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/evo_card.dart';
@@ -10,17 +12,11 @@ import '../../activities/domain/activity.dart';
 import '../../goals/presentation/goal_format.dart';
 import '../application/analytics_controller.dart';
 import '../domain/analytics.dart';
+import '../domain/compare.dart';
+import 'charts.dart';
 
-const _modalityLabels = {
-  'strength': 'Musculação',
-  'run': 'Corrida',
-  'walk': 'Caminhada',
-  'cycle': 'Ciclismo',
-  'swim': 'Natação',
-};
-
-/// Frequência, consistência e comparação com o período anterior (etapa 3.4).
-/// Os gráficos chegam na 3.7.
+/// Frequência, consistência e comparação com o período anterior (etapa 3.4), com
+/// os gráficos por semana (3.7).
 class EvolutionPage extends ConsumerStatefulWidget {
   const EvolutionPage({super.key});
 
@@ -30,12 +26,23 @@ class EvolutionPage extends ConsumerStatefulWidget {
 
 class _EvolutionPageState extends ConsumerState<EvolutionPage> {
   AnalyticsPeriod _period = AnalyticsPeriod.options[1];
+  _WeekMetric _weekMetric = _WeekMetric.sessions;
 
   @override
   Widget build(BuildContext context) {
     final evolution = ref.watch(evolutionProvider(_period));
     return Scaffold(
-      appBar: AppBar(title: const Text('Evolução')),
+      appBar: AppBar(
+        title: const Text('Evolução'),
+        actions: [
+          TextButton.icon(
+            onPressed: () => context.push(AppRoutes.compare),
+            icon: const Icon(Icons.compare_arrows_rounded),
+            label: const Text('Comparar'),
+          ),
+          const SizedBox(width: EvoSpace.sm),
+        ],
+      ),
       body: SafeArea(
         top: false,
         child: ListView(
@@ -143,11 +150,16 @@ class _EvolutionPageState extends ConsumerState<EvolutionPage> {
               1 => 'Sequência atual: 1 semana',
               final n => 'Sequência atual: $n semanas seguidas',
             }, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: EvoSpace.lg),
-            _WeekBars(weeks: overview.weekList),
           ],
         ),
       ),
+      const SizedBox(height: EvoSpace.xl),
+      Semantics(
+        header: true,
+        child: Text('Por semana', style: theme.textTheme.titleLarge),
+      ),
+      const SizedBox(height: EvoSpace.md),
+      _weekChart(overview),
       const SizedBox(height: EvoSpace.xl),
       Semantics(
         header: true,
@@ -159,12 +171,104 @@ class _EvolutionPageState extends ConsumerState<EvolutionPage> {
           padding: const EdgeInsets.only(bottom: EvoSpace.md),
           child: _ModalityCard(summary: modality),
         ),
-      if (data.run case final run?) ...[
+      for (final summary in data.endurance) ...[
         const SizedBox(height: EvoSpace.md),
-        _RunCard(run: run),
+        _EnduranceCard(summary: summary),
       ],
     ];
   }
+
+  Widget _weekChart(Overview overview) {
+    final strength = overview.modality('strength') != null;
+    final metrics = [
+      _WeekMetric.sessions,
+      _WeekMetric.duration,
+      if (strength) ...[_WeekMetric.sets, _WeekMetric.volume],
+    ];
+    final metric = metrics.contains(_weekMetric)
+        ? _weekMetric
+        : _WeekMetric.sessions;
+    final weeks = overview.weekList;
+    return EvoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          EvoChipGroup(
+            single: true,
+            options: [for (final m in metrics) (m.name, m.label)],
+            selected: {metric.name},
+            onChanged: (selected) => setState(
+              () => _weekMetric = _WeekMetric.values.byName(selected.first),
+            ),
+          ),
+          const SizedBox(height: EvoSpace.lg),
+          EvoBarChart(
+            key: const ValueKey('week-chart'),
+            title: '${metric.label} por semana',
+            points: weekPoints(context, [
+              for (final w in weeks) (w.weekStart, metric.value(w)),
+            ]),
+            format: metric.format,
+            axisFormat: metric.axis,
+            whole: metric == _WeekMetric.sessions || metric == _WeekMetric.sets,
+          ),
+          const SizedBox(height: EvoSpace.sm),
+          Text(
+            'Semanas de segunda a domingo; a primeira e a última podem '
+            'estar incompletas.',
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pontos semanais: rótulo curto ("5 de out.") e falado ("Semana de 5 de out.").
+List<ChartPoint> weekPoints(
+  BuildContext context,
+  List<(DateTime, double?)> weeks,
+) {
+  final localizations = MaterialLocalizations.of(context);
+  return [
+    for (final (week, value) in weeks)
+      ChartPoint(
+        label: axisDate(week),
+        spoken: 'Semana de ${localizations.formatShortMonthDay(week)}',
+        value: value,
+      ),
+  ];
+}
+
+enum _WeekMetric {
+  sessions('Treinos'),
+  duration('Tempo'),
+  sets('Séries'),
+  volume('Volume');
+
+  const _WeekMetric(this.label);
+
+  final String label;
+
+  double value(WeekSummary week) => switch (this) {
+    sessions => week.sessions.toDouble(),
+    duration => week.durationS / 60,
+    sets => week.strengthSets.toDouble(),
+    volume => week.strengthVolumeKg,
+  };
+
+  String format(double v) => switch (this) {
+    sessions => v == 1 ? '1 treino' : '${formatDecimal(v)} treinos',
+    duration => formatTotalDuration((v * 60).round()),
+    sets => v == 1 ? '1 série' : '${formatDecimal(v)} séries',
+    volume => '${formatDecimal(v.round())} kg',
+  };
+
+  String axis(double v) => switch (this) {
+    duration => v >= 120 ? '${formatDecimal(v / 60)} h' : '${v.round()} min',
+    volume => v >= 1000 ? '${formatDecimal(v / 1000)} t' : '${v.round()}',
+    _ => formatDecimal(v),
+  };
 }
 
 class _Stat extends StatelessWidget {
@@ -212,67 +316,6 @@ class _Stat extends StatelessWidget {
   }
 }
 
-/// Barras simples de sessões por semana (os gráficos completos são da 3.7).
-class _WeekBars extends StatelessWidget {
-  const _WeekBars({required this.weeks});
-
-  final List<WeekSummary> weeks;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final localizations = MaterialLocalizations.of(context);
-    final most = weeks.fold<int>(0, (m, w) => w.sessions > m ? w.sessions : m);
-    // Com muitas semanas (90 dias), só as 6 últimas: a lista inteira vira gráfico na 3.7.
-    final shown = weeks.length > 6 ? weeks.sublist(weeks.length - 6) : weeks;
-    return Column(
-      children: [
-        for (final week in shown)
-          Semantics(
-            label:
-                'Semana de ${localizations.formatShortMonthDay(week.weekStart)}: '
-                '${week.sessions} ${week.sessions == 1 ? 'sessão' : 'sessões'}',
-            excludeSemantics: true,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: EvoSpace.sm),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 64,
-                    child: Text(
-                      localizations.formatShortMonthDay(week.weekStart),
-                      style: theme.textTheme.labelSmall,
-                    ),
-                  ),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: most == 0 ? 0 : week.sessions / most,
-                        minHeight: 10,
-                        backgroundColor: EvoColors.bgElevated,
-                        color: EvoColors.accent,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: EvoSpace.sm),
-                  SizedBox(
-                    width: 24,
-                    child: Text(
-                      '${week.sessions}',
-                      textAlign: TextAlign.end,
-                      style: theme.textTheme.labelSmall,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 class _ModalityCard extends StatelessWidget {
   const _ModalityCard({required this.summary});
 
@@ -305,7 +348,7 @@ class _ModalityCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _modalityLabels[summary.modality] ?? summary.modality,
+                  modalityLabel(summary.modality),
                   style: theme.textTheme.titleMedium,
                 ),
                 const SizedBox(height: 2),
@@ -319,36 +362,105 @@ class _ModalityCard extends StatelessWidget {
   }
 }
 
-class _RunCard extends StatelessWidget {
-  const _RunCard({required this.run});
+class _EnduranceCard extends StatelessWidget {
+  const _EnduranceCard({required this.summary});
 
-  final EnduranceSummary run;
+  final EnduranceSummary summary;
+
+  /// Ritmo no formato da modalidade: pace por km, por 100 m (natação) ou
+  /// velocidade (ciclismo).
+  String _rhythm(double v) => switch (summary.modality) {
+    'swim' => formatPace(v.round(), per: '100 m'),
+    'cycle' => formatSpeed(v),
+    _ => formatPace(v.round(), per: 'km'),
+  };
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final trend = switch (run.trend) {
+    final modality = summary.modality;
+    final trend = switch (summary.trend) {
       'up' => 'Distância semanal subindo',
       'down' => 'Distância semanal caindo',
       'flat' => 'Distância semanal estável',
       _ => 'Tendência a partir de 3 semanas completas',
     };
+    final average = switch (modality) {
+      'swim' => summary.paceSPer100m?.toDouble(),
+      'cycle' => summary.speedKmh,
+      _ => summary.paceSPerKm?.toDouble(),
+    };
+    final rhythmPoints = weekPoints(context, [
+      for (final w in summary.weeks)
+        (
+          w.weekStart,
+          switch (modality) {
+            'swim' => w.paceSPer100m?.toDouble(),
+            'cycle' => w.speedKmh,
+            _ => w.paceSPerKm?.toDouble(),
+          },
+        ),
+    ]);
+    final rhythmWeeks = rhythmPoints.where((p) => p.value != null).length;
+    final name = modalityLabel(modality);
+    final cycle = modality == 'cycle';
     return EvoCard(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Corrida', style: theme.textTheme.titleMedium),
+          Text(name, style: theme.textTheme.titleMedium),
           const SizedBox(height: EvoSpace.xs),
           Text(
             [
-              formatDistance(run.distanceM, modality: 'run'),
-              if (run.paceSPerKm case final pace?)
-                'pace médio ${formatPace(pace, per: 'km')}',
+              formatDistance(summary.distanceM, modality: modality),
+              if (average != null)
+                '${cycle
+                        ? 'velocidade média'
+                        : modality == 'swim'
+                        ? 'ritmo médio'
+                        : 'pace médio'} '
+                    '${_rhythm(average)}',
             ].join(' · '),
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: EvoSpace.xs),
           Text(trend, style: theme.textTheme.labelSmall),
+          if (summary.weeks.isNotEmpty) ...[
+            const SizedBox(height: EvoSpace.lg),
+            Text('Distância por semana', style: theme.textTheme.labelLarge),
+            const SizedBox(height: EvoSpace.sm),
+            EvoBarChart(
+              key: ValueKey('distance-$modality'),
+              title: '$name: distância por semana',
+              points: weekPoints(context, [
+                for (final w in summary.weeks)
+                  (w.weekStart, w.distanceM.toDouble()),
+              ]),
+              format: (v) => formatDistance(v.round(), modality: modality),
+              axisFormat: (v) => modality == 'swim'
+                  ? '${v.round()} m'
+                  : '${formatDecimal(v / 1000)} km',
+            ),
+          ],
+          // Uma semana só não mostra evolução: o gráfico do ritmo pede duas.
+          if (rhythmWeeks >= 2) ...[
+            const SizedBox(height: EvoSpace.lg),
+            Text(switch (modality) {
+              'cycle' => 'Velocidade média por semana',
+              'swim' => 'Ritmo por 100 m, por semana (menor é melhor)',
+              _ => 'Pace por semana (menor é melhor)',
+            }, style: theme.textTheme.labelLarge),
+            const SizedBox(height: EvoSpace.sm),
+            EvoLineChart(
+              key: ValueKey('rhythm-$modality'),
+              title: '$name: ${cycle ? 'velocidade' : 'pace'} por semana',
+              points: rhythmPoints,
+              format: _rhythm,
+              steps: cycle ? EvoLineChart.decimalSteps : EvoLineChart.timeSteps,
+              axisFormat: (v) =>
+                  cycle ? formatDecimal(v.round()) : formatDuration(v.round()),
+            ),
+          ],
         ],
       ),
     );

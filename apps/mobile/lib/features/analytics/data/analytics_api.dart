@@ -37,16 +37,29 @@ class AnalyticsApi {
     AnalyticsPeriod period,
     String metric, {
     String? modality,
+  }) => compare(
+    metric,
+    AnalyticsPeriod.range(period.previousFrom, period.previousTo),
+    period,
+    modality: modality,
+  );
+
+  /// [metric] em [b] comparado com [a] (a base do percentual).
+  Future<Comparison> compare(
+    String metric,
+    AnalyticsPeriod a,
+    AnalyticsPeriod b, {
+    String? modality,
   }) => guardApiCall(() async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/analytics/compare',
       queryParameters: {
         'metric': metric,
         'modality': ?modality,
-        'a_from': apiDate(period.previousFrom),
-        'a_to': apiDate(period.previousTo),
-        'b_from': apiDate(period.from),
-        'b_to': apiDate(period.to),
+        'a_from': apiDate(a.from),
+        'a_to': apiDate(a.to),
+        'b_from': apiDate(b.from),
+        'b_to': apiDate(b.to),
       },
     );
     return Comparison.fromJson(response.data!);

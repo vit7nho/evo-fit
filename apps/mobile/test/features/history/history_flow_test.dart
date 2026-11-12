@@ -3,6 +3,7 @@ import 'package:evofit/app/app.dart';
 import 'package:evofit/app/provider_config.dart';
 import 'package:evofit/core/auth/session_store.dart';
 import 'package:evofit/core/network/api_client.dart';
+import 'package:evofit/features/analytics/presentation/charts.dart';
 import 'package:evofit/features/sessions/application/session_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -349,4 +350,54 @@ void main() {
       expect(find.text('Ainda não há registros'), findsOneWidget);
     },
   );
+
+  testWidgets('o histórico do exercício mostra o 1RM estimado por treino', (
+    tester,
+  ) async {
+    Map<String, Object?> session(String id, String day, double? e1rm) => {
+      'session_id': id,
+      'session_name': 'Peito',
+      'started_at': '${day}T10:00:00Z',
+      'sets': <Object>[],
+      'volume_kg': 0,
+      'best_e1rm': e1rm,
+      'records': <String>[],
+    };
+    await _pump(
+      tester,
+      setUp: (s) {
+        s.records = [
+          {
+            'exercise': _ref('ex-supino', _supino),
+            'records': [_record('best_e1rm', 80)],
+            'last_done_at': '2026-10-30T10:00:00Z',
+          },
+        ];
+        s.exerciseHistories = {
+          'ex-supino': {
+            'exercise': _ref('ex-supino', _supino),
+            'records': <Object>[],
+            'rep_records': <Object>[],
+            // Do mais recente ao mais antigo, como a API devolve.
+            'sessions': [
+              session('s3', '2026-10-30', 80),
+              session('s2', '2026-10-23', null), // sem carga: fica fora
+              session('s1', '2026-10-16', 76.5),
+            ],
+            'next_before': null,
+          },
+        };
+      },
+    );
+    await _openHistory(tester);
+    await _tap(tester, find.text('Recordes'));
+    await _tap(tester, find.text(_supino));
+
+    final chart = tester.widget<EvoLineChart>(
+      find.byKey(const ValueKey('e1rm-chart')),
+    );
+    expect([for (final p in chart.points) p.value], [76.5, 80]);
+    expect(chart.format(76.5), '76,5 kg');
+    expect(find.text('Todos os treinos com carga.'), findsOneWidget);
+  });
 }

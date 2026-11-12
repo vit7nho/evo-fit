@@ -182,7 +182,7 @@ class HomePage extends ConsumerWidget {
               child: _LinkCard(
                 icon: Icons.insights_rounded,
                 title: 'Evolução',
-                subtitle: 'Frequência, consistência e comparativos',
+                subtitle: 'Gráficos por semana, consistência e comparativos',
                 onTap: () => context.push(AppRoutes.evolution),
               ),
             ),

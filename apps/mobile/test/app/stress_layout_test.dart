@@ -518,6 +518,14 @@ void main() {
           distanceM: 999999,
           paceSPerKm: 3599,
           trend: 'flat',
+          weeks: [
+            for (var i = 0; i < 14; i++)
+              FakeAuthServer.enduranceWeek(
+                '2026-08-${(3 + i).toString().padLeft(2, '0')}',
+                distanceM: 999999,
+                paceSPerKm: 3599 - i,
+              ),
+          ],
         ),
     );
 
@@ -534,6 +542,86 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('Distância semanal estável'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('comparativos: valores enormes, todos os indicadores', (
+    tester,
+  ) async {
+    _worstCaseScreen(tester);
+    await _pump(
+      tester,
+      profile: _maximalProfile(),
+      setUp: (server) => server
+        ..analyticsOverview = FakeAuthServer.overview(
+          sessions: 999,
+          activeDays: 30,
+          durationS: 999 * 3600,
+          modalities: [
+            for (final modality in ['strength', 'run', 'walk', 'cycle', 'swim'])
+              {
+                'modality': modality,
+                'sessions': 199,
+                'duration_s': 199 * 3600,
+                'distance_m': modality == 'strength' ? null : 999999,
+                'sets': modality == 'strength' ? 9999 : null,
+                'volume_kg': modality == 'strength' ? 9999999.0 : null,
+              },
+          ],
+        )
+        ..comparisons = {
+          'sessions': FakeAuthServer.comparison(1, 999, percent: 99800),
+          'duration_s': FakeAuthServer.comparison(
+            999 * 3600,
+            1,
+            metric: 'duration_s',
+            percent: -100,
+          ),
+          'strength_volume_kg': FakeAuthServer.comparison(
+            0,
+            9999999.99,
+            metric: 'strength_volume_kg',
+          ),
+          for (final m in ['run', 'walk', 'cycle', 'swim'])
+            'distance_m:$m': FakeAuthServer.comparison(
+              999999,
+              1,
+              metric: 'distance_m',
+              modality: m,
+              percent: -99.99,
+            ),
+          'pace_s_per_km:walk': FakeAuthServer.comparison(
+            3599,
+            35999,
+            metric: 'pace_s_per_km',
+            modality: 'walk',
+            percent: 900.25,
+          ),
+        },
+    );
+
+    final card = find.text('Evolução');
+    await tester.scrollUntilVisible(
+      card,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Comparar'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Pace médio · Caminhada'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Distância · Natação'),
       300,
       scrollable: find.byType(Scrollable).first,
     );

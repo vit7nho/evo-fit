@@ -148,6 +148,13 @@ class FakeAuthServer {
     'duration_s': comparison(0, 0),
   };
   Map<String, Object?> runEndurance = endurance();
+
+  /// Resistência das outras modalidades (a corrida usa [runEndurance]).
+  Map<String, Map<String, Object?>> enduranceByModality = {};
+
+  /// Visão geral por período (`from`), para os Comparativos; sem entrada, usa
+  /// [analyticsOverview].
+  Map<String, Map<String, Object?>> overviewByFrom = {};
   final analyticsQueries = <String>[];
 
   /// Meu Corpo (3.6): séries por semana de cada músculo (ausente = 0) e os
@@ -245,6 +252,9 @@ class FakeAuthServer {
     int? weeksOnTarget,
     int streak = 0,
     List<Map<String, Object?>> modalities = const [],
+    List<int>? weekSessions,
+    List<int>? weekSets,
+    List<double>? weekVolume,
   }) => {
     'from_date': '2026-10-06',
     'to_date': '2026-11-04',
@@ -268,11 +278,23 @@ class FakeAuthServer {
             5 + i * 7,
           ).toIso8601String().substring(0, 10),
           'active_days': i < activeWeeks ? 2 : 0,
-          'sessions': i < activeWeeks ? 2 : 0,
+          'sessions': weekSessions?[i] ?? (i < activeWeeks ? 2 : 0),
           'duration_s': i < activeWeeks ? 3600 : 0,
+          'strength_sets': weekSets?[i] ?? 0,
+          'strength_volume_kg': weekVolume?[i] ?? 0,
         },
     ],
     'modalities': modalities,
+  };
+
+  static const metricLabels = {
+    'sessions': 'Treinos e atividades',
+    'active_days': 'Dias ativos',
+    'duration_s': 'Tempo total',
+    'strength_sets': 'Séries de musculação',
+    'strength_volume_kg': 'Volume de musculação',
+    'distance_m': 'Distância',
+    'pace_s_per_km': 'Pace médio',
   };
 
   static Map<String, Object?> comparison(
@@ -280,11 +302,13 @@ class FakeAuthServer {
     num? current, {
     num? percent,
     String? better,
+    String metric = 'sessions',
+    String? modality,
   }) => {
-    'metric': 'sessions',
-    'label': 'Treinos e atividades',
-    'modality': null,
-    'higher_is_better': true,
+    'metric': metric,
+    'label': metricLabels[metric],
+    'modality': modality,
+    'higher_is_better': metric != 'pace_s_per_km',
     'a': {
       'from_date': '2026-09-06',
       'to_date': '2026-10-05',
@@ -301,22 +325,47 @@ class FakeAuthServer {
             ? null
             : current == previous
             ? 'same'
-            : current > previous
+            : (current > previous) == (metric != 'pace_s_per_km')
             ? 'b'
             : 'a'),
   };
 
   static Map<String, Object?> endurance({
+    String modality = 'run',
     int sessions = 0,
     int distanceM = 0,
     int? paceSPerKm,
+    double? speedKmh,
+    int? paceSPer100m,
     String? trend,
+    List<Map<String, Object?>> weeks = const [],
   }) => {
-    'modality': 'run',
+    'modality': modality,
     'sessions': sessions,
     'distance_m': distanceM,
     'pace_s_per_km': paceSPerKm,
+    'speed_kmh': speedKmh,
+    'pace_s_per_100m': paceSPer100m,
     'distance_trend': {'direction': trend, 'per_week': null},
+    'weeks': weeks,
+  };
+
+  /// Uma semana de resistência como a API devolve.
+  static Map<String, Object?> enduranceWeek(
+    String weekStart, {
+    int sessions = 1,
+    int distanceM = 0,
+    int? paceSPerKm,
+    double? speedKmh,
+    int? paceSPer100m,
+  }) => {
+    'week_start': weekStart,
+    'sessions': sessions,
+    'duration_s': 0,
+    'distance_m': distanceM,
+    'pace_s_per_km': paceSPerKm,
+    'speed_kmh': speedKmh,
+    'pace_s_per_100m': paceSPer100m,
   };
 
   /// Próxima marcação de sessão responde 422 com esta mensagem.
@@ -924,19 +973,21 @@ class FakeAuthServer {
             : _invalidToken(),
       ('GET', '/analytics/overview') =>
         _authorized(options)
-            ? _analytics(options, analyticsOverview)
-            : _invalidToken(),
-      ('GET', '/analytics/compare') =>
-        _authorized(options)
             ? _analytics(
                 options,
-                comparisons[options.queryParameters['metric']] ??
-                    comparison(null, null),
+                overviewByFrom[options.queryParameters['from']] ??
+                    analyticsOverview,
               )
             : _invalidToken(),
+      ('GET', '/analytics/compare') =>
+        _authorized(options) ? _compare(options) : _invalidToken(),
       ('GET', '/analytics/endurance') =>
         _authorized(options)
-            ? _analytics(options, runEndurance)
+            ? _analytics(options, switch (options.queryParameters['modality']) {
+                'run' || null => runEndurance,
+                final m =>
+                  enduranceByModality[m] ?? endurance(modality: m as String),
+              })
             : _invalidToken(),
       ('GET', '/analytics/muscles') =>
         _authorized(options) ? _analytics(options, _body()) : _invalidToken(),
@@ -1696,6 +1747,18 @@ class FakeAuthServer {
       return FakeHttpAdapter.json(200, _planOut(plan));
     }
     return _problem(404, 'not_found', 'Rota não encontrada no servidor falso.');
+  }
+
+  /// Comparação de um indicador: `metric` ou `metric:modality` em [comparisons].
+  ResponseBody _compare(RequestOptions options) {
+    final metric = options.queryParameters['metric'] as String;
+    final modality = options.queryParameters['modality'] as String?;
+    final key = modality == null ? metric : '$metric:$modality';
+    return _analytics(
+      options,
+      comparisons[key] ??
+          comparison(null, null, metric: metric, modality: modality),
+    );
   }
 
   ResponseBody _analytics(RequestOptions options, Map<String, Object?> body) {

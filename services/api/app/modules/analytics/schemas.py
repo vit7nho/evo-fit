@@ -20,6 +20,9 @@ class WeekOut(BaseModel):
     active_days: int
     sessions: int
     duration_s: int
+    # Só da musculação: séries válidas e volume (carga externa vezes repetições).
+    strength_sets: int
+    strength_volume_kg: float
 
 
 class ConsistencyOut(BaseModel):

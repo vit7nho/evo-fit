@@ -145,6 +145,12 @@ def test_overview_counts_every_modality(client: TestClient, signup, clock: Clock
         ("2026-10-19", 0, 0),
         ("2026-10-26", 2, 2),
     ]
+    # Musculação por semana, para os gráficos (3.7): só na semana do treino.
+    assert [(w["strength_sets"], w["strength_volume_kg"]) for w in body["weeks"]] == [
+        (0, 0),
+        (0, 0),
+        (2, 8 * 60 + 6 * 40 + 8 * 60),
+    ]
     by = {m["modality"]: m for m in body["modalities"]}
     assert by["strength"] == {
         "modality": "strength",

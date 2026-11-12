@@ -44,11 +44,14 @@ abstract final class AppRoutes {
   static const activityNew = '/atividades/nova';
   static String activityEdit(String id) => '/atividades/$id';
 
-  /// Frequência, consistência e comparativos.
+  /// Frequência, consistência e gráficos por semana.
   static const evolution = '/evolucao';
 
   /// Mapa do corpo com o estímulo por músculo.
   static const body = '/meu-corpo';
+
+  /// Dois períodos comparados, indicador por indicador (3.7).
+  static const compare = '/comparativos';
 
   /// Planos de caminhada, 5 km e 10 km.
   static const plans = '/planos';

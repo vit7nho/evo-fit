@@ -11,6 +11,7 @@ import '../application/analytics_controller.dart';
 import '../domain/analytics.dart';
 import '../domain/body.dart';
 import 'body_map.dart';
+import 'charts.dart';
 
 const _custom = 'custom';
 
@@ -459,8 +460,7 @@ class _ExerciseLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Só os 5 últimos dias com carga: o gráfico completo é da 3.7.
-    final recent = loads.length > 5 ? loads.sublist(loads.length - 5) : loads;
+    String day(LoadPoint p) => localizations.formatShortMonthDay(p.day);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -475,12 +475,31 @@ class _ExerciseLine extends StatelessWidget {
           ].join(' · '),
           style: theme.textTheme.bodyMedium,
         ),
-        if (recent.length > 1)
+        // Evolução da maior carga de cada dia (3.7); com um dia só, não há linha.
+        if (loads.length > 1) ...[
+          const SizedBox(height: EvoSpace.sm),
+          EvoLineChart(
+            key: ValueKey('loads-${exercise.exerciseId}'),
+            title: '${exercise.name}: maior carga por dia',
+            height: 140,
+            points: [
+              for (final p in loads)
+                ChartPoint(
+                  label: axisDate(p.day),
+                  spoken: day(p),
+                  value: p.bestLoadKg,
+                ),
+            ],
+            format: (v) => '${formatDecimal(v)} kg',
+            axisFormat: (v) => formatDecimal(v),
+          ),
           Text(
-            'Cargas: ${recent.map((p) => '${formatDecimal(p.bestLoadKg)} kg '
-                '(${localizations.formatShortMonthDay(p.day)})').join(' → ')}',
+            'Cargas: ${formatDecimal(loads.first.bestLoadKg)} kg '
+            '(${day(loads.first)}) → ${formatDecimal(loads.last.bestLoadKg)} kg '
+            '(${day(loads.last)})',
             style: theme.textTheme.labelSmall,
           ),
+        ],
       ],
     );
   }

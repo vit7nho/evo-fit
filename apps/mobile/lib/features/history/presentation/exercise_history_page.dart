@@ -8,6 +8,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/evo_button.dart';
 import '../../../shared/widgets/evo_card.dart';
 import '../../../shared/widgets/evo_state_views.dart';
+import '../../analytics/presentation/charts.dart';
 import '../../goals/presentation/goal_format.dart';
 import '../../sessions/domain/set_rows.dart';
 import '../application/history_controller.dart';
@@ -116,6 +117,28 @@ class _ExerciseHistoryPageState extends ConsumerState<ExerciseHistoryPage> {
                         ),
                       const SizedBox(height: EvoSpace.xl),
                     ],
+                    if (_e1rmPoints(context, data.sessions) case final points
+                        when points.length > 1) ...[
+                      _Header('1RM estimado por treino'),
+                      EvoLineChart(
+                        key: const ValueKey('e1rm-chart'),
+                        title: '1RM estimado por treino',
+                        points: points,
+                        format: (v) => '${formatDecimal(v)} kg',
+                        axisFormat: (v) => formatDecimal(v),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: EvoSpace.sm),
+                        child: Text(
+                          data.nextBefore == null
+                              ? 'Todos os treinos com carga.'
+                              : 'Os treinos carregados abaixo; “Carregar mais” '
+                                    'estende o gráfico.',
+                          style: theme.textTheme.labelSmall,
+                        ),
+                      ),
+                      const SizedBox(height: EvoSpace.xl),
+                    ],
                     if (data.repRecords.isNotEmpty) ...[
                       _Header('Melhor carga por repetições'),
                       for (final r in data.repRecords)
@@ -175,6 +198,20 @@ class _ExerciseHistoryPageState extends ConsumerState<ExerciseHistoryPage> {
     );
   }
 }
+
+/// Um ponto por treino com carga, do mais antigo ao mais recente (3.7).
+List<ChartPoint> _e1rmPoints(
+  BuildContext context,
+  List<ExerciseSession> sessions,
+) => [
+  for (final s in sessions.reversed)
+    if (s.bestE1rm case final e1rm?)
+      ChartPoint(
+        label: axisDate(s.startedAt.toLocal()),
+        spoken: formatGoalDate(context, s.startedAt.toLocal()),
+        value: e1rm,
+      ),
+];
 
 class _Header extends StatelessWidget {
   const _Header(this.text);

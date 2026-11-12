@@ -53,6 +53,11 @@ def weekly(entries: Iterable[Entry], start: date, end: date) -> list[dict]:
             "active_days": len({e.day for e in by_week[week]}),
             "sessions": len(by_week[week]),
             "duration_s": sum(e.duration_s for e in by_week[week]),
+            # Musculação na semana (gráficos da 3.7), com as regras do resumo.
+            "strength_sets": sum(e.sets for e in by_week[week] if e.modality == STRENGTH),
+            "strength_volume_kg": _round(
+                sum(e.volume_kg for e in by_week[week] if e.modality == STRENGTH)
+            ),
         }
         for week in weeks_between(start, end)
     ]

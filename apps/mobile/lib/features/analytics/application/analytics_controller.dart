@@ -5,6 +5,7 @@ import '../../auth/application/auth_controller.dart';
 import '../data/analytics_api.dart';
 import '../domain/analytics.dart';
 import '../domain/body.dart';
+import '../domain/compare.dart';
 
 /// Tudo o que a tela Evolução mostra para um período.
 @immutable
@@ -13,7 +14,7 @@ class Evolution {
     required this.overview,
     required this.sessions,
     required this.duration,
-    this.run,
+    this.endurance = const [],
   });
 
   final Overview overview;
@@ -22,9 +23,20 @@ class Evolution {
   final Comparison sessions;
   final Comparison duration;
 
-  /// Só quando houve corrida no período.
-  final EnduranceSummary? run;
+  /// Corrida, caminhada, ciclismo e natação com distância no período, na ordem
+  /// do resumo (mais frequente primeiro).
+  final List<EnduranceSummary> endurance;
+
+  EnduranceSummary? get run =>
+      endurance.where((e) => e.modality == 'run').firstOrNull;
 }
+
+const _endurance = {'run', 'walk', 'cycle', 'swim'};
+
+/// Modalidades de resistência com distância registrada.
+Iterable<String> _withDistance(Overview overview) => overview.modalities
+    .where((m) => _endurance.contains(m.modality) && (m.distanceM ?? 0) > 0)
+    .map((m) => m.modality);
 
 /// Refaz o cálculo ao trocar de conta: os números de uma pessoa nunca aparecem
 /// para outra.
@@ -68,13 +80,50 @@ final evolutionProvider = FutureProvider.autoDispose
       final overview = results[0] as Overview;
       final sessions = results[1] as Comparison;
       final duration = results[2] as Comparison;
-      final run = overview.modality('run') == null
-          ? null
-          : await api.endurance(period, 'run');
+      final endurance = await Future.wait([
+        for (final modality in _withDistance(overview))
+          api.endurance(period, modality),
+      ]);
       return Evolution(
         overview: overview,
         sessions: sessions,
         duration: duration,
-        run: run,
+        endurance: endurance,
       );
+    });
+
+/// Comparativos (3.7): os indicadores gerais e, havendo nos períodos, os da
+/// musculação e a distância e o pace de cada modalidade. Os números e o
+/// percentual vêm da API (`/analytics/compare`), nunca de conta no app.
+final compareProvider = FutureProvider.autoDispose
+    .family<List<CompareRow>, PeriodPair>((ref, pair) async {
+      _watchAccount(ref);
+      final api = ref.watch(analyticsApiProvider);
+      final overviews = await Future.wait([
+        api.overview(pair.a),
+        api.overview(pair.b),
+      ]);
+      final strength = overviews.any((o) => o.modality('strength') != null);
+      final modalities = {for (final o in overviews) ..._withDistance(o)};
+      final wanted = <(String, String?)>[
+        ('sessions', null),
+        ('active_days', null),
+        ('duration_s', null),
+        if (strength) ...[
+          ('strength_sets', null),
+          ('strength_volume_kg', null),
+        ],
+        for (final m in modalities) ...[
+          ('distance_m', m),
+          if (m == 'run' || m == 'walk') ('pace_s_per_km', m),
+        ],
+      ];
+      final results = await Future.wait([
+        for (final (metric, modality) in wanted)
+          api.compare(metric, pair.a, pair.b, modality: modality),
+      ]);
+      return [
+        for (final (i, (_, modality)) in wanted.indexed)
+          CompareRow(results[i], modality: modality),
+      ];
     });
