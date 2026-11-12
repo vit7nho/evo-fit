@@ -57,6 +57,7 @@
 | GET ✅ | `/analytics/endurance?modality&from&to` | distância/pace por semana |
 | GET ✅ | `/analytics/compare?metric&a_from&a_to&b_from&b_to` | comparação de períodos (percentual só com base válida) |
 | GET ✅ | `/analytics/records` | recordes pessoais |
+| GET ✅ | `/dashboard` | painel do Início: semana, foco pelo objetivo, metas com progresso, último registro |
 
 ### Fase 4: IA
 | Método | Caminho | Descrição |
@@ -296,3 +297,26 @@ Metodologia versionada (`stimulus_methodologies`, uma ativa; v1 no DATA_MODEL §
 - `GET /analytics/muscles` — `methodology_version`, `period_days`, `bands` (limites em séries ponderadas por semana, `[mínimo, máximo)`; `[x, x]` vale só para x e tem prioridade, como o `none: [0, 0]` da v2, ativa desde a migração 0012), `notice` (“referência geral de volume registrado, não diagnóstico nem prescrição”) e **os 13 músculos do catálogo**, na ordem dele (zerados quando não treinados): `muscle_id`, `name`, `view`, `weighted_sets`, `weighted_sets_per_week`, `band` (`none|low|mid|high`), `frequency` (dias distintos com estímulo) e `volume_load_kg` (carga externa × repetições, com os segmentos, ponderado pelo papel: o secundário recebe metade).
 - `GET /analytics/muscles/{muscle_id}?compare=previous` — o mesmo para um músculo, mais `exercises` (os que o estimularam: `role`, `weighted_sets`, `sets` válidas e `best_load_kg`), `loads` (maior carga por dia em cada exercício, para a evolução das cargas) e, com `compare=previous`, `previous` (o período anterior do mesmo tamanho: séries/semana, frequência, faixa, diferença e percentual só com base válida). Músculo inexistente → `404`.
 - Sem metodologia ativa → `503 methodology_unavailable`.
+
+## Painel do Início (etapa 3.8)
+
+`GET /dashboard` — só leitura, com os registros do dono do token; “hoje” e os dias no fuso do perfil.
+
+- `objective` e `objective_label`: o objetivo principal do perfil.
+- `week`: de segunda até hoje — `sessions`, `active_days`, `duration_s`, `weekly_target` (dias por semana do perfil, nulo sem ele), `previous_sessions` e `previous_active_days` (a semana anterior inteira) e `streak_weeks` (semanas ativas seguidas; a em curso ainda vazia não quebra a sequência; até 26 semanas para trás).
+- `focus`: cartões em ordem, cada um com `kind` e só o campo do tipo preenchido:
+  - `strength` (últimos 7 dias contra os 7 anteriores: `sessions`, `sets`, `volume_kg`, `previous_sets`, `previous_volume_kg`);
+  - `body` (30 dias: `least`, os músculos com o menor valor — empatados, até 4 —, e `untrained`, quantos ficaram sem série; omitido sem metodologia ativa);
+  - `endurance` (por modalidade, últimos 7 dias: `sessions`, `duration_s`, `distance_m`, `previous_distance_m` e o ritmo como em `/analytics/endurance`);
+  - `plan` (o plano ativo: `title`, `current_week`, `weeks`, `completed_sessions`, `total_sessions` e `next_session` com `scheduled_date`, `summary` e `total_s`).
+
+  Entram as modalidades preferidas do perfil (na ordem dele) e as registradas nos últimos 30 dias (as mais frequentes antes); o objetivo põe a modalidade dele no topo (`gain_muscle` → musculação, `run` → corrida, `walk_habit` → caminhada); musculação traz o `body` logo depois; o plano ativo vem primeiro para `run` e `walk_habit` e por último para os demais. Funcional não tem cartão.
+- `goals`: as 3 primeiras metas ativas (prioridade, prazo) e `active_goals`, o total. Cada uma com `summary` e `progress` — `current`, `target`, `unit` (`kg`, `km`, `s`, `sets_per_week`, `sessions`), `ratio` (0 a 1), `achieved`, `lower_is_better` e `basis` (de onde vem o número) —, medido desde o início da meta:
+  - força: maior carga em séries (sem aquecimento) com pelo menos as repetições do alvo, no exercício cujo nome casa com o da meta (sem acentos nem maiúsculas; catálogo ou da pessoa);
+  - hipertrofia: séries ponderadas por semana do grupo nos últimos 28 dias;
+  - distância de corrida: a corrida mais longa;
+  - tempo de corrida: o melhor pace em corridas da distância ou mais, vezes a distância (menor é melhor);
+  - frequência: treinos e atividades nesta semana (da modalidade, se a meta tiver).
+
+  Sem registro que meça, `current` e `ratio` são nulos (nunca 0 inventado). Peso, hábito e livre: `progress` nulo. A API não marca a meta como alcançada: o app convida a pessoa a marcar.
+- `last_record`: o registro mais recente das 26 semanas (`modality`, `title` — nome do treino na musculação —, `day`, `duration_s`, `distance_m`, `sets`, `volume_kg`), ou nulo.

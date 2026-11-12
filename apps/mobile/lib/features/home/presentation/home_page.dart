@@ -8,14 +8,20 @@ import '../../../shared/widgets/evo_button.dart';
 import '../../../shared/widgets/evo_card.dart';
 import '../../../shared/widgets/evo_entrance.dart';
 import '../../../shared/widgets/evo_logo.dart';
+import '../../../shared/widgets/evo_state_views.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../goals/application/goals_controller.dart';
 import '../../goals/domain/goal.dart';
 import '../../sessions/application/session_controller.dart';
 import '../../sessions/domain/session.dart';
+import '../../activities/domain/activity.dart';
+import '../../analytics/domain/compare.dart';
 import '../../training/application/templates_controller.dart';
+import '../application/dashboard_controller.dart';
+import '../domain/dashboard.dart';
+import 'dashboard_sections.dart';
 
-/// Tela inicial de quem entrou. Ganha o painel e a navegação inferior nas próximas etapas.
+/// Tela inicial de quem entrou: o painel pelo objetivo (3.8) e os atalhos.
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
@@ -35,6 +41,11 @@ class HomePage extends ConsumerWidget {
         : ref.watch(clockTickProvider).value ?? DateTime.now();
     // Quem pulou passos do onboarding é convidado a completar o perfil.
     final profile = user.profile;
+    final dashboard = ref.watch(dashboardProvider);
+    // Abre outra tela e, na volta, refaz o painel: o que mudou lá (um treino, uma
+    // meta) aparece aqui.
+    void go(String route) =>
+        context.push(route).then((_) => ref.invalidate(dashboardProvider));
     final incomplete =
         profile.primaryObjective == null ||
         profile.preferredModalities.isEmpty ||
@@ -47,7 +58,7 @@ class HomePage extends ConsumerWidget {
         actions: [
           IconButton(
             tooltip: 'Perfil',
-            onPressed: () => context.push(AppRoutes.profile),
+            onPressed: () => go(AppRoutes.profile),
             icon: CircleAvatar(
               radius: 16,
               backgroundColor: EvoColors.accent,
@@ -92,7 +103,12 @@ class HomePage extends ConsumerWidget {
                 incomplete
                     ? 'Complete seu perfil para receber sugestões que '
                           'combinam com você.'
-                    : 'Bora treinar? Monte uma ficha ou comece um treino livre.',
+                    : switch (dashboard.value?.objectiveLabel) {
+                        final label? => 'Seu foco: $label.',
+                        _ =>
+                          'Bora treinar? Monte uma ficha ou comece um treino '
+                              'livre.',
+                      },
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: EvoColors.textSecondary,
                 ),
@@ -105,7 +121,7 @@ class HomePage extends ConsumerWidget {
                 child: EvoButton(
                   label: 'Completar perfil',
                   trailingIcon: Icons.arrow_forward_rounded,
-                  onPressed: () => context.push(AppRoutes.profile),
+                  onPressed: () => go(AppRoutes.profile),
                 ),
               ),
             ],
@@ -120,11 +136,27 @@ class HomePage extends ConsumerWidget {
                   subtitle: session.isPaused
                       ? '${session.name} · pausado'
                       : '${session.name} · ${formatElapsed(session.elapsedAt(now))}',
-                  onTap: () => context.push(AppRoutes.session),
+                  onTap: () => go(AppRoutes.session),
                 ),
               ),
               const SizedBox(height: EvoSpace.md),
             ],
+            ...switch (dashboard) {
+              AsyncData(:final value) => _dashboard(value, go),
+              AsyncError() => [
+                EvoErrorView(
+                  title: 'Não foi possível montar o seu painel',
+                  message: 'Os atalhos abaixo continuam funcionando.',
+                  onRetry: () => ref.invalidate(dashboardProvider),
+                ),
+                const SizedBox(height: EvoSpace.x2xl),
+              ],
+              _ => const [
+                EvoLoadingView(lines: 4),
+                SizedBox(height: EvoSpace.x2xl),
+              ],
+            },
+            const DashboardHeader('Atalhos'),
             EvoEntrance(
               delay: EvoEntrance.stagger(2),
               child: _LinkCard(
@@ -135,7 +167,7 @@ class HomePage extends ConsumerWidget {
                   AsyncError() => 'Não foi possível carregar. Toque para ver.',
                   _ => 'Carregando…',
                 },
-                onTap: () => context.push(AppRoutes.goals),
+                onTap: () => go(AppRoutes.goals),
               ),
             ),
             const SizedBox(height: EvoSpace.md),
@@ -153,7 +185,7 @@ class HomePage extends ConsumerWidget {
                   AsyncError() => 'Não foi possível carregar. Toque para ver.',
                   _ => 'Carregando…',
                 },
-                onTap: () => context.push(AppRoutes.templates),
+                onTap: () => go(AppRoutes.templates),
               ),
             ),
             const SizedBox(height: EvoSpace.md),
@@ -163,7 +195,7 @@ class HomePage extends ConsumerWidget {
                 icon: Icons.directions_run_rounded,
                 title: 'Atividades',
                 subtitle: 'Corrida, caminhada, ciclismo e natação',
-                onTap: () => context.push(AppRoutes.activities),
+                onTap: () => go(AppRoutes.activities),
               ),
             ),
             const SizedBox(height: EvoSpace.md),
@@ -173,7 +205,7 @@ class HomePage extends ConsumerWidget {
                 icon: Icons.flag_circle_outlined,
                 title: 'Planos',
                 subtitle: 'Caminhada, primeiros 5 km e 10 km',
-                onTap: () => context.push(AppRoutes.plans),
+                onTap: () => go(AppRoutes.plans),
               ),
             ),
             const SizedBox(height: EvoSpace.md),
@@ -183,7 +215,7 @@ class HomePage extends ConsumerWidget {
                 icon: Icons.insights_rounded,
                 title: 'Evolução',
                 subtitle: 'Gráficos por semana, consistência e comparativos',
-                onTap: () => context.push(AppRoutes.evolution),
+                onTap: () => go(AppRoutes.evolution),
               ),
             ),
             const SizedBox(height: EvoSpace.md),
@@ -193,7 +225,7 @@ class HomePage extends ConsumerWidget {
                 icon: Icons.accessibility_new_rounded,
                 title: 'Meu Corpo',
                 subtitle: 'Estímulo por músculo, de frente e de costas',
-                onTap: () => context.push(AppRoutes.body),
+                onTap: () => go(AppRoutes.body),
               ),
             ),
             const SizedBox(height: EvoSpace.md),
@@ -203,7 +235,7 @@ class HomePage extends ConsumerWidget {
                 icon: Icons.history_rounded,
                 title: 'Histórico',
                 subtitle: 'Treinos concluídos e recordes',
-                onTap: () => context.push(AppRoutes.history),
+                onTap: () => go(AppRoutes.history),
               ),
             ),
             const SizedBox(height: EvoSpace.md),
@@ -213,7 +245,7 @@ class HomePage extends ConsumerWidget {
                 icon: Icons.fitness_center_rounded,
                 title: 'Exercícios',
                 subtitle: 'Biblioteca com busca por nome e músculo',
-                onTap: () => context.push(AppRoutes.exercises),
+                onTap: () => go(AppRoutes.exercises),
               ),
             ),
             const SizedBox(height: EvoSpace.md),
@@ -223,7 +255,7 @@ class HomePage extends ConsumerWidget {
                 icon: Icons.dns_outlined,
                 title: 'Status do servidor',
                 subtitle: 'Conexão com a API e o banco de dados',
-                onTap: () => context.push(AppRoutes.status),
+                onTap: () => go(AppRoutes.status),
               ),
             ),
             const SizedBox(height: EvoSpace.xl),
@@ -239,6 +271,104 @@ class HomePage extends ConsumerWidget {
       ),
     );
   }
+
+  /// Semana, foco pelo objetivo, metas e o último registro.
+  static List<Widget> _dashboard(Dashboard data, void Function(String) go) {
+    Widget spaced(Widget child) => Padding(
+      padding: const EdgeInsets.only(bottom: EvoSpace.md),
+      child: child,
+    );
+    final last = data.lastRecord;
+    return [
+      spaced(WeekCard(week: data.week, onTap: () => go(AppRoutes.evolution))),
+      if (data.focus.isNotEmpty) ...[
+        const SizedBox(height: EvoSpace.lg),
+        const DashboardHeader('Seu foco'),
+        for (final card in data.focus) spaced(_focus(card, go)),
+      ],
+      if (data.goals.isNotEmpty) ...[
+        const SizedBox(height: EvoSpace.lg),
+        DashboardHeader(
+          'Metas',
+          trailing: data.activeGoals > data.goals.length
+              ? TextButton(
+                  onPressed: () => go(AppRoutes.goals),
+                  child: Text('Ver as ${data.activeGoals}'),
+                )
+              : null,
+        ),
+        for (final goal in data.goals)
+          spaced(
+            GoalProgressTile(
+              goal: goal,
+              onTap: () => go(AppRoutes.goalEdit(goal.id)),
+            ),
+          ),
+      ],
+      if (last != null) ...[
+        const SizedBox(height: EvoSpace.lg),
+        const DashboardHeader('Último registro'),
+        spaced(
+          FocusTile(
+            icon: last.modality == 'strength'
+                ? Icons.fitness_center_rounded
+                : modalityIcon(last.modality),
+            title: lastRecordTitle(last),
+            headline: lastRecordDetail(last).isEmpty
+                ? 'Registrado'
+                : lastRecordDetail(last),
+            detail: _dayLabel(last.day, data.today),
+            onTap: () => go(
+              last.modality == 'strength'
+                  ? AppRoutes.history
+                  : AppRoutes.activities,
+            ),
+          ),
+        ),
+      ],
+      const SizedBox(height: EvoSpace.x2xl),
+    ];
+  }
+
+  static String _dayLabel(DateTime day, DateTime today) =>
+      switch (today.difference(day).inDays) {
+        0 => 'Hoje',
+        1 => 'Ontem',
+        final n => 'Há $n dias',
+      };
+
+  static Widget _focus(FocusCard card, void Function(String) go) =>
+      switch (card) {
+        StrengthFocus() => FocusTile(
+          icon: Icons.fitness_center_rounded,
+          title: 'Musculação · últimos 7 dias',
+          headline: strengthHeadline(card),
+          detail: strengthDetail(card),
+          onTap: () => go(AppRoutes.evolution),
+        ),
+        BodyFocus() => FocusTile(
+          icon: Icons.accessibility_new_rounded,
+          title: 'Meu Corpo · ${card.periodDays} dias',
+          headline: bodyHeadline(card),
+          onTap: () => go(AppRoutes.body),
+        ),
+        EnduranceFocus() => FocusTile(
+          icon: modalityIcon(card.modality),
+          title: '${modalityLabel(card.modality)} · últimos 7 dias',
+          headline: enduranceHeadline(card),
+          detail: enduranceDetail(card),
+          onTap: () => go(AppRoutes.activities),
+        ),
+        PlanFocus() => FocusTile(
+          icon: Icons.flag_circle_outlined,
+          title: card.title,
+          headline: planHeadline(card),
+          detail: card.nextSession == null
+              ? 'Todas as sessões feitas'
+              : 'Próxima: ${card.nextSession!.summary}',
+          onTap: () => go(AppRoutes.plan(card.id)),
+        ),
+      };
 
   static String _goalsSummary(List<Goal> goals) {
     final active = goals.where((g) => g.isActive).length;

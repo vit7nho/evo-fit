@@ -548,6 +548,134 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('início: painel com números enormes e nomes longos', (
+    tester,
+  ) async {
+    _worstCaseScreen(tester);
+    final longMuscle = 'Músculo de nome muito comprido ' * 3;
+    await _pump(
+      tester,
+      profile: _maximalProfile(),
+      setUp: (server) => server.dashboard = FakeAuthServer.emptyDashboard(
+        objective: 'walk_habit',
+        objectiveLabel: 'Criar o hábito de caminhar todos os dias da semana',
+        week: FakeAuthServer.dashboardWeek(
+          sessions: 999,
+          activeDays: 7,
+          durationS: 999 * 3600 + 59 * 60,
+          weeklyTarget: 7,
+          previousActiveDays: 7,
+          streakWeeks: 999,
+        ),
+        focus: [
+          {
+            'kind': 'plan',
+            'plan': {
+              'id': 'plano-1',
+              'kind': 'walk_habit',
+              'title': 'Hábito de caminhada com um nome bem comprido mesmo',
+              'modality': 'walk',
+              'current_week': 99,
+              'weeks': 99,
+              'completed_sessions': 999,
+              'total_sessions': 999,
+              'next_session': {
+                'id': 's1',
+                'week': 99,
+                'scheduled_date': '2026-11-12',
+                'summary': '5 min aquecendo · 30 min caminhando forte · ' * 3,
+                'total_s': 9999,
+              },
+            },
+          },
+          {
+            'kind': 'strength',
+            'strength': {
+              'sessions': 99,
+              'sets': 9999,
+              'volume_kg': 9999999.99,
+              'previous_sets': 9999,
+              'previous_volume_kg': 9999999.99,
+            },
+          },
+          {
+            'kind': 'body',
+            'body': {
+              'methodology_version': 'v2',
+              'period_days': 366,
+              'least': [
+                for (var i = 0; i < 4; i++)
+                  {
+                    'muscle_id': 'm$i',
+                    'name': longMuscle,
+                    'weighted_sets_per_week': 0,
+                  },
+              ],
+              'untrained': 13,
+            },
+          },
+          for (final m in ['walk', 'run', 'cycle', 'swim'])
+            {
+              'kind': 'endurance',
+              'endurance': {
+                'modality': m,
+                'sessions': 99,
+                'duration_s': 999 * 3600,
+                'distance_m': 9999999,
+                'previous_distance_m': 9999999,
+                'pace_s_per_km': 35999,
+                'speed_kmh': 999.9,
+                'pace_s_per_100m': 35999,
+              },
+            },
+        ],
+        goals: [
+          for (final (kind, unit) in [
+            ('strength', 'kg'),
+            ('run_time', 's'),
+            ('hypertrophy', 'sets_per_week'),
+          ])
+            {
+              'id': 'g-$kind',
+              'kind': kind,
+              'title': 'Meta com um título bem comprido para testar ' * 2,
+              'summary': 'Resumo do alvo também muito comprido ' * 3,
+              'target_date': '2036-12-31',
+              'priority': 1,
+              'progress': {
+                'current': 99999.99,
+                'target': 99999.99,
+                'unit': unit,
+                'ratio': 1,
+                'achieved': true,
+                'lower_is_better': unit == 's',
+                'basis': 'dos registros',
+              },
+            },
+        ],
+        activeGoals: 30,
+        lastRecord: {
+          'modality': 'strength',
+          'title': 'Treino com um nome bem comprido de sessenta caracteres!',
+          'day': '2025-11-11',
+          'duration_s': 999 * 3600,
+          'distance_m': null,
+          'sets': 9999,
+          'volume_kg': 9999999.99,
+        },
+      ),
+    );
+
+    // Tela pequena e fonte 200%: o painel é longo, rola-se bastante até os atalhos.
+    await tester.scrollUntilVisible(
+      find.text('Atalhos'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+      maxScrolls: 300,
+    );
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('comparativos: valores enormes, todos os indicadores', (
     tester,
   ) async {

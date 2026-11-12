@@ -155,6 +155,52 @@ class FakeAuthServer {
   /// Visão geral por período (`from`), para os Comparativos; sem entrada, usa
   /// [analyticsOverview].
   Map<String, Map<String, Object?>> overviewByFrom = {};
+
+  /// Painel do Início (3.8) como a API devolve; padrão: conta sem registros.
+  Map<String, Object?> dashboard = emptyDashboard();
+  int dashboardCalls = 0;
+
+  /// O próximo GET /dashboard responde 500.
+  bool failDashboard = false;
+
+  static Map<String, Object?> dashboardWeek({
+    int sessions = 0,
+    int activeDays = 0,
+    int durationS = 0,
+    int? weeklyTarget,
+    int previousSessions = 0,
+    int previousActiveDays = 0,
+    int streakWeeks = 0,
+  }) => {
+    'from_date': '2026-11-09',
+    'to_date': '2026-11-11',
+    'sessions': sessions,
+    'active_days': activeDays,
+    'duration_s': durationS,
+    'weekly_target': weeklyTarget,
+    'previous_sessions': previousSessions,
+    'previous_active_days': previousActiveDays,
+    'streak_weeks': streakWeeks,
+  };
+
+  static Map<String, Object?> emptyDashboard({
+    String? objective,
+    String? objectiveLabel,
+    Map<String, Object?>? week,
+    List<Map<String, Object?>> focus = const [],
+    List<Map<String, Object?>> goals = const [],
+    int? activeGoals,
+    Map<String, Object?>? lastRecord,
+  }) => {
+    'objective': objective,
+    'objective_label': objectiveLabel,
+    'today': '2026-11-11',
+    'week': week ?? dashboardWeek(),
+    'focus': focus,
+    'goals': goals,
+    'active_goals': activeGoals ?? goals.length,
+    'last_record': lastRecord,
+  };
   final analyticsQueries = <String>[];
 
   /// Meu Corpo (3.6): séries por semana de cada músculo (ausente = 0) e os
@@ -971,6 +1017,8 @@ class FakeAuthServer {
                 body.cast<String, Object?>(),
               )
             : _invalidToken(),
+      ('GET', '/dashboard') =>
+        _authorized(options) ? _dashboard() : _invalidToken(),
       ('GET', '/analytics/overview') =>
         _authorized(options)
             ? _analytics(
@@ -1747,6 +1795,15 @@ class FakeAuthServer {
       return FakeHttpAdapter.json(200, _planOut(plan));
     }
     return _problem(404, 'not_found', 'Rota não encontrada no servidor falso.');
+  }
+
+  ResponseBody _dashboard() {
+    dashboardCalls++;
+    if (failDashboard) {
+      failDashboard = false;
+      return _problem(500, 'internal_error', 'Falha simulada.');
+    }
+    return FakeHttpAdapter.json(200, dashboard);
   }
 
   /// Comparação de um indicador: `metric` ou `metric:modality` em [comparisons].

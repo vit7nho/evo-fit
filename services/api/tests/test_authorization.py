@@ -84,6 +84,7 @@ PROTECTED: dict[tuple[str, str], dict | None] = {
     ("GET", "/api/v1/exercises/{exercise_id}/history"): None,
     ("GET", "/api/v1/analytics/records"): None,
     ("GET", "/api/v1/analytics/overview"): None,
+    ("GET", "/api/v1/dashboard"): None,
     ("GET", "/api/v1/analytics/endurance"): None,
     ("GET", "/api/v1/analytics/compare"): None,
     ("GET", "/api/v1/analytics/muscles"): None,

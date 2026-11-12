@@ -109,6 +109,7 @@ class AnalyticsService:
                         modality=activity.modality,
                         duration_s=activity.duration_s or 0,
                         distance_m=activity.endurance.distance_m if activity.endurance else None,
+                        started_at=activity.started_at,
                     )
                 )
 
@@ -147,6 +148,8 @@ class AnalyticsService:
                         duration_s=session.activity.duration_s or 0,
                         sets=sets,
                         volume_kg=volume,
+                        started_at=session.activity.started_at,
+                        title=session.name,
                     )
                 )
         return sorted(result, key=lambda e: e.day)

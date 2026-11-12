@@ -7,7 +7,7 @@ dia no fuso da pessoa) e estas funções fazem as contas. Semanas começam na se
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 STRENGTH = "strength"
 
@@ -21,6 +21,9 @@ class Entry:
     # Só na musculação: séries válidas (sem aquecimento) e volume (carga externa vezes reps).
     sets: int = 0
     volume_kg: float = 0.0
+    # Hora de início e, na musculação, o nome do treino (o painel mostra o último).
+    started_at: datetime | None = None
+    title: str | None = None
 
 
 def week_start(day: date) -> date:
