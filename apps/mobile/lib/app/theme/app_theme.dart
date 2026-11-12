@@ -223,6 +223,12 @@ abstract final class AppTheme {
           letterSpacing: -0.3,
         ),
       ),
+      // Sem isto, o intervalo do calendário (Meu Corpo, "Outro período") usava a
+      // cor de ação como fundo e os dias dentro dele ficavam ilegíveis.
+      datePickerTheme: const DatePickerThemeData(
+        rangeSelectionBackgroundColor: EvoColors.bgElevated,
+        rangePickerBackgroundColor: EvoColors.bgBase,
+      ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: EvoColors.accent,
         linearTrackColor: EvoColors.bgElevated,

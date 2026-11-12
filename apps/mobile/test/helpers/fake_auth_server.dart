@@ -150,6 +150,90 @@ class FakeAuthServer {
   Map<String, Object?> runEndurance = endurance();
   final analyticsQueries = <String>[];
 
+  /// Meu Corpo (3.6): séries por semana de cada músculo (ausente = 0) e os
+  /// detalhes devolvidos por músculo.
+  Map<String, double> bodyPerWeek = {};
+  Map<String, Map<String, Object?>> muscleDetails = {};
+
+  static const muscleCatalog = [
+    ('chest', 'Peito', 'front'),
+    ('delts', 'Ombros', 'both'),
+    ('biceps', 'Bíceps', 'front'),
+    ('triceps', 'Tríceps', 'back'),
+    ('forearms', 'Antebraços', 'both'),
+    ('lats', 'Dorsais', 'back'),
+    ('traps', 'Trapézio', 'back'),
+    ('abs', 'Abdômen', 'front'),
+    ('obliques', 'Oblíquos', 'front'),
+    ('glutes', 'Glúteos', 'back'),
+    ('quads', 'Quadríceps', 'front'),
+    ('hamstrings', 'Posteriores de coxa', 'back'),
+    ('calves', 'Panturrilhas', 'back'),
+  ];
+
+  /// Faixas da metodologia v2 (`none` só para zero).
+  static String bandOf(double perWeek) => perWeek == 0
+      ? 'none'
+      : perWeek < 6
+      ? 'low'
+      : perWeek < 12
+      ? 'mid'
+      : 'high';
+
+  static Map<String, Object?> muscleOut(
+    String id,
+    double perWeek, {
+    int days = 30,
+  }) {
+    final (_, name, view) = muscleCatalog.firstWhere((m) => m.$1 == id);
+    return {
+      'muscle_id': id,
+      'name': name,
+      'view': view,
+      'weighted_sets': (perWeek * days / 7 * 100).round() / 100,
+      'weighted_sets_per_week': perWeek,
+      'band': bandOf(perWeek),
+      'frequency': perWeek == 0 ? 0 : 2,
+      'volume_load_kg': perWeek == 0 ? 0 : 1200,
+    };
+  }
+
+  static const bodyNotice =
+      'As faixas são uma referência geral de volume registrado, não '
+      'diagnóstico nem prescrição.';
+
+  Map<String, Object?> _body() => {
+    'methodology_version': 'v2',
+    'from_date': '2026-10-06',
+    'to_date': '2026-11-04',
+    'period_days': 30,
+    'bands': {
+      'high': [12, null],
+      'low': [0, 6],
+      'mid': [6, 12],
+      'none': [0, 0],
+    },
+    'notice': bodyNotice,
+    'muscles': [
+      for (final (id, _, _) in muscleCatalog)
+        muscleOut(id, bodyPerWeek[id] ?? 0),
+    ],
+  };
+
+  Map<String, Object?> _muscleDetail(String id) =>
+      muscleDetails[id] ??
+      {
+        'methodology_version': 'v2',
+        'from_date': '2026-10-06',
+        'to_date': '2026-11-04',
+        'period_days': 30,
+        'notice': bodyNotice,
+        'muscle': muscleOut(id, bodyPerWeek[id] ?? 0),
+        'exercises': <Object?>[],
+        'loads': <Object?>[],
+        'previous': null,
+      };
+
   static Map<String, Object?> overview({
     int days = 30,
     int sessions = 0,
@@ -853,6 +937,12 @@ class FakeAuthServer {
       ('GET', '/analytics/endurance') =>
         _authorized(options)
             ? _analytics(options, runEndurance)
+            : _invalidToken(),
+      ('GET', '/analytics/muscles') =>
+        _authorized(options) ? _analytics(options, _body()) : _invalidToken(),
+      ('GET', final p) when p.startsWith('/analytics/muscles/') =>
+        _authorized(options)
+            ? _analytics(options, _muscleDetail(p.split('/').last))
             : _invalidToken(),
       ('GET', '/training-plan-templates') =>
         _authorized(options)

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../domain/analytics.dart';
+import '../domain/body.dart';
 
 /// Indicadores calculados pela API (docs/API.md), só com os dados do dono do token.
 class AnalyticsApi {
@@ -50,6 +51,33 @@ class AnalyticsApi {
     );
     return Comparison.fromJson(response.data!);
   });
+
+  /// Meu Corpo: estímulo e faixa dos 13 músculos no período.
+  Future<BodyStimulus> muscles(AnalyticsPeriod period) =>
+      guardApiCall(() async {
+        final response = await _dio.get<Map<String, dynamic>>(
+          '/analytics/muscles',
+          queryParameters: {
+            'from': apiDate(period.from),
+            'to': apiDate(period.to),
+          },
+        );
+        return BodyStimulus.fromJson(response.data!);
+      });
+
+  /// Um músculo: exercícios, cargas e o período anterior do mesmo tamanho.
+  Future<MuscleDetail> muscle(String muscleId, AnalyticsPeriod period) =>
+      guardApiCall(() async {
+        final response = await _dio.get<Map<String, dynamic>>(
+          '/analytics/muscles/${Uri.encodeComponent(muscleId)}',
+          queryParameters: {
+            'from': apiDate(period.from),
+            'to': apiDate(period.to),
+            'compare': 'previous',
+          },
+        );
+        return MuscleDetail.fromJson(response.data!);
+      });
 }
 
 final analyticsApiProvider = Provider<AnalyticsApi>(

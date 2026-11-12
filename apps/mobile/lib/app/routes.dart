@@ -47,6 +47,9 @@ abstract final class AppRoutes {
   /// Frequência, consistência e comparativos.
   static const evolution = '/evolucao';
 
+  /// Mapa do corpo com o estímulo por músculo.
+  static const body = '/meu-corpo';
+
   /// Planos de caminhada, 5 km e 10 km.
   static const plans = '/planos';
   static String planNew(String kind) => '/planos/novo/$kind';

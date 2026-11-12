@@ -190,6 +190,16 @@ class HomePage extends ConsumerWidget {
             EvoEntrance(
               delay: EvoEntrance.stagger(3),
               child: _LinkCard(
+                icon: Icons.accessibility_new_rounded,
+                title: 'Meu Corpo',
+                subtitle: 'Estímulo por músculo, de frente e de costas',
+                onTap: () => context.push(AppRoutes.body),
+              ),
+            ),
+            const SizedBox(height: EvoSpace.md),
+            EvoEntrance(
+              delay: EvoEntrance.stagger(3),
+              child: _LinkCard(
                 icon: Icons.history_rounded,
                 title: 'Histórico',
                 subtitle: 'Treinos concluídos e recordes',

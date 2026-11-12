@@ -2,12 +2,28 @@ import 'package:flutter/foundation.dart';
 
 import '../../goals/presentation/goal_format.dart';
 
-/// Período analisado: os últimos [days] dias até hoje (inclusive).
+/// Período analisado: os últimos [days] dias até hoje (inclusive) ou, com
+/// [AnalyticsPeriod.range], um intervalo escolhido (Meu Corpo, 3.6).
 @immutable
 class AnalyticsPeriod {
-  const AnalyticsPeriod(this.days);
+  const AnalyticsPeriod(this.days) : _end = null;
+
+  /// De [from] a [to], inclusive (só as datas contam).
+  AnalyticsPeriod.range(DateTime from, DateTime to)
+    : days =
+          DateTime.utc(
+            to.year,
+            to.month,
+            to.day,
+          ).difference(DateTime.utc(from.year, from.month, from.day)).inDays +
+          1,
+      _end = DateTime(to.year, to.month, to.day);
 
   final int days;
+  final DateTime? _end;
+
+  /// O maior período que a API aceita.
+  static const maxDays = 366;
 
   static const options = [
     AnalyticsPeriod(7),
@@ -15,23 +31,31 @@ class AnalyticsPeriod {
     AnalyticsPeriod(90),
   ];
 
+  /// Escolhido no calendário, e não "os últimos N dias".
+  bool get isCustom => _end != null;
+
   DateTime get to {
+    if (_end case final end?) return end;
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day);
   }
 
-  DateTime get from => to.subtract(Duration(days: days - 1));
+  DateTime get from => _shift(to, -(days - 1));
 
   /// O período imediatamente anterior, do mesmo tamanho (para comparar).
-  DateTime get previousTo => from.subtract(const Duration(days: 1));
-  DateTime get previousFrom => previousTo.subtract(Duration(days: days - 1));
+  DateTime get previousTo => _shift(from, -1);
+  DateTime get previousFrom => _shift(previousTo, -(days - 1));
+
+  // Pelo calendário, e não por 24 h: imune a horário de verão.
+  static DateTime _shift(DateTime day, int days) =>
+      DateTime(day.year, day.month, day.day + days);
 
   @override
   bool operator ==(Object other) =>
-      other is AnalyticsPeriod && other.days == days;
+      other is AnalyticsPeriod && other.days == days && other._end == _end;
 
   @override
-  int get hashCode => days.hashCode;
+  int get hashCode => Object.hash(days, _end);
 }
 
 String apiDate(DateTime day) =>

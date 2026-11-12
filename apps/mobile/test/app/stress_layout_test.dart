@@ -540,6 +540,77 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('meu corpo: mapa, legenda, lista e detalhe com nomes longos', (
+    tester,
+  ) async {
+    _worstCaseScreen(tester);
+    await _pump(
+      tester,
+      profile: _maximalProfile(),
+      setUp: (server) => server
+        ..bodyPerWeek = {
+          for (final (id, _, _) in FakeAuthServer.muscleCatalog) id: 999.99,
+        }
+        ..muscleDetails = {
+          'hamstrings': {
+            'methodology_version': 'v2',
+            'from_date': '2026-10-06',
+            'to_date': '2026-11-04',
+            'period_days': 366,
+            'notice': FakeAuthServer.bodyNotice,
+            'muscle': FakeAuthServer.muscleOut('hamstrings', 999.99, days: 366),
+            'exercises': [
+              {
+                'exercise_id': 'x',
+                'name':
+                    'Stiff unilateral com halter apoiado no banco inclinado',
+                'role': 'secondary',
+                'weighted_sets': 9999.99,
+                'sets': 9999,
+                'best_load_kg': 999.5,
+              },
+            ],
+            'loads': [
+              for (var d = 1; d <= 9; d++)
+                {
+                  'day': '2026-10-0$d',
+                  'exercise_id': 'x',
+                  'best_load_kg': 990.5 + d,
+                },
+            ],
+            'previous': {
+              'from_date': '2025-10-05',
+              'to_date': '2026-10-05',
+              'weighted_sets_per_week': 1,
+              'frequency': 1,
+              'band': 'low',
+              'difference': -998.99,
+              'percent': -99.9,
+            },
+          },
+        },
+    );
+
+    final card = find.text('Meu Corpo');
+    await tester.scrollUntilVisible(
+      card,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Posteriores de coxa'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Posteriores de coxa'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Stiff unilateral'), findsOneWidget);
+  });
+
   testWidgets('exercícios: biblioteca, detalhe e formulário', (tester) async {
     _worstCaseScreen(tester);
     await _pump(tester, profile: _maximalProfile());
