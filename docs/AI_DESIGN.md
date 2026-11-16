@@ -16,7 +16,8 @@ integrations/ai/
 ├── providers/
 │   ├── fake.py          # roteirizado/determinístico — testes e demonstração offline
 │   └── anthropic.py     # adaptador (SDK oficial ou httpx); único lugar que conhece o fornecedor
-├── errors.py            # ProviderUnavailable, ProviderRateLimited, InvalidModelOutput
+├── errors.py            # ProviderUnavailable, ProviderTimeout, ProviderRateLimited, InvalidModelOutput, ProviderNotConfigured
+├── retry.py             # nova tentativa só para erros transitórios (máx. 2, espera crescente)
 └── factory.py           # escolhe o provedor por AI_PROVIDER no ambiente
 
 modules/ai_coach/
@@ -37,7 +38,9 @@ class LLMProvider(Protocol):
                  max_tokens: int, timeout_s: float) -> Completion: ...
 ```
 
-Trocar de fornecedor = escrever um novo adaptador. Nenhum outro arquivo importa o SDK do fornecedor.
+Trocar de fornecedor = escrever um novo adaptador. Nenhum outro arquivo importa o SDK do fornecedor (um teste confere).
+
+**Implementado na 4.1** (`app/integrations/ai/`, ADR-049): `Message` (`user`, `assistant` com texto e/ou `tool_calls`, `tool` com `tool_results`; mensagens incoerentes são recusadas), `ToolSpec`, `ToolCall`, `ToolResult`, `Usage` e `Completion` (com `stop_reason` `end|tool_use|max_tokens` e o modelo que respondeu); o `FakeProvider` em dois modos — roteirizado (respostas, exceções ou funções do pedido; guarda cópia de cada pedido) e demonstração (texto fixo dizendo que é simulado, sem números); os erros com `code`, `transient` e `user_message`; `complete_with_retry` (só transitórios, 0,5 s e 1 s, `Retry-After` até 5 s); e `build_provider` (`fake` padrão; `anthropic` dá `ProviderNotConfigured` até a 4.4).
 
 ## 3. Ferramentas (v1)
 

@@ -1,7 +1,7 @@
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     refresh_token_ttl_days: int = Field(default=30, ge=1, le=90)
     # Versão vigente dos Termos de Uso e da Política de Privacidade aceitos no cadastro.
     terms_version: str = "2026-10"
+
+    # IA (Fase 4, ADR-011/012). `fake` funciona sem chave e sem custo; a chave do
+    # provedor real fica só aqui no backend e nunca aparece em logs/repr.
+    ai_provider: Literal["fake", "anthropic"] = "fake"
+    ai_api_key: SecretStr | None = None
+    ai_model: str | None = None
+    ai_timeout_s: float = Field(default=30, gt=0, le=120)
 
     @field_validator("cors_origins", mode="before")
     @classmethod
