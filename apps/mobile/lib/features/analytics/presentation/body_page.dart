@@ -11,9 +11,11 @@ import '../application/analytics_controller.dart';
 import '../domain/analytics.dart';
 import '../domain/body.dart';
 import 'body_map.dart';
+import 'body_model_3d.dart';
 import 'charts.dart';
 
 const _custom = 'custom';
+const _model3d = '3d';
 
 String _perWeek(double value) =>
     '${formatDecimal(value)} ${value == 1 ? 'série' : 'séries'}/semana';
@@ -31,6 +33,9 @@ class _BodyPageState extends ConsumerState<BodyPage> {
   AnalyticsPeriod _period = AnalyticsPeriod.options[1];
   BodyView _view = BodyView.front;
   String? _selected;
+
+  /// Manequim 3D (prova da 3.9) no lugar do mapa frente/costas.
+  bool _threeD = false;
 
   Future<void> _pickRange() async {
     final today = AnalyticsPeriod.options.first.to;
@@ -56,7 +61,8 @@ class _BodyPageState extends ConsumerState<BodyPage> {
   Future<void> _open(MuscleStimulus muscle) async {
     setState(() {
       _selected = muscle.muscleId;
-      if (!muscle.shownOn(_view)) _view = muscle.mainView;
+      // No 3D todos os músculos estão no modelo: não há lado para virar.
+      if (!_threeD && !muscle.shownOn(_view)) _view = muscle.mainView;
     });
     await showMuscleSheet(context, muscle: muscle, period: _period);
     if (mounted) setState(() => _selected = null);
@@ -127,35 +133,59 @@ class _BodyPageState extends ConsumerState<BodyPage> {
         if (m.shownOn(_view)) m,
     ];
     final least = data.leastStimulated;
+    final model3d = ref.watch(body3dProvider);
+    final threeD = _threeD && model3d != null;
+    void select(String id) {
+      if (data.muscle(id) case final muscle?) _open(muscle);
+    }
+
     return [
       Center(
         child: EvoChipGroup(
           single: true,
-          options: [for (final v in BodyView.values) (v.name, v.label)],
-          selected: {_view.name},
-          onChanged: (selected) =>
-              setState(() => _view = BodyView.values.byName(selected.first)),
+          options: [
+            for (final v in BodyView.values) (v.name, v.label),
+            if (model3d != null) (_model3d, '3D'),
+          ],
+          selected: {threeD ? _model3d : _view.name},
+          onChanged: (selected) => setState(() {
+            _threeD = selected.first == _model3d;
+            if (!_threeD) _view = BodyView.values.byName(selected.first);
+          }),
         ),
       ),
       const SizedBox(height: EvoSpace.md),
       // O mapa é a forma visual; quem usa leitor de tela tem a mesma informação
       // (e o mesmo toque) na lista de músculos abaixo.
       Semantics(
-        label:
-            'Mapa do corpo, ${_view.label.toLowerCase()}: '
-            '${visible.map((m) => '${m.name}, ${m.band.label}').join('; ')}',
+        label: threeD
+            ? 'Manequim 3D do corpo: '
+                  '${data.muscles.map((m) => '${m.name}, ${m.band.label}').join('; ')}'
+            : 'Mapa do corpo, ${_view.label.toLowerCase()}: '
+                  '${visible.map((m) => '${m.name}, ${m.band.label}').join('; ')}',
         excludeSemantics: true,
         child: SizedBox(
           height: 380,
-          child: BodyMap(
-            key: const ValueKey('body-map'),
-            view: _view,
-            bands: bands,
-            selected: _selected,
-            onSelect: (id) => _open(data.muscle(id)!),
-          ),
+          child: threeD
+              ? model3d(bands: bands, selected: _selected, onSelect: select)
+              : BodyMap(
+                  key: const ValueKey('body-map'),
+                  view: _view,
+                  bands: bands,
+                  selected: _selected,
+                  onSelect: select,
+                ),
         ),
       ),
+      if (threeD) ...[
+        const SizedBox(height: EvoSpace.sm),
+        Text(
+          'Prova de conceito: manequim estilizado, não anatômico. Arraste '
+          'para os lados para girar e toque num músculo.',
+          style: theme.textTheme.labelSmall,
+          textAlign: TextAlign.center,
+        ),
+      ],
       const SizedBox(height: EvoSpace.md),
       _Legend(data: data),
       const SizedBox(height: EvoSpace.xl),

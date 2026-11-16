@@ -54,7 +54,7 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 **Consequências:** o volume, os recordes e o estímulo podem tratar cada técnica com regras próprias e testáveis.
 
 ### ADR-010 — Meu Corpo: cálculo separado da representação; 2D primeiro
-**Status:** Aceita (3D em avaliação)
+**Status:** Aceita (3D avaliado na 3.9 — ver ADR-048)
 **Decisão:** o backend devolve `{muscle_id, weighted_sets, band}` usando IDs estáveis (`chest`, `lats`, ...). O app tem uma interface `BodyMapRenderer`; a v1 implementa `SvgBodyMapRenderer` (frente/costas, toque para selecionar). Um `GlbBodyMapRenderer` (360°) poderá ser adicionado quando houver um modelo com licença adequada.
 **Consequências:** o recurso visual principal fica pronto sem depender de um ativo externo incerto.
 
@@ -399,3 +399,17 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 - **Janelas fixas e explícitas:** semana de segunda até hoje (como a consistência, ADR-042), “últimos 7 dias contra os 7 anteriores” no foco, 30 dias no Meu Corpo, 26 semanas para a sequência e o último registro.
 - **Atualização:** o Início pede de novo ao voltar de qualquer tela aberta a partir dele (um treino novo ou uma meta marcada aparece na hora) e é descartado ao trocar de conta. Os atalhos continuam abaixo, e funcionam mesmo se o painel falhar.
 - **Verificação:** 13 testes da API (ordem do foco, regras de progresso, conta nova, painel com dados, progresso de cada tipo — inclusive o nome do exercício sem acentos, o aquecimento fora e o período da meta —, hipertrofia, plano primeiro para quem corre, isolamento entre contas) e 7 do app (vazio, painel completo na ordem da API, cartão abre a tela e o painel é refeito na volta, erro com nova tentativa, textos; estresse com fonte 200%). No emulador EvoFit_Aceite com a API real, uma conta “ganhar massa” com 3 treinos e 2 corridas: semana 2 de 3 dias (3 registros), musculação 10 séries/5260 kg contra 3/1320 kg, 6 músculos sem série, corrida 6 km a 6:00/km contra 5 km, metas “Correr 10 km” 6 de 10 km, “Supino 60 kg × 8” atingida (os 65 kg × 6 não contam) e “4x por semana” 3 de 4; marcar a meta como alcançada e voltar refez o painel; trocar o objetivo para “correr” e criar o plano de 5 km pôs o plano e a corrida no topo. Conferido à mão; conta de teste apagada.
+
+### ADR-048 — 3D do Meu Corpo: prova feita; o 2D segue como padrão
+**Status:** Aceita · Fase 3.9
+**Contexto:** o ADR-010 deixou o 3D para quando houvesse um modelo com licença adequada; o ASSESSMENT (§6) apontou o Z-Anatomy (CC BY-SA 4.0) e o `model_viewer_plus` (WebView). A 3.9 pedia uma prova de conceito e uma decisão.
+**O que foi provado:**
+- **Modelo próprio, sem licença de terceiros:** `tools/body3d/make_body_glb.py` (só biblioteca padrão, saída determinística) gera `apps/mobile/assets/body3d/body.glb` (368 KB): um manequim estilizado de elipsoides, com a pele e **um material por músculo, com o nome do `muscle_id` da API**; os dois lados de um músculo dividem o material. Um teste garante que os materiais são exatamente os 13 músculos do catálogo mais a pele.
+- **Mesmo contrato do 2D (ADR-010):** `BodyModel3D` recebe a faixa de cada músculo e devolve o tocado. O `model-viewer` (JavaScript empacotado no pacote, ~980 KB, nada vem da internet) pinta os materiais com as cores da paleta convertidas para o espaço linear do glTF e responde, pelo canal `EvoBody`, o material sob o dedo (`materialFromPoint`), ignorando o fim de um giro. O renderer entra por um provider: os testes usam um falso, porque a WebView não roda em teste de widget.
+- **Rede:** o pacote serve o modelo à WebView por um servidor HTTP em `localhost`. No release, o `network_security_config` libera HTTP **só** para `localhost`/`127.0.0.1` (o resto continua exigindo HTTPS); no debug, mantém o HTTP liberado que já existia para a API local (com essa configuração, o Android ignora `usesCleartextTraffic`).
+- **No emulador (EvoFit_Aceite, API real):** o manequim aparece já pintado em menos de 1 s ao tocar em 3D (segunda abertura); 7 dias com peito moderado e ombros, abdômen, quadríceps, glúteos, posteriores e tríceps baixos, como no 2D; o giro mostra as costas; tocar nos glúteos abriu a folha certa (4 séries/semana, 2560 kg); em 90 dias o peito passou a baixo.
+**Decisão:**
+- **O 2D continua o padrão** e o caminho acessível (a lista repete faixa e valor). O **3D fica como opção** (chip “3D”, só Android) com a nota de prova de conceito.
+- **Não adotar agora um modelo anatômico.** O Z-Anatomy exige atribuição e *share-alike*: o modelo derivado (separado por músculo e renomeado para os IDs) teria de ser publicado sob CC BY-SA, além de pesar dezenas de MB. Se a banca ou o produto pedirem fidelidade anatômica, basta trocar o GLB mantendo a regra “nome do material = `muscle_id`” — o app e a API não mudam.
+- **Custos aceitos para a opção:** ~1,35 MB de ativos (GLB + JS), a dependência de WebView (`model_viewer_plus`, `webview_flutter`), Android 7+ (já o mínimo do Flutter) e a exceção de HTTP para `localhost`. O `flutter_scene` (Flutter GPU) foi descartado por ainda ser experimental.
+- **Verificação:** 4 testes (materiais do GLB = catálogo, cores lineares e script de pintura, o chip 3D passa as faixas e o toque abre o detalhe e volta ao 2D, sem renderer não há o chip) e a verificação no emulador acima. Conta de teste apagada.

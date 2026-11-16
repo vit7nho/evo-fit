@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Somente em debug (substitui a versão de main): HTTP sem TLS liberado, como o
+     usesCleartextTraffic do manifesto de debug, para a API local (10.0.2.2) e o
+     servidor local do manequim 3D. Com networkSecurityConfig definido, o Android
+     ignora usesCleartextTraffic; por isso a regra precisa estar aqui. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

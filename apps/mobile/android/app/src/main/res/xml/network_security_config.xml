@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Release: tudo exige HTTPS, exceto o servidor local do próprio aparelho que o
+     model_viewer_plus abre para entregar o manequim 3D do Meu Corpo à WebView
+     (etapa 3.9, ADR-048). Nada sai do aparelho por HTTP. -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>
