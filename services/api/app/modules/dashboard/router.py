@@ -175,7 +175,7 @@ def _plan(plan: TrainingPlan) -> PlanFocusOut:
     )
 
 
-class _GoalFacts:
+class GoalMeasurer:
     """Busca, sob demanda, os fatos que cada tipo de meta usa."""
 
     def __init__(self, db: Session, analytics: AnalyticsService, user: User, day: date) -> None:
@@ -265,7 +265,7 @@ class _GoalFacts:
         return self._weekly_sets
 
 
-def _goal(goal: Goal, facts: rules.GoalFacts) -> GoalCardOut:
+def goal_card(goal: Goal, facts: rules.GoalFacts) -> GoalCardOut:
     measured = rules.progress(goal.kind, goal.target, facts, goal.start_date)
     return GoalCardOut(
         id=goal.id,
@@ -346,14 +346,14 @@ def dashboard(user: CurrentUser, db: DbSession) -> DashboardOut:
     week = _week(entries, day, user)
     this_week = _between(entries, week.from_date, day)
     active = GoalService(db).list(user, GoalStatus.ACTIVE)
-    facts = _GoalFacts(db, analytics, user, day)
+    facts = GoalMeasurer(db, analytics, user, day)
     return DashboardOut(
         objective=objective,
         objective_label=OBJECTIVES.get(objective) if objective else None,
         today=day,
         week=week,
         focus=focus,
-        goals=[_goal(g, facts.for_goal(g, this_week)) for g in active[:GOALS_SHOWN]],
+        goals=[goal_card(g, facts.for_goal(g, this_week)) for g in active[:GOALS_SHOWN]],
         active_goals=len(active),
         last_record=_last_record(entries),
     )
