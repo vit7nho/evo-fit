@@ -36,7 +36,7 @@ Registrados em `user_consents` (tipo, versão do texto, data, revogação):
 
 - `terms_privacy` — obrigatório no cadastro. ⚖ Os textos de Termos e Política de Privacidade precisam ser redigidos/revisados.
 - `health_data` — necessário para registrar limitações, peso, medidas e nutrição. Sem ele, esses campos ficam desativados no app.
-- `ai_processing` — necessário para usar a IA. Explica que os dados pertinentes à pergunta são enviados a um provedor externo (nomeado) e quais categorias são enviadas. ⚖ Há transferência internacional de dados (LGPD art. 33) — verificar o enquadramento legal.
+- `ai_processing` — necessário para usar a IA (**4.3:** sem ele, enviar uma pergunta dá 403 e nada vai ao provedor; revogar bloqueia as próximas). Explica que os dados pertinentes à pergunta são enviados a um provedor externo (nomeado) e quais categorias são enviadas. ⚖ Há transferência internacional de dados (LGPD art. 33) — verificar o enquadramento legal.
 
 ## 4. Direitos do titular
 

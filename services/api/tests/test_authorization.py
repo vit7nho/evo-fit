@@ -103,6 +103,11 @@ PROTECTED: dict[tuple[str, str], dict | None] = {
         "activity_id": str(uuid.uuid4())
     },
     ("DELETE", "/api/v1/training-plans/{plan_id}/sessions/{plan_session_id}/activity"): None,
+    ("POST", "/api/v1/ai/conversations"): {"scope": "global"},
+    ("GET", "/api/v1/ai/conversations"): None,
+    ("GET", "/api/v1/ai/conversations/{conversation_id}"): None,
+    ("DELETE", "/api/v1/ai/conversations/{conversation_id}"): None,
+    ("POST", "/api/v1/ai/conversations/{conversation_id}/messages"): {"content": "Oi"},
 }
 
 # Operações sobre um registro identificado na URL: com o id de outra conta, só 404.
@@ -171,6 +176,14 @@ def build_world(client: TestClient, headers: dict[str, str]) -> dict[str, str]:
         201,
     )
     first = plan["sessions"][0]["id"]
+    chat = ok(
+        client.post(
+            f"{API}/ai/conversations",
+            headers=headers,
+            json={"scope": "session", "scope_ref": {"session_id": done["id"]}},
+        ),
+        201,
+    )
     ok(
         client.put(
             f"{API}/training-plans/{plan['id']}/sessions/{first}/activity",
@@ -180,6 +193,7 @@ def build_world(client: TestClient, headers: dict[str, str]) -> dict[str, str]:
     )
     return {
         "plan_id": plan["id"],
+        "conversation_id": chat["id"],
         "plan_session_id": first,
         "activity_id": run["id"],
         "goal_id": goal["id"],
@@ -214,6 +228,8 @@ def snapshot(client: TestClient, headers: dict[str, str], ids: dict) -> dict:
         f"{API}/activities/{ids['activity_id']}",
         f"{API}/training-plans",
         f"{API}/training-plans/{ids['plan_id']}",
+        f"{API}/ai/conversations",
+        f"{API}/ai/conversations/{ids['conversation_id']}",
     ]
     return {url: ok(client.get(url, headers=headers)) for url in urls}
 
@@ -552,6 +568,7 @@ def test_lists_and_derived_data_never_include_another_user(
         f"{API}/activities",
         f"{API}/training-plans",
         f"{API}/training-plan-templates",
+        f"{API}/ai/conversations",
     ]
     for url in urls:
         text = client.get(url, headers=bia).text

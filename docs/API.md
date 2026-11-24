@@ -62,10 +62,10 @@
 ### Fase 4: IA
 | Método | Caminho | Descrição |
 |---|---|---|
-| POST | `/ai/conversations` | cria com `scope` + `scope_ref` |
-| GET | `/ai/conversations` · `/ai/conversations/{id}` | histórico |
-| POST | `/ai/conversations/{id}/messages` | envia a pergunta; resposta com texto + propostas (streaming SSE opcional) |
-| DELETE | `/ai/conversations/{id}` | exclusão |
+| POST ✅ | `/ai/conversations` | cria com `scope` (`global`, `session`, `exercise`, `muscle`, `activity`, `period`) + `scope_ref`; o registro citado precisa ser da pessoa (senão 422) |
+| GET ✅ | `/ai/conversations` · `/ai/conversations/{id}` | lista (mais recentes primeiro) e detalhe com as mensagens |
+| POST ✅ | `/ai/conversations/{id}/messages` | `{content}` (1 a 2000 caracteres) → `{question, answer, simulated, remaining_today}`; `answer.tools_used` lista as ferramentas consultadas. 403 `consent_required` sem `ai_processing`; 429 `ai_per_minute_limit`/`ai_daily_limit` com `Retry-After`; 503 (ou 429 `ai_rate_limited`) com a mensagem amigável quando o provedor falha — a pergunta não é gravada. Propostas na 4.6; streaming fica para depois |
+| DELETE ✅ | `/ai/conversations/{id}` | exclusão (204); o registro da execução fica, sem conteúdo e sem o vínculo |
 | GET | `/ai/proposals?status=pending` | propostas |
 | POST | `/ai/proposals/{id}/accept` · `/reject` | confirmação explícita |
 

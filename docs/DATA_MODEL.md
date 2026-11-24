@@ -139,6 +139,8 @@ Casos de teste obrigatórios: sem histórico; período sem sessões; série sem 
 **ai_messages**: `conversation_id`, `role` (`user|assistant|tool`), `content`, `created_at`.
 **ai_tool_calls**: `message_id`, `tool_name`, `arguments` (JSONB), `result_summary` (JSONB, truncado), `status`, `duration_ms`.
 **ai_run_logs**: `user_id`, `conversation_id`, `provider`, `model`, `prompt_version`, `input_tokens`, `output_tokens`, `latency_ms`, `outcome` (`ok|provider_error|rate_limited|invalid_output|refused`). **Sem conteúdo.**
+
+> **Implementado na 4.3 (migração 0013, ADR-051):** `ai_conversations` (com `updated_at`; `scope` validado por CHECK), `ai_messages` só com `user` e `assistant` (os resultados das ferramentas não são guardados; a mensagem da IA leva `tools_used`, só os nomes) e `ai_run_logs` com, além do previsto, `prompt_hash`, `iterations`, `tool_calls` (nome, se deu certo e o tempo de cada consulta — sem argumentos), `unverified_numbers` e `error_code`; `refused` marca as recusas pelos limites, que não contam para eles. Apagar a conversa apaga as mensagens e deixa o registro sem vínculo (`SET NULL`); apagar a conta apaga tudo. `ai_tool_calls` não foi criada: os nomes e tempos ficam no registro da execução.
 **change_proposals**: `user_id`, `conversation_id`, `kind` (`template_add_exercise|template_replace_exercise|template_adjust_sets|goal_create|goal_update|plan_adjust`), `target_id`, `payload` (JSONB validado por `kind`), `rationale`, `status` (`pending|accepted|rejected|expired|failed`), `expires_at`, `decided_at`.
 
 ## 8. Armazenado × calculado

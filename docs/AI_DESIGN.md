@@ -42,6 +42,8 @@ Trocar de fornecedor = escrever um novo adaptador. Nenhum outro arquivo importa 
 
 **Implementado na 4.1** (`app/integrations/ai/`, ADR-049): `Message` (`user`, `assistant` com texto e/ou `tool_calls`, `tool` com `tool_results`; mensagens incoerentes são recusadas), `ToolSpec`, `ToolCall`, `ToolResult`, `Usage` e `Completion` (com `stop_reason` `end|tool_use|max_tokens` e o modelo que respondeu); o `FakeProvider` em dois modos — roteirizado (respostas, exceções ou funções do pedido; guarda cópia de cada pedido) e demonstração (texto fixo dizendo que é simulado, sem números); os erros com `code`, `transient` e `user_message`; `complete_with_retry` (só transitórios, 0,5 s e 1 s, `Retry-After` até 5 s); e `build_provider` (`fake` padrão; `anthropic` dá `ProviderNotConfigured` até a 4.4).
 
+**Implementado na 4.3** (`modules/ai_coach/`, ADR-051): `orchestrator.py` (laço com até 6 consultas e 5 chamadas ao modelo por resposta — a última sem ferramentas, para forçar o texto —; pedidos além do limite voltam como erro explicado), `prompts/coach.v1.md` (versão e hash de 16 caracteres no registro), `context.py` (data de hoje, dia da semana, fuso, foco do modo específico e unidades — nada pessoal), `guardrails.py` (resposta com até 4000 caracteres e a conferência heurística de números) e `service.py`/`router.py` (conversas, consentimento, limites, falhas e registro). Na v1 a conferência não bloqueia: os números não conferidos vão só para `ai_run_logs.unverified_numbers`.
+
 ## 3. Ferramentas (v1)
 
 Todas são somente leitura, exceto `prepare_change_proposal`. Os nomes estão em inglês por convenção do código; as descrições enviadas ao modelo ficam em português.

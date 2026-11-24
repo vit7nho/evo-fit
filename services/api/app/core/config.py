@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     ai_api_key: SecretStr | None = None
     ai_model: str | None = None
     ai_timeout_s: float = Field(default=30, gt=0, le=120)
+    # Limites por pessoa (AI_DESIGN §6): contêm custo e abuso.
+    ai_daily_limit: int = Field(default=30, ge=1, le=1000)
+    ai_per_minute_limit: int = Field(default=5, ge=1, le=60)
+    ai_max_tokens: int = Field(default=1024, ge=64, le=8192)
 
     @field_validator("cors_origins", mode="before")
     @classmethod

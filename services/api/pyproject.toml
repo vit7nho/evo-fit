@@ -33,6 +33,7 @@ include = ["app*"]
 [tool.setuptools.package-data]
 "app.modules.auth" = ["data/*.txt"]
 "app.modules.exercises.seed" = ["*.json", "images/*/*.jpg"]
+"app.modules.ai_coach.prompts" = ["*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
