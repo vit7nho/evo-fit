@@ -47,6 +47,7 @@ PUBLIC = {
     ("GET", "/api/v1/workout-options"),
     ("GET", "/api/v1/activity-options"),
     ("GET", "/api/v1/nutrition-options"),
+    ("GET", "/api/v1/body-measurement-options"),
 }
 
 # Operação autenticada -> corpo válido (None: sem corpo). Os ids no caminho são da Ana.
@@ -140,6 +141,15 @@ PROTECTED: dict[tuple[str, str], dict | None] = {
     ("GET", "/api/v1/nutrition/targets"): None,
     ("PUT", "/api/v1/nutrition/targets"): {"kcal": 2000},
     ("GET", "/api/v1/nutrition/summary"): None,
+    ("GET", "/api/v1/body-measurements"): None,
+    ("POST", "/api/v1/body-measurements"): {
+        "measured_at": "2026-11-01T07:00:00",
+        "weight_kg": 70,
+    },
+    ("GET", "/api/v1/body-measurements/trend"): None,
+    ("GET", "/api/v1/body-measurements/{measurement_id}"): None,
+    ("PATCH", "/api/v1/body-measurements/{measurement_id}"): {"weight_kg": 71},
+    ("DELETE", "/api/v1/body-measurements/{measurement_id}"): None,
     ("POST", "/api/v1/ai/proposals/{proposal_id}/accept"): None,
     ("POST", "/api/v1/ai/proposals/{proposal_id}/reject"): None,
 }
@@ -239,8 +249,17 @@ def build_world(client: TestClient, headers: dict[str, str]) -> dict[str, str]:
         201,
     )
     ok(client.put(f"{API}/nutrition/targets", headers=headers, json={"kcal": 2345}))
+    measurement = ok(
+        client.post(
+            f"{API}/body-measurements",
+            headers=headers,
+            json={"measured_at": "2026-11-01T07:00:00", "weight_kg": 72.3},
+        ),
+        201,
+    )
     return {
         "food_id": food["id"],
+        "measurement_id": measurement["id"],
         "meal_id": meal["id"],
         "plan_id": plan["id"],
         "conversation_id": chat["id"],
@@ -287,6 +306,9 @@ def snapshot(client: TestClient, headers: dict[str, str], ids: dict) -> dict:
         f"{API}/nutrition/daily?date=2026-11-01",
         f"{API}/nutrition/targets",
         f"{API}/nutrition/summary?from=2026-10-26&to=2026-11-01",
+        f"{API}/body-measurements?from=2026-10-01&to=2026-11-30",
+        f"{API}/body-measurements/{ids['measurement_id']}",
+        f"{API}/body-measurements/trend?from=2026-10-01&to=2026-11-30",
     ]
     return {url: ok(client.get(url, headers=headers)) for url in urls}
 
@@ -645,6 +667,8 @@ def test_lists_and_derived_data_never_include_another_user(
         f"{API}/nutrition/daily?date=2026-11-01",
         f"{API}/nutrition/targets",
         f"{API}/nutrition/summary?from=2026-10-26&to=2026-11-01",
+        f"{API}/body-measurements?from=2026-10-01&to=2026-11-30",
+        f"{API}/body-measurements/trend?from=2026-10-01&to=2026-11-30",
     ]
     for url in urls:
         text = client.get(url, headers=bia).text

@@ -71,6 +71,10 @@ abstract final class AppRoutes {
   static const nutritionMeal = '/nutricao/refeicao';
   static const nutritionFoods = '/nutricao/alimentos';
 
+  /// Peso e medidas (5.3): a tendência e o formulário.
+  static const measurements = '/medidas';
+  static const measurementForm = '/medidas/registro';
+
   /// Metas nutricionais (5.2).
   static const nutritionTargets = '/nutricao/metas';
 

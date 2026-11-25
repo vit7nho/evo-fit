@@ -56,11 +56,18 @@ class Progress:
     unit: str  # kg | km | s | sets_per_week | sessions
     basis: str
     lower_is_better: bool = False
+    # Metas de peso (5.3): o peso de quando a meta começou, para medir o caminho
+    # percorrido até o alvo (e não a razão entre dois pesos).
+    start: float | None = None
+    # Manutenção de peso: a meta é ficar a até `tolerance` do alvo.
+    tolerance: float | None = None
 
     @property
     def achieved(self) -> bool:
         if self.current is None:
             return False
+        if self.tolerance is not None:
+            return abs(self.current - self.target) <= self.tolerance + 1e-9
         if self.lower_is_better:
             return self.current <= self.target
         return self.current >= self.target
@@ -70,6 +77,15 @@ class Progress:
         """De 0 a 1 (atingido = 1). Sem valor medido, nulo: não vira zero."""
         if self.current is None:
             return None
+        if self.tolerance is not None:
+            return 1.0 if self.achieved else 0.0
+        if self.start is not None:
+            if self.achieved:
+                return 1.0
+            # Do peso inicial até o alvo; andar para o lado errado conta zero.
+            path = self.start - self.target if self.lower_is_better else self.target - self.start
+            done = self.start - self.current if self.lower_is_better else self.current - self.start
+            return 0.0 if path <= 0 else max(0.0, min(1.0, round(done / path, 4)))
         if self.lower_is_better:
             return 1.0 if self.current <= 0 else min(1.0, round(self.target / self.current, 4))
         return min(1.0, round(self.current / self.target, 4)) if self.target > 0 else None
@@ -84,12 +100,34 @@ class GoalFacts:
     longest_run_m: int | None = None  # run_distance
     best_pace_s_per_km: float | None = None  # run_time: corridas da distância ou mais
     week_sessions: int | None = None  # frequency: nesta semana
+    latest_weight_kg: float | None = None  # peso (5.3): o último registrado
+    latest_weight_on: date | None = None
+    start_weight_kg: float | None = None  # o de quando a meta começou
 
 
 def progress(kind: str, target: dict, facts: GoalFacts, start: date) -> Progress | None:
-    """Progresso medido pelos registros desde o início da meta. Peso, hábito e metas
-    livres não têm como ser medidos aqui (sem dado, sem número inventado): nulo."""
+    """Progresso medido pelos registros desde o início da meta. Hábito e metas livres
+    não têm como ser medidos aqui (sem dado, sem número inventado): nulo."""
     since = start.strftime("%d/%m/%Y")
+    if kind in ("weight_loss", "weight_gain", "weight_maintenance"):
+        on = facts.latest_weight_on
+        basis = "último peso registrado" if on is None else f"peso registrado em {on:%d/%m/%Y}"
+        if kind == "weight_maintenance":
+            return Progress(
+                facts.latest_weight_kg,
+                float(target["target_weight_kg"]),
+                "kg",
+                basis,
+                tolerance=float(target["tolerance_kg"]),
+            )
+        return Progress(
+            facts.latest_weight_kg,
+            float(target["target_weight_kg"]),
+            "kg",
+            basis,
+            lower_is_better=kind == "weight_loss",
+            start=facts.start_weight_kg,
+        )
     match kind:
         case "strength":
             return Progress(

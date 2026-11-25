@@ -80,7 +80,9 @@
 | GET ✅ | `/nutrition/daily?date` | as refeições do dia (no fuso do perfil; sem `date`, hoje) e os totais (fibras nulas quando nada tem fibra registrada) |
 | GET ✅ | `/nutrition/summary?from&to` | cada dia (refeições, totais e a meta que valia) e a média dos dias com refeição; até 92 dias, padrão os últimos 7 (ADR-059) |
 | GET/PUT ✅ | `/nutrition/targets` | `{current, history, limits}`. PUT `{kcal, protein_g, carbs_g, fat_g}` (inteiros, opcionais; todos nulos = sem metas) vale a partir de hoje no fuso do perfil e substitui outra do mesmo dia; exige `health_data` (403). Limites de segurança (422): 1.200 a 5.000 kcal (piso de 1.500 para o sexo masculino), proteína 20–300 g, carboidratos 20–800 g, gordura 20–250 g, sem meta de calorias para menores de 18 anos e macronutrientes a até 15 % da meta de calorias (ADR-059). `/nutrition/daily` traz `targets`, a meta do dia |
-| CRUD | `/body-measurements` | peso e medidas |
+| GET ✅ | `/body-measurement-options` | as medidas, unidades, limites e `estimate` (público) |
+| GET/POST · GET/PATCH/DELETE ✅ | `/body-measurements` · `/body-measurements/{id}` | peso e medidas (ADR-060): `measured_at` (sem fuso = fuso do perfil; não no futuro), `weight_kg` (20–350), `body_fat_pct` (2–75, estimativa), `waist_cm`, `hip_cm`, `chest_cm`, `arm_cm`, `thigh_cm`, `calf_cm` (10–250), `notes`; ao menos uma medida, também na edição (`null` limpa). Exige `health_data` (403). Lista: `from`/`to`, padrão 90 dias, até 730, mais novas antes; a resposta traz `local_time` |
+| GET ✅ | `/body-measurements/trend?metric&from&to` | um ponto por dia (o último), `average_7d`, `first`, `last`, `change`, `min`, `max` e `weekly_rate` (reta de mínimos quadrados; nulo com menos de 3 pontos ou 14 dias) |
 | GET | `/analytics/body?metric&from&to` | tendência |
 
 ### Privacidade
@@ -322,5 +324,5 @@ Metodologia versionada (`stimulus_methodologies`, uma ativa; v1 no DATA_MODEL §
   - tempo de corrida: o melhor pace em corridas da distância ou mais, vezes a distância (menor é melhor);
   - frequência: treinos e atividades nesta semana (da modalidade, se a meta tiver).
 
-  Sem registro que meça, `current` e `ratio` são nulos (nunca 0 inventado). Peso, hábito e livre: `progress` nulo. A API não marca a meta como alcançada: o app convida a pessoa a marcar.
+  Sem registro que meça, `current` e `ratio` são nulos (nunca 0 inventado). Peso (5.3, ADR-060): o último peso registrado; perder e ganhar medem o caminho do peso de quando a meta começou até o alvo, manter mede se está dentro da margem (`tolerance` na resposta); sem peso registrado, `current` nulo. Hábito e livre: `progress` nulo. A API não marca a meta como alcançada: o app convida a pessoa a marcar.
 - `last_record`: o registro mais recente das 26 semanas (`modality`, `title` — nome do treino na musculação —, `day`, `duration_s`, `distance_m`, `sets`, `volume_kg`), ou nulo.

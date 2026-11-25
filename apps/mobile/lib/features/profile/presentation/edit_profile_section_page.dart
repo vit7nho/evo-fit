@@ -124,10 +124,11 @@ class _EditProfileSectionPageState
       builder: (context) => AlertDialog(
         title: const Text('Revogar dados de saúde?'),
         content: const Text(
-          'Suas limitações e observações, as metas de peso e a frequência '
-          'cardíaca das atividades serão apagadas (o resto das atividades fica). '
-          'Os planos continuam, sem a menção à limitação. Você pode informar '
-          'esses dados de novo quando quiser.',
+          'Suas limitações e observações, as metas de peso, o peso e as '
+          'medidas, as refeições, as metas nutricionais e a frequência '
+          'cardíaca das atividades serão apagados (o resto das atividades '
+          'fica). Os planos continuam, sem a menção à limitação. Você pode '
+          'informar esses dados de novo quando quiser.',
         ),
         actions: [
           TextButton(

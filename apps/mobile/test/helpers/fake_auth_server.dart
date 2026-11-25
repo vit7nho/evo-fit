@@ -185,6 +185,42 @@ class FakeAuthServer {
   /// Erros de campo que o próximo PUT devolve (422), como a API.
   List<Map<String, String>>? targetsRejection;
 
+  // --- peso e medidas (5.3) ---
+
+  /// Medidas guardadas (como a API devolve) e os corpos enviados.
+  final measurements = <Map<String, Object?>>[];
+  final measurementBodies = <Map<String, Object?>>[];
+
+  /// Ritmo por semana que a tendência devolve (a API calcula pela reta).
+  double? trendWeeklyRate;
+
+  static const measurementOptions = [
+    {
+      'metric': 'weight_kg',
+      'label': 'Peso',
+      'unit': 'kg',
+      'min': 20,
+      'max': 350,
+      'estimate': false,
+    },
+    {
+      'metric': 'body_fat_pct',
+      'label': 'Gordura corporal',
+      'unit': '%',
+      'min': 2,
+      'max': 75,
+      'estimate': true,
+    },
+    {
+      'metric': 'waist_cm',
+      'label': 'Cintura',
+      'unit': 'cm',
+      'min': 10,
+      'max': 250,
+      'estimate': false,
+    },
+  ];
+
   static Map<String, Object?> catalogFood(
     String id,
     String name, {
@@ -1206,6 +1242,38 @@ class FakeAuthServer {
         _authorized(options)
             ? _saveMeal(null, body.cast<String, Object?>())
             : _invalidToken(),
+      ('GET', '/body-measurement-options') => FakeHttpAdapter.json(
+        200,
+        measurementOptions,
+      ),
+      ('GET', '/body-measurements') =>
+        _authorized(options)
+            ? FakeHttpAdapter.json(
+                200,
+                [...measurements]..sort(
+                  (a, b) => (b['local_time']! as String).compareTo(
+                    a['local_time']! as String,
+                  ),
+                ),
+              )
+            : _invalidToken(),
+      ('GET', '/body-measurements/trend') =>
+        _authorized(options)
+            ? _trend(options.queryParameters['metric'] as String)
+            : _invalidToken(),
+      ('POST', '/body-measurements') =>
+        _authorized(options)
+            ? _saveMeasurement(null, body.cast<String, Object?>())
+            : _invalidToken(),
+      (final method, final path) when path.startsWith('/body-measurements/') =>
+        _authorized(options)
+            ? (method == 'DELETE'
+                  ? _deleteMeasurement(path.split('/').last)
+                  : _saveMeasurement(
+                      path.split('/').last,
+                      body.cast<String, Object?>(),
+                    ))
+            : _invalidToken(),
       ('GET', '/nutrition/targets') =>
         _authorized(options) ? _targets() : _invalidToken(),
       ('PUT', '/nutrition/targets') =>
@@ -2073,6 +2141,61 @@ class FakeAuthServer {
       ]),
       'meals': ofDay,
       'targets': nutritionTargets,
+    });
+  }
+
+  ResponseBody _saveMeasurement(String? id, Map<String, Object?> body) {
+    measurementBodies.add(body);
+    if (!consents.contains('health_data')) {
+      return _problem(403, 'consent_required', 'Autorize os dados de saúde.');
+    }
+    final saved = <String, Object?>{
+      'id': id ?? 'medida-${measurements.length + 1}',
+      'measured_at': body['measured_at'],
+      'local_time': body['measured_at'],
+      for (final m in measurementOptions) m['metric']! as String: null,
+      ...{
+        for (final e in body.entries)
+          if (e.key != 'measured_at') e.key: e.value,
+      },
+    };
+    measurements
+      ..removeWhere((m) => m['id'] == saved['id'])
+      ..add(saved);
+    return FakeHttpAdapter.json(id == null ? 201 : 200, saved);
+  }
+
+  ResponseBody _deleteMeasurement(String id) {
+    measurements.removeWhere((m) => m['id'] == id);
+    return ResponseBody.fromString('', 204);
+  }
+
+  /// Como a API: um ponto por dia (o último), a variação e o ritmo.
+  ResponseBody _trend(String metric) {
+    final byDay = <String, double>{};
+    final ordered = [...measurements]
+      ..sort(
+        (a, b) =>
+            (a['local_time']! as String).compareTo(b['local_time']! as String),
+      );
+    for (final m in ordered) {
+      if (m[metric] case final num value) {
+        byDay[(m['local_time']! as String).substring(0, 10)] = value.toDouble();
+      }
+    }
+    final days = byDay.keys.toList()..sort();
+    final points = [
+      for (final d in days)
+        {'date': d, 'value': byDay[d], 'average_7d': byDay[d]},
+    ];
+    final option = measurementOptions.firstWhere((o) => o['metric'] == metric);
+    return FakeHttpAdapter.json(200, {
+      'metric': metric,
+      'label': option['label'],
+      'unit': option['unit'],
+      'points': points,
+      'change': points.isEmpty ? null : byDay[days.last]! - byDay[days.first]!,
+      'weekly_rate': trendWeeklyRate,
     });
   }
 

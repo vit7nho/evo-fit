@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.errors import AppError, FieldValidationError
 from app.modules.activities.models import Activity, EnduranceDetails
+from app.modules.body.models import BodyMeasurement
 from app.modules.goals.kinds import HEALTH_KINDS
 from app.modules.goals.models import Goal
 from app.modules.nutrition.models import Meal, NutritionTarget
@@ -171,6 +172,8 @@ class ProfileService:
             self.db.execute(delete(Meal).where(Meal.user_id == user.id))
             # E as metas nutricionais (5.2).
             self.db.execute(delete(NutritionTarget).where(NutritionTarget.user_id == user.id))
+            # E o peso e as medidas (5.3).
+            self.db.execute(delete(BodyMeasurement).where(BodyMeasurement.user_id == user.id))
             # E, nos planos, os ajustes que vieram das limitações (as sessões ficam).
             for plan in self.db.scalars(
                 select(TrainingPlan).where(TrainingPlan.user_id == user.id)

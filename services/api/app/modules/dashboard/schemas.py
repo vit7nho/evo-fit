@@ -104,6 +104,8 @@ class ProgressOut(BaseModel):
     lower_is_better: bool
     # De onde vem o número, em texto (ex.: "corrida mais longa desde 01/10/2026").
     basis: str
+    # Manutenção de peso (5.3): a margem em torno do alvo; nula nos outros tipos.
+    tolerance: float | None = None
 
 
 class GoalCardOut(BaseModel):

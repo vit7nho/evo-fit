@@ -101,6 +101,7 @@ Restrição: `kind in (drop, rest_pause, cluster)` ⇔ `parent_set_id IS NOT NUL
 **nutrition_targets**: `user_id`, `valid_from`, `kcal`, `protein_g`, `carbs_g`, `fat_g` (todos opcionais; histórico por `valid_from`).
 > **Implementado na 5.2 (migração 0016, ADR-059):** valores inteiros; único por (`user_id`, `valid_from`); `valid_from` é o dia no fuso do perfil; uma linha com tudo nulo = sem metas a partir dela. Revogar `health_data` apaga as metas.
 **body_measurements**: `user_id`, `measured_at`, `weight_kg`, `body_fat_pct` (rotulado como estimativa), `waist_cm`, `hip_cm`, `chest_cm`, `arm_cm`, `thigh_cm`, `calf_cm`, `notes`. Todos opcionais, mas ao menos um valor obrigatório.
+> **Implementado na 5.3 (migração 0017, ADR-060):** CHECK de ao menos uma medida; índice (`user_id`, `measured_at`); `notes` até 300 caracteres. Revogar `health_data` apaga as medidas.
 
 ## 6. Metodologia de estímulo muscular (v1)
 

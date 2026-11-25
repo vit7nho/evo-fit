@@ -103,6 +103,13 @@ String _amount(String unit, double value) => switch (unit) {
 String goalProgressText(GoalProgress p) {
   final current = p.current;
   if (current == null) return 'Ainda sem registro que meça esta meta';
+  if (p.tolerance case final margin?) {
+    final range =
+        'alvo ${formatDecimal(p.target)} ± ${_amount(p.unit, margin)}';
+    return p.achieved
+        ? 'Dentro da faixa: ${_amount(p.unit, current)} ($range)'
+        : '${_amount(p.unit, current)} ($range)';
+  }
   if (p.achieved) return 'Alvo atingido: ${_amount(p.unit, current)}';
   if (p.lowerIsBetter) {
     return '${_amount(p.unit, current)} (alvo ${_amount(p.unit, p.target)})';

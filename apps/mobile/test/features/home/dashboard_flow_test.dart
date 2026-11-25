@@ -380,6 +380,24 @@ void main() {
         goalProgressText(p(1450, 1500, 's', achieved: true, lower: true)),
         'Alvo atingido: 24:10',
       );
+      // Peso (5.3): perder mostra o alvo; manter, a faixa.
+      expect(
+        goalProgressText(p(76, 70, 'kg', lower: true)),
+        '76 kg (alvo 70 kg)',
+      );
+      GoalProgress keep(num current, {required bool inside}) =>
+          GoalProgress.fromJson({
+            ..._progress(current, 72, 'kg', achieved: inside),
+            'tolerance': 1.5,
+          });
+      expect(
+        goalProgressText(keep(73.5, inside: true)),
+        'Dentro da faixa: 73,5 kg (alvo 72 ± 1,5 kg)',
+      );
+      expect(
+        goalProgressText(keep(74, inside: false)),
+        '74 kg (alvo 72 ± 1,5 kg)',
+      );
     });
   });
 }

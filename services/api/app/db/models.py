@@ -5,6 +5,7 @@ from app.modules.activities.models import Activity, CyclingDetails, EnduranceDet
 from app.modules.ai_coach.models import AiConversation, AiMessage, AiRunLog, ChangeProposal
 from app.modules.analytics.models import StimulusMethodology
 from app.modules.auth.models import RefreshToken
+from app.modules.body.models import BodyMeasurement
 from app.modules.exercises.models import Exercise, ExerciseMuscle, MuscleGroupRow
 from app.modules.goals.models import Goal
 from app.modules.nutrition.models import Food, Meal, MealItem, NutritionTarget
@@ -19,6 +20,7 @@ __all__ = [
     "AiMessage",
     "AiRunLog",
     "Base",
+    "BodyMeasurement",
     "ChangeProposal",
     "CyclingDetails",
     "EnduranceDetails",

@@ -5,6 +5,7 @@ from app.modules.activities.router import router as activities_router
 from app.modules.ai_coach.router import router as ai_router
 from app.modules.analytics.router import router as analytics_router
 from app.modules.auth.router import router as auth_router
+from app.modules.body.router import router as body_router
 from app.modules.dashboard.router import router as dashboard_router
 from app.modules.exercises.router import router as exercises_router
 from app.modules.goals.router import router as goals_router
@@ -30,3 +31,4 @@ api_router.include_router(analytics_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(ai_router)
 api_router.include_router(nutrition_router)
+api_router.include_router(body_router)

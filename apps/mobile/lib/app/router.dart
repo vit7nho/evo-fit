@@ -20,6 +20,9 @@ import '../features/history/presentation/exercise_history_page.dart';
 import '../features/history/presentation/history_page.dart';
 import '../features/history/presentation/workout_detail_page.dart';
 import '../features/home/presentation/home_page.dart';
+import '../features/measurements/domain/measurements.dart';
+import '../features/measurements/presentation/measurement_form_page.dart';
+import '../features/measurements/presentation/measurements_page.dart';
 import '../features/nutrition/presentation/food_picker_page.dart';
 import '../features/nutrition/presentation/meal_form_page.dart';
 import '../features/nutrition/presentation/nutrition_page.dart';
@@ -271,6 +274,19 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'metas',
             pageBuilder: (context, state) => _page(state, const TargetsPage()),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.measurements,
+        pageBuilder: (context, state) => _page(state, const MeasurementsPage()),
+        routes: [
+          GoRoute(
+            path: 'registro',
+            pageBuilder: (context, state) => _page(
+              state,
+              MeasurementFormPage(measurement: state.extra as Measurement?),
+            ),
           ),
         ],
       ),

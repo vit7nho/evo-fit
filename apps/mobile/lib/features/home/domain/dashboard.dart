@@ -228,6 +228,7 @@ class GoalProgress {
     required this.basis,
     this.current,
     this.ratio,
+    this.tolerance,
   });
 
   factory GoalProgress.fromJson(Map<String, dynamic> json) => GoalProgress(
@@ -238,7 +239,11 @@ class GoalProgress {
     achieved: json['achieved'] as bool,
     lowerIsBetter: json['lower_is_better'] as bool,
     basis: json['basis'] as String,
+    tolerance: (json['tolerance'] as num?)?.toDouble(),
   );
+
+  /// Manutenção de peso (5.3): a margem em torno do alvo.
+  final double? tolerance;
 
   final double? current;
   final double target;

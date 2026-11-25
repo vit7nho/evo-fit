@@ -25,6 +25,7 @@ from app.modules.analytics.service import (
     weekly_target,
 )
 from app.modules.auth.dependencies import CurrentUser
+from app.modules.body.service import MeasurementService
 from app.modules.dashboard import rules
 from app.modules.dashboard.schemas import (
     BodyFocusOut,
@@ -207,6 +208,18 @@ class GoalMeasurer:
                 return rules.GoalFacts(
                     week_sessions=sum(1 for e in week if modality in (None, e.modality))
                 )
+            case "weight_loss" | "weight_gain" | "weight_maintenance":
+                body = MeasurementService(self.db)
+                latest = body.latest_weight(self.user)
+                if latest is None:
+                    return rules.GoalFacts()
+                weight, at = latest
+                return rules.GoalFacts(
+                    latest_weight_kg=weight,
+                    latest_weight_on=at.astimezone(tz(self.user)).date(),
+                    # O peso até o fim do dia em que a meta começou.
+                    start_weight_kg=body.weight_near(self.user, since + timedelta(days=1)),
+                )
         return rules.GoalFacts()
 
     def _runs(self, column, since: datetime):
@@ -284,6 +297,7 @@ def goal_card(goal: Goal, facts: rules.GoalFacts) -> GoalCardOut:
             achieved=measured.achieved,
             lower_is_better=measured.lower_is_better,
             basis=measured.basis,
+            tolerance=measured.tolerance,
         ),
     )
 

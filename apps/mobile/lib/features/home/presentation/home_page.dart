@@ -212,6 +212,16 @@ class HomePage extends ConsumerWidget {
             EvoEntrance(
               delay: EvoEntrance.stagger(3),
               child: _LinkCard(
+                icon: Icons.monitor_weight_outlined,
+                title: 'Peso e medidas',
+                subtitle: 'Peso, gordura e circunferências, com a tendência',
+                onTap: () => go(AppRoutes.measurements),
+              ),
+            ),
+            const SizedBox(height: EvoSpace.md),
+            EvoEntrance(
+              delay: EvoEntrance.stagger(3),
+              child: _LinkCard(
                 icon: Icons.directions_run_rounded,
                 title: 'Atividades',
                 subtitle: 'Corrida, caminhada, ciclismo e natação',
