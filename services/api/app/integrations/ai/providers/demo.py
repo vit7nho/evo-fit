@@ -61,6 +61,11 @@ def minutes(seconds: float | None) -> str:
     return f"{round((seconds or 0) / 60)} min"
 
 
+def took(seconds: float | None) -> str:
+    """ "45 min, " antes do resto da linha; vazio sem duração registrada (0 min)."""
+    return f"{minutes(seconds)}, " if round((seconds or 0) / 60) else ""
+
+
 def pace(seconds: int | None) -> str:
     return "—" if not seconds else f"{seconds // 60}:{seconds % 60:02d} /km"
 
@@ -304,7 +309,7 @@ def _session_lines(detail: dict[str, Any], intro: str) -> list[str]:
     """O resumo de um treino (de get_session_detail), série por série."""
     lines = [
         f"{intro} **{detail.get('name') or 'Treino'}**, em "
-        f"{day(detail.get('started_at'))}: {minutes(detail.get('duration_s'))}, "
+        f"{day(detail.get('started_at'))}: {took(detail.get('duration_s'))}"
         f"{plural(detail.get('sets', 0), 'série válida', 'séries válidas')} e "
         f"{num(detail.get('volume_kg', 0))} kg de volume."
     ]
@@ -359,12 +364,13 @@ def session_focus(t: Turn) -> Step:
         if before is None:
             lines.append("\nNão há um treino anterior registrado para comparar.")
         else:
+            seconds = before.get("duration_s")
             lines.append(
                 f"\nNo treino anterior ({before.get('name') or 'Treino'}, "
                 f"{day(before['started_at'])}): "
                 f"{plural(before.get('sets') or 0, 'série válida', 'séries válidas')} e "
-                f"{num(before.get('volume_kg') or 0)} kg de volume, em "
-                f"{minutes(before.get('duration_s'))}."
+                f"{num(before.get('volume_kg') or 0)} kg de volume"
+                + (f", em {minutes(seconds)}." if took(seconds) else ".")
             )
     return "\n".join(lines)
 
@@ -437,7 +443,7 @@ def week_totals(t: Turn) -> Step:
         lines.append(f"\n**Musculação:** {plural(len(items), 'treino', 'treinos')}")
         lines += [
             f"- {day(i['started_at'])}, {i.get('name') or 'Treino'}: "
-            f"{minutes(i.get('duration_s'))}, "
+            f"{took(i.get('duration_s'))}"
             f"{plural(i.get('sets') or 0, 'série válida', 'séries válidas')}, "
             f"{num(i.get('volume_kg') or 0)} kg de volume"
             for i in items

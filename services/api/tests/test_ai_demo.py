@@ -60,6 +60,8 @@ def test_numbers_are_written_the_brazilian_way() -> None:
     assert demo.plural(0.3, "série", "séries") == "0,3 série"
     assert demo.pace(355) == "5:55 /km"
     assert demo.minutes(2400) == "40 min"
+    assert demo.took(2400) == "40 min, "
+    assert demo.took(0) == demo.took(None) == demo.took(20) == ""
     assert demo.day("2026-11-01T18:30-03:00") == "01/11"
 
 
