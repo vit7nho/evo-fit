@@ -16,7 +16,7 @@ from app.core.errors import AppError, FieldValidationError, NotFoundError
 from app.modules.exercises.models import Exercise
 from app.modules.training import catalog
 from app.modules.training.models import ExerciseGroup, TemplateItem, WorkoutTemplate
-from app.modules.training.schemas import ItemIn, TemplateIn
+from app.modules.training.schemas import GroupIn, ItemIn, PlannedSet, TemplateIn
 from app.modules.users.models import User
 
 logger = logging.getLogger(__name__)
@@ -150,7 +150,9 @@ class TemplateService:
         self.db.commit()
         return self.list(user)
 
-    def _fill(self, user: User, template: WorkoutTemplate, data: TemplateIn) -> None:
+    def check(self, user: User, data: TemplateIn) -> dict[uuid.UUID, Exercise]:
+        """Todas as regras de uma ficha, sem gravar nada (também usado pelas propostas
+        da IA, ADR-053). Devolve os exercícios usados."""
         _check_groups(data)
         exercises = self._visible_exercises(user, {item.exercise_id for item in data.items})
         for index, item in enumerate(data.items):
@@ -160,6 +162,10 @@ class TemplateService:
                     f"items.{index}.exercise_id", "Exercício não encontrado."
                 )
             _check_sets(index, item, exercise)
+        return exercises
+
+    def _fill(self, user: User, template: WorkoutTemplate, data: TemplateIn) -> None:
+        self.check(user, data)
 
         template.name = data.name
         template.notes = data.notes or None
@@ -190,3 +196,25 @@ class TemplateService:
             )
         )
         return {e.id: e for e in rows}
+
+
+def template_input(template: WorkoutTemplate) -> TemplateIn:
+    """A ficha gravada no formato de entrada (o mesmo que o editor envia): base para
+    alterar uma parte e regravar tudo pelas regras de sempre."""
+    groups = sorted(template.groups, key=lambda g: g.position)
+    index = {g.id: i for i, g in enumerate(groups)}
+    return TemplateIn(
+        name=template.name,
+        notes=template.notes,
+        groups=[GroupIn(kind=g.kind, rest_after_s=g.rest_after_s) for g in groups],  # type: ignore[arg-type]
+        items=[
+            ItemIn(
+                exercise_id=item.exercise_id,
+                planned_sets=[PlannedSet.model_validate(s) for s in item.planned_sets],
+                rest_s=item.rest_s,
+                notes=item.notes,
+                group=None if item.group_id is None else index[item.group_id],
+            )
+            for item in sorted(template.items, key=lambda i: i.position)
+        ],
+    )

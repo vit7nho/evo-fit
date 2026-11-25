@@ -78,11 +78,30 @@ class MessageCreate(_Closed):
     content: Question
 
 
+class ProposalOut(BaseModel):
+    id: uuid.UUID
+    kind: str
+    summary: str
+    details: list[str]
+    rationale: str
+    status: Literal["pending", "accepted", "rejected", "expired", "failed"]
+    # Por que falhou; nulo nos outros casos.
+    result: str | None
+    # A ficha ou a meta afetada, para o app abrir depois de aplicar.
+    template_id: uuid.UUID | None
+    goal_id: uuid.UUID | None
+    expires_at: datetime
+    decided_at: datetime | None
+    created_at: datetime
+
+
 class MessageOut(BaseModel):
     id: uuid.UUID
     role: Literal["user", "assistant"]
     content: str
     tools_used: list[str]
+    # Propostas que esta resposta trouxe (só nas respostas da IA).
+    proposals: list[ProposalOut] = []
     created_at: datetime
 
 

@@ -248,4 +248,87 @@ void main() {
     expect(CoachScope.of('period'), CoachScope.period);
     expect(CoachScope.of('desconhecido'), CoachScope.global);
   });
+
+  group('propostas (4.6)', () {
+    Future<FakeAuthServer> withProposal(WidgetTester tester) async {
+      final server = await _pumpSignedIn(
+        tester,
+        setUp: (s) => s
+          ..coachSimulated = false
+          ..coachReplies.add((
+            'Sugeri a mesa flexora; confirme abaixo.',
+            ['get_templates', 'prepare_change_proposal'],
+          ))
+          ..nextProposals.add(FakeAuthServer.proposal('p1')),
+      );
+      await _newConversation(tester);
+      await _type(tester, 'Adicione um exercício de posterior na ficha A');
+      return server;
+    }
+
+    testWidgets('a proposta aparece com o motivo e só aplica ao confirmar', (
+      tester,
+    ) async {
+      final server = await withProposal(tester);
+
+      expect(find.text('Proposta · Aguardando sua resposta'), findsOneWidget);
+      expect(
+        find.text('Acrescentar Mesa flexora à ficha “Treino A”'),
+        findsOneWidget,
+      );
+      expect(find.text('Séries: 3 séries de 10 a 12 reps'), findsOneWidget);
+      expect(
+        find.text('Motivo: Posterior de coxa sem nenhuma série em 30 dias.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Consultou: fichas de treino e proposta de alteração'),
+        findsOneWidget,
+      );
+      expect(server.proposalCalls, isEmpty);
+
+      await _tap(tester, find.text('Confirmar'));
+      expect(server.proposalCalls, ['accept p1']);
+      expect(find.text('Proposta · Aplicada'), findsOneWidget);
+      expect(find.text('Alteração aplicada.'), findsOneWidget);
+      expect(find.text('Confirmar'), findsNothing);
+      expect(find.text('Ver ficha'), findsOneWidget);
+    });
+
+    testWidgets('recusar não muda nada e fecha a proposta', (tester) async {
+      final server = await withProposal(tester);
+      await _tap(tester, find.text('Recusar'));
+
+      expect(server.proposalCalls, ['reject p1']);
+      expect(find.text('Proposta · Recusada'), findsOneWidget);
+      expect(find.text('Proposta recusada. Nada mudou.'), findsOneWidget);
+      expect(find.text('Confirmar'), findsNothing);
+      expect(find.text('Ver ficha'), findsNothing);
+    });
+
+    testWidgets('ficha mudada depois: avisa e mostra que não foi aplicada', (
+      tester,
+    ) async {
+      final server = await withProposal(tester);
+      server.proposalErrors['p1'] = FakeAuthServer.problem(
+        409,
+        'proposal_stale',
+        'A ficha foi alterada depois da sugestão, então nada foi aplicado. '
+            'Peça à IA uma sugestão nova.',
+      );
+      await _tap(tester, find.text('Confirmar'));
+
+      expect(
+        find.textContaining('A ficha foi alterada depois da sugestão, então'),
+        findsOneWidget,
+      );
+      // A conversa recarrega com o estado da API.
+      expect(find.text('Proposta · Não aplicada'), findsOneWidget);
+      expect(
+        find.text('A ficha foi alterada depois da sugestão.'),
+        findsOneWidget,
+      );
+      expect(find.text('Confirmar'), findsNothing);
+    });
+  });
 }

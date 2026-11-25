@@ -69,7 +69,9 @@ class GoalService:
             raise NotFoundError("Meta não encontrada.")
         return goal
 
-    def create(self, user: User, data: GoalCreate) -> Goal:
+    def check(self, user: User, data: GoalCreate) -> tuple[kinds.GoalKind, dict, date]:
+        """Todas as regras de uma meta nova, sem gravar nada (também usado pelas propostas
+        da IA, ADR-053). Devolve o tipo, o alvo normalizado e o início."""
         kind = kinds.get_kind(data.kind)
         target = kinds.validate_target(kind, data.target)
         self._require_consent(user, kind)
@@ -81,6 +83,10 @@ class GoalService:
             raise FieldValidationError("target_date", "O prazo não pode estar no passado.")
         self._check_target_date(start, data.target_date)
         self._check_limit(user)
+        return kind, target, start
+
+    def create(self, user: User, data: GoalCreate) -> Goal:
+        kind, target, start = self.check(user, data)
 
         goal = Goal(
             user_id=user.id,

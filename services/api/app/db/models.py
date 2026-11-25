@@ -2,7 +2,7 @@
 
 from app.db.base import Base
 from app.modules.activities.models import Activity, CyclingDetails, EnduranceDetails, SwimDetails
-from app.modules.ai_coach.models import AiConversation, AiMessage, AiRunLog
+from app.modules.ai_coach.models import AiConversation, AiMessage, AiRunLog, ChangeProposal
 from app.modules.analytics.models import StimulusMethodology
 from app.modules.auth.models import RefreshToken
 from app.modules.exercises.models import Exercise, ExerciseMuscle, MuscleGroupRow
@@ -18,6 +18,7 @@ __all__ = [
     "AiMessage",
     "AiRunLog",
     "Base",
+    "ChangeProposal",
     "CyclingDetails",
     "EnduranceDetails",
     "Exercise",

@@ -86,3 +86,50 @@ class AiRunLog(UUIDPrimaryKey, Base):
         CheckConstraint(_in("outcome", OUTCOMES), name="outcome_known"),
         Index("ix_ai_run_logs_user_id_created_at", "user_id", "created_at"),
     )
+
+
+PROPOSAL_KINDS = (
+    "template_add_exercise",
+    "template_replace_exercise",
+    "template_adjust_sets",
+    "goal_create",
+)
+PROPOSAL_STATUSES = ("pending", "accepted", "rejected", "expired", "failed")
+
+
+class ChangeProposal(UUIDPrimaryKey, Base):
+    """Alteração sugerida pela IA (AI_DESIGN §7, ADR-053). Nada muda até a pessoa
+    confirmar; ao confirmar, o serviço dono do dado valida tudo de novo."""
+
+    __tablename__ = "change_proposals"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    conversation_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("ai_conversations.id", ondelete="SET NULL")
+    )
+    # A resposta da IA que trouxe a proposta (preenchida quando a resposta é gravada).
+    message_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("ai_messages.id", ondelete="SET NULL")
+    )
+    kind: Mapped[str] = mapped_column(String(32))
+    # A alteração já validada, no formato da ferramenta.
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    # Impressão digital da ficha quando a proposta foi feita: se a ficha mudar antes da
+    # confirmação, a proposta não é aplicada sobre uma versão que a IA não viu.
+    base_hash: Mapped[str | None] = mapped_column(String(64))
+    summary: Mapped[str] = mapped_column(String(200))
+    details: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    rationale: Mapped[str] = mapped_column(String(300))
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    # O que aconteceu ao decidir (ex.: por que falhou).
+    result: Mapped[str | None] = mapped_column(String(300))
+    expires_at: Mapped[datetime]
+    decided_at: Mapped[datetime | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint(_in("kind", PROPOSAL_KINDS), name="kind_known"),
+        CheckConstraint(_in("status", PROPOSAL_STATUSES), name="status_known"),
+        Index("ix_change_proposals_user_id_status", "user_id", "status"),
+        Index("ix_change_proposals_conversation_id", "conversation_id"),
+    )

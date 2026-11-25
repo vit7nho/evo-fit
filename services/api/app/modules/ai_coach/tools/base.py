@@ -6,6 +6,7 @@ usuário autenticado — e os argumentos já validados. O usuário nunca vem do 
 as entradas proíbem campos extras, então um `user_id` nos argumentos é recusado.
 """
 
+import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -28,6 +29,8 @@ class ToolContext:
 
     db: Session
     user: User
+    # A conversa da pergunta (as propostas ficam ligadas a ela); nula fora do chat.
+    conversation_id: uuid.UUID | None = None
 
     @property
     def today(self) -> date:

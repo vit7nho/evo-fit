@@ -1,19 +1,21 @@
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.integrations.ai.factory import build_provider
-from app.modules.ai_coach.models import AiConversation, AiMessage
+from app.modules.ai_coach.models import AiConversation, AiMessage, ChangeProposal
+from app.modules.ai_coach.proposals import ProposalService
 from app.modules.ai_coach.schemas import (
     ConversationCreate,
     ConversationDetail,
     ConversationOut,
     MessageCreate,
     MessageOut,
+    ProposalOut,
     ReplyOut,
 )
 from app.modules.ai_coach.service import AiCoachService, ProviderFactory
@@ -54,14 +56,42 @@ def _conversation(c: AiConversation) -> ConversationOut:
     )
 
 
-def _message(m: AiMessage) -> MessageOut:
+def proposal_out(p: ChangeProposal) -> ProposalOut:
+    target = (p.result or "") if p.status == "accepted" else ""
+    template_id = p.payload.get("template_id")
+    goal_id = target.removeprefix("goal:") if target.startswith("goal:") else None
+    return ProposalOut(
+        id=p.id,
+        kind=p.kind,
+        summary=p.summary,
+        details=p.details,
+        rationale=p.rationale,
+        status=p.status,  # type: ignore[arg-type]
+        result=p.result if p.status == "failed" else None,
+        template_id=uuid.UUID(template_id) if template_id else None,
+        goal_id=uuid.UUID(goal_id) if goal_id else None,
+        expires_at=p.expires_at,
+        decided_at=p.decided_at,
+        created_at=p.created_at,
+    )
+
+
+def _message(m: AiMessage, proposals: list[ChangeProposal] = ()) -> MessageOut:  # type: ignore[assignment]
     return MessageOut(
         id=m.id,
         role=m.role,  # type: ignore[arg-type]
         content=m.content,
         tools_used=m.tools_used,
+        proposals=[proposal_out(p) for p in proposals],
         created_at=m.created_at,
     )
+
+
+def _messages(db: Session, user: CurrentUser, messages: list[AiMessage]) -> list[MessageOut]:
+    by_message: dict[uuid.UUID, list[ChangeProposal]] = {}
+    for p in ProposalService(db).of_messages(user, [m.id for m in messages]):
+        by_message.setdefault(p.message_id, []).append(p)  # type: ignore[arg-type]
+    return [_message(m, by_message.get(m.id, [])) for m in messages]
 
 
 @router.post(
@@ -83,12 +113,12 @@ def list_conversations(user: CurrentUser, service: Service) -> list[Conversation
 
 @router.get("/conversations/{conversation_id}", summary="Uma conversa com as mensagens")
 def get_conversation(
-    conversation_id: uuid.UUID, user: CurrentUser, service: Service
+    conversation_id: uuid.UUID, user: CurrentUser, service: Service, db: DbSession
 ) -> ConversationDetail:
     conversation = service.get(user, conversation_id)
     return ConversationDetail(
         **_conversation(conversation).model_dump(),
-        messages=[_message(m) for m in service.messages(conversation)],
+        messages=_messages(db, user, service.messages(conversation)),
     )
 
 
@@ -110,12 +140,48 @@ def delete_conversation(
     "ai_processing; limites por minuto e por dia)",
 )
 def ask(
-    conversation_id: uuid.UUID, data: MessageCreate, user: CurrentUser, service: Service
+    conversation_id: uuid.UUID,
+    data: MessageCreate,
+    user: CurrentUser,
+    service: Service,
+    db: DbSession,
 ) -> ReplyOut:
     question, answer, simulated = service.ask(user, conversation_id, data.content)
+    _, answered = _messages(db, user, [question, answer])
     return ReplyOut(
         question=_message(question),
-        answer=_message(answer),
+        answer=answered,
         simulated=simulated,
         remaining_today=service.remaining_today(user),
     )
+
+
+# --- propostas (4.6, ADR-053) ---
+
+
+@router.get(
+    "/proposals",
+    summary="Propostas da IA, da mais recente; filtre por status (ex.: pending)",
+)
+def list_proposals(
+    user: CurrentUser,
+    db: DbSession,
+    status_filter: Annotated[
+        Literal["pending", "accepted", "rejected", "expired", "failed"] | None,
+        Query(alias="status"),
+    ] = None,
+) -> list[ProposalOut]:
+    return [proposal_out(p) for p in ProposalService(db).list(user, status_filter)]
+
+
+@router.post(
+    "/proposals/{proposal_id}/accept",
+    summary="Confirma a proposta: valida de novo e aplica pelo serviço da ficha ou da meta",
+)
+def accept_proposal(proposal_id: uuid.UUID, user: CurrentUser, db: DbSession) -> ProposalOut:
+    return proposal_out(ProposalService(db).accept(user, proposal_id))
+
+
+@router.post("/proposals/{proposal_id}/reject", summary="Recusa a proposta; nada muda")
+def reject_proposal(proposal_id: uuid.UUID, user: CurrentUser, db: DbSession) -> ProposalOut:
+    return proposal_out(ProposalService(db).reject(user, proposal_id))

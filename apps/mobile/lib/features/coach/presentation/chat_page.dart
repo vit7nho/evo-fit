@@ -15,6 +15,7 @@ import '../../profile/domain/profile.dart';
 import '../application/coach_controller.dart';
 import '../domain/coach.dart';
 import 'open_coach.dart';
+import 'proposal_card.dart';
 
 /// Uma conversa com o assistente: mensagens, perguntas sugeridas e o campo de envio.
 class ChatPage extends ConsumerStatefulWidget {
@@ -141,7 +142,11 @@ class _Messages extends StatelessWidget {
           suggestions: suggestionsFor(conversation.scope),
           onTap: onSuggestion,
         ),
-      for (final message in state.messages) _Bubble(message: message),
+      for (final message in state.messages) ...[
+        _Bubble(message: message),
+        for (final proposal in message.proposals)
+          ProposalCard(conversationId: conversation.id, proposal: proposal),
+      ],
       if (state.pending case final question?) ...[
         _Bubble(
           message: ChatMessage(

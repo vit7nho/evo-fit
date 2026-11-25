@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
-CURRENT = "coach.v1"
+CURRENT = "coach.v2"
 
 
 @dataclass(frozen=True)

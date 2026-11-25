@@ -28,7 +28,7 @@ from app.integrations.ai.provider import LLMProvider, Message
 from app.modules.activities.models import Activity
 from app.modules.ai_coach import orchestrator, prompts
 from app.modules.ai_coach.context import context_card
-from app.modules.ai_coach.models import AiConversation, AiMessage, AiRunLog
+from app.modules.ai_coach.models import AiConversation, AiMessage, AiRunLog, ChangeProposal
 from app.modules.ai_coach.schemas import REF_MODELS, ConversationCreate
 from app.modules.ai_coach.tools.base import ToolContext
 from app.modules.analytics.service import tz
@@ -306,7 +306,7 @@ class AiCoachService:
             provider_name = provider.name
             result = orchestrator.run(
                 provider,
-                ToolContext(self.db, user),
+                ToolContext(self.db, user, conversation.id),
                 system=system,
                 history=history,
                 question=question,
@@ -315,6 +315,8 @@ class AiCoachService:
                 state=state,
             )
         except ProviderError as error:
+            # Propostas criadas nesta rodada saem junto com a resposta que não veio.
+            self.db.rollback()
             # A pergunta não é gravada: a conversa fica como estava e dá para repetir.
             outcome = (
                 "rate_limited"
@@ -355,6 +357,15 @@ class AiCoachService:
             created_at=now + timedelta(microseconds=1),
         )
         self.db.add_all([asked, answered])
+        self.db.flush()
+        # As propostas desta rodada ficam presas à resposta que as apresentou.
+        for proposal in self.db.scalars(
+            select(ChangeProposal).where(
+                ChangeProposal.conversation_id == conversation.id,
+                ChangeProposal.message_id.is_(None),
+            )
+        ):
+            proposal.message_id = answered.id
         conversation.updated_at = now
         if (
             not previous

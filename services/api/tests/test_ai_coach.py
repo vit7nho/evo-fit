@@ -157,7 +157,7 @@ def test_last_session_is_answered_with_the_tool_data(
     # Registro da execução: metadados, nunca conteúdo.
     [run] = runs(db)
     assert (run.outcome, run.provider, run.model) == ("ok", "fake", "fake-v1")
-    assert (run.prompt_version, run.prompt_hash) == ("coach.v1", prompts.load().hash)
+    assert (run.prompt_version, run.prompt_hash) == ("coach.v2", prompts.load().hash)
     assert (run.input_tokens, run.output_tokens, run.iterations) == (250, 60, 2)
     assert [(t["name"], t["ok"]) for t in run.tool_calls] == [("get_workout_history", True)]
     assert run.unverified_numbers == 0
@@ -497,7 +497,8 @@ def test_conversations_are_private_and_deletable(
 
 def test_prompt_is_versioned() -> None:
     prompt = prompts.load()
-    assert prompt.version == "coach.v1"
+    assert prompt.version == "coach.v2"
+    assert prompts.load("coach.v1").hash != prompt.hash  # o v1 continua no repositório
     assert len(prompt.hash) == 16
     for rule in ("somente", "ainda não há registros", "estimativa", "profissional de saúde"):
         assert rule in prompt.text

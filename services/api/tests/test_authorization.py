@@ -14,9 +14,15 @@ import jwt
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.modules.ai_coach import proposals
+from app.modules.ai_coach.tools.base import ToolContext
 from app.modules.auth import tokens
+from app.modules.training.schemas import PlannedSet
+from app.modules.users.models import User
 from tests.conftest import Clock
 from tests.test_activities import RUN
 from tests.test_exercises import CUSTOM
@@ -108,6 +114,9 @@ PROTECTED: dict[tuple[str, str], dict | None] = {
     ("GET", "/api/v1/ai/conversations/{conversation_id}"): None,
     ("DELETE", "/api/v1/ai/conversations/{conversation_id}"): None,
     ("POST", "/api/v1/ai/conversations/{conversation_id}/messages"): {"content": "Oi"},
+    ("GET", "/api/v1/ai/proposals"): None,
+    ("POST", "/api/v1/ai/proposals/{proposal_id}/accept"): None,
+    ("POST", "/api/v1/ai/proposals/{proposal_id}/reject"): None,
 }
 
 # Operações sobre um registro identificado na URL: com o id de outra conta, só 404.
@@ -230,6 +239,7 @@ def snapshot(client: TestClient, headers: dict[str, str], ids: dict) -> dict:
         f"{API}/training-plans/{ids['plan_id']}",
         f"{API}/ai/conversations",
         f"{API}/ai/conversations/{ids['conversation_id']}",
+        f"{API}/ai/proposals",
     ]
     return {url: ok(client.get(url, headers=headers)) for url in urls}
 
@@ -246,10 +256,24 @@ def bia(signup) -> dict[str, str]:
 
 @pytest.fixture
 def world(
-    client: TestClient, ana: dict[str, str], clock: Clock, plans_from_yesterday
+    client: TestClient, db: Session, ana: dict[str, str], clock: Clock, plans_from_yesterday
 ) -> dict[str, str]:
     # Relógio parado: o tempo decorrido do treino em andamento não muda entre os retratos.
-    return build_world(client, ana)
+    ids = build_world(client, ana)
+    # Uma proposta da IA aberta para a ficha da Ana (como a ferramenta cria).
+    user = db.scalar(select(User).where(User.email == "ana@exemplo.com"))
+    proposal = proposals.prepare(
+        ToolContext(db, user, uuid.UUID(ids["conversation_id"])),
+        proposals.AddExercise(
+            kind="template_add_exercise",
+            template_id=ids["template_id"],
+            exercise_id=SUPINO,
+            planned_sets=[PlannedSet(reps_min=8, reps_max=12)],
+        ),
+        "Mais volume de peito.",
+    )
+    db.commit()
+    return ids | {"proposal_id": str(proposal.id)}
 
 
 # --- cobertura ---
@@ -569,6 +593,7 @@ def test_lists_and_derived_data_never_include_another_user(
         f"{API}/training-plans",
         f"{API}/training-plan-templates",
         f"{API}/ai/conversations",
+        f"{API}/ai/proposals",
     ]
     for url in urls:
         text = client.get(url, headers=bia).text

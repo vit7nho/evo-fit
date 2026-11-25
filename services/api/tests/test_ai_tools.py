@@ -91,7 +91,7 @@ def two_people(client: TestClient, signup, clock: Clock) -> dict:
 
 def test_every_tool_has_a_closed_schema_without_user_id() -> None:
     specs = registry.specs()
-    assert len(specs) == 11
+    assert len(specs) == 13  # 11 de leitura (4.2), get_templates e a proposta (4.6)
     for spec in specs:
         assert spec.description and spec.description[0].isupper()
         assert spec.input_schema["type"] == "object"
@@ -265,7 +265,9 @@ def test_every_tool_returns_valid_json_for_an_empty_account(db: Session, two_peo
         "get_endurance_progress": {"modality": "swim"},
         "search_exercises": {"query": "rosca"},
     }
-    assert set(calls) | {"get_session_detail"} == set(registry.TOOLS)
+    # get_templates vem na 4.6 (testada em test_ai_proposals); a proposta muda dados.
+    calls["get_templates"] = {}
+    assert set(calls) | {"get_session_detail", "prepare_change_proposal"} == set(registry.TOOLS)
     for tool, arguments in calls.items():
         body, is_error = run(db, "bia@exemplo.com", tool, **arguments)
         assert not is_error, (tool, body)

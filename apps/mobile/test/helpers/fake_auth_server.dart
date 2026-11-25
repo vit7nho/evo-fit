@@ -167,6 +167,33 @@ class FakeAuthServer {
   final conversationBodies = <Map<String, Object?>>[];
   final questions = <String>[];
 
+  /// Propostas que vão junto com a próxima resposta (4.6), decisões recebidas e
+  /// o que responder a uma decisão (um `ResponseBody` de erro, por id).
+  final nextProposals = <Map<String, Object?>>[];
+  final proposalCalls = <String>[];
+  final proposalErrors = <String, ResponseBody>{};
+
+  static Map<String, Object?> proposal(
+    String id, {
+    String summary = 'Acrescentar Mesa flexora à ficha “Treino A”',
+    List<String> details = const ['Séries: 3 séries de 10 a 12 reps'],
+    String status = 'pending',
+    String? templateId = 'ficha-1',
+  }) => {
+    'id': id,
+    'kind': 'template_add_exercise',
+    'summary': summary,
+    'details': details,
+    'rationale': 'Posterior de coxa sem nenhuma série em 30 dias.',
+    'status': status,
+    'result': null,
+    'template_id': templateId,
+    'goal_id': null,
+    'expires_at': '2026-12-01T12:00:00Z',
+    'decided_at': null,
+    'created_at': '2026-11-24T12:00:00Z',
+  };
+
   /// Próximas respostas: `(texto, ferramentas)` ou um `ResponseBody` de erro.
   /// Sem nada na fila, responde como o modo de demonstração.
   final coachReplies = <Object>[];
@@ -1101,6 +1128,8 @@ class FakeAuthServer {
         _authorized(options)
             ? _createConversation(body.cast<String, Object?>())
             : _invalidToken(),
+      ('POST', final path) when path.startsWith('/ai/proposals/') =>
+        _authorized(options) ? _decideProposal(path) : _invalidToken(),
       (final method, final path) when path.startsWith('/ai/conversations/') =>
         _authorized(options)
             ? _conversationRoute(method, path, body.cast<String, Object?>())
@@ -1909,8 +1938,10 @@ class FakeAuthServer {
       'role': 'assistant',
       'content': text,
       'tools_used': tools,
+      'proposals': [...nextProposals],
       'created_at': '2026-11-24T12:00:01Z',
     };
+    nextProposals.clear();
     messages.addAll([asked, answered]);
     if (n == 0 && conversation['scope'] == 'global') {
       conversation['title'] = question;
@@ -1922,6 +1953,33 @@ class FakeAuthServer {
       'simulated': coachSimulated,
       'remaining_today': coachRemaining,
     });
+  }
+
+  ResponseBody _decideProposal(String path) {
+    final parts = path.split('/'); // ['', 'ai', 'proposals', id, action]
+    final id = parts[3];
+    final action = parts[4];
+    proposalCalls.add('$action $id');
+    for (final messages in conversationMessages.values) {
+      for (final message in messages) {
+        final proposals = (message['proposals'] as List?) ?? const [];
+        for (final raw in proposals) {
+          final p = raw as Map<String, Object?>;
+          if (p['id'] != id) continue;
+          if (proposalErrors.remove(id) case final error?) {
+            p['status'] = 'failed';
+            p['result'] = 'A ficha foi alterada depois da sugestão.';
+            return error;
+          }
+          if (p['status'] != 'pending') {
+            return _problem(409, 'proposal_not_pending', 'Proposta encerrada.');
+          }
+          p['status'] = action == 'accept' ? 'accepted' : 'rejected';
+          return FakeHttpAdapter.json(200, p);
+        }
+      }
+    }
+    return _problem(404, 'not_found', 'Proposta não encontrada.');
   }
 
   /// Erro da API do jeito que o backend responde (para [coachReplies]).

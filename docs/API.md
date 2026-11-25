@@ -66,8 +66,8 @@
 | GET ✅ | `/ai/conversations` · `/ai/conversations/{id}` | lista (mais recentes primeiro) e detalhe com as mensagens |
 | POST ✅ | `/ai/conversations/{id}/messages` | `{content}` (1 a 2000 caracteres) → `{question, answer, simulated, remaining_today}`; `answer.tools_used` lista as ferramentas consultadas. 403 `consent_required` sem `ai_processing`; 429 `ai_per_minute_limit`/`ai_daily_limit` com `Retry-After`; 503 (ou 429 `ai_rate_limited`) com a mensagem amigável quando o provedor falha — a pergunta não é gravada. Propostas na 4.6; streaming fica para depois |
 | DELETE ✅ | `/ai/conversations/{id}` | exclusão (204); o registro da execução fica, sem conteúdo e sem o vínculo |
-| GET | `/ai/proposals?status=pending` | propostas |
-| POST | `/ai/proposals/{id}/accept` · `/reject` | confirmação explícita |
+| GET ✅ | `/ai/proposals?status=pending` | propostas da mais recente; `status` opcional (`pending`, `accepted`, `rejected`, `expired`, `failed`); a vencida (7 dias) aparece como `expired` |
+| POST ✅ | `/ai/proposals/{id}/accept` · `/reject` | confirmação explícita. Aceitar valida de novo e aplica pelo serviço da ficha ou da meta; 409 `proposal_not_pending` (já decidida ou vencida), 409 `proposal_stale` (a ficha mudou depois da proposta; ela fica `failed`) ou o 422 da regra que deixou de valer. As respostas do chat trazem as propostas em `answer.proposals` (e cada mensagem da conversa, nas suas) |
 
 ### Fase 5: nutrição e corpo
 | Método | Caminho | Descrição |

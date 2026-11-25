@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../goals/application/goals_controller.dart';
+import '../../home/application/dashboard_controller.dart';
+import '../../training/application/templates_controller.dart';
 import '../data/coach_api.dart';
 import '../domain/coach.dart';
 
@@ -98,6 +101,35 @@ class ChatController extends AsyncNotifier<ChatState> {
     } on ApiException {
       final now = state.value ?? current;
       state = AsyncData(now.copyWith(pending: () => null));
+      rethrow;
+    }
+  }
+
+  /// Confirma ou recusa. Aplicada, a ficha ou a meta mudou: as telas que as mostram
+  /// são recarregadas. Se a API recusar (a ficha mudou, expirou), a conversa é
+  /// recarregada para mostrar o estado novo, e o erro sobe para a tela.
+  Future<Proposal> decide(Proposal proposal, {required bool accept}) async {
+    try {
+      final updated = await _api.decide(proposal.id, accept: accept);
+      final current = state.value;
+      if (current != null) {
+        state = AsyncData(
+          current.copyWith(
+            messages: [
+              for (final m in current.messages) m.withProposal(updated),
+            ],
+          ),
+        );
+      }
+      if (updated.status == ProposalStatus.accepted) {
+        ref
+          ..invalidate(templatesProvider)
+          ..invalidate(goalsProvider)
+          ..invalidate(dashboardProvider);
+      }
+      return updated;
+    } on ApiException {
+      ref.invalidateSelf();
       rethrow;
     }
   }

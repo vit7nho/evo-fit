@@ -32,6 +32,8 @@ const toolLabels = {
   'compare_periods': 'comparativos',
   'get_activities': 'atividades',
   'get_endurance_progress': 'evolução de resistência',
+  'get_templates': 'fichas de treino',
+  'prepare_change_proposal': 'proposta de alteração',
 };
 
 /// "Consultou: treinos e Meu Corpo" (nulo se nada foi consultado).
@@ -68,12 +70,64 @@ class Conversation {
   final DateTime updatedAt;
 }
 
+enum ProposalStatus {
+  pending('Aguardando sua resposta'),
+  accepted('Aplicada'),
+  rejected('Recusada'),
+  expired('Expirou'),
+  failed('Não aplicada');
+
+  const ProposalStatus(this.label);
+
+  final String label;
+
+  static ProposalStatus of(String code) =>
+      values.firstWhere((s) => s.name == code, orElse: () => failed);
+}
+
+/// Alteração sugerida pela IA (4.6): nada muda até a pessoa confirmar.
+class Proposal {
+  const Proposal({
+    required this.id,
+    required this.summary,
+    required this.details,
+    required this.rationale,
+    required this.status,
+    this.result,
+    this.templateId,
+    this.goalId,
+  });
+
+  factory Proposal.fromJson(Map<String, dynamic> json) => Proposal(
+    id: json['id'] as String,
+    summary: json['summary'] as String,
+    details: [for (final d in json['details'] as List<dynamic>) d as String],
+    rationale: json['rationale'] as String,
+    status: ProposalStatus.of(json['status'] as String),
+    result: json['result'] as String?,
+    templateId: json['template_id'] as String?,
+    goalId: json['goal_id'] as String?,
+  );
+
+  final String id;
+  final String summary;
+  final List<String> details;
+  final String rationale;
+  final ProposalStatus status;
+
+  /// Por que não foi aplicada (só quando falhou).
+  final String? result;
+  final String? templateId;
+  final String? goalId;
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
     required this.fromUser,
     required this.content,
     this.toolsUsed = const [],
+    this.proposals = const [],
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
@@ -84,12 +138,25 @@ class ChatMessage {
       for (final t in json['tools_used'] as List<dynamic>? ?? const [])
         t as String,
     ],
+    proposals: [
+      for (final p in json['proposals'] as List<dynamic>? ?? const [])
+        Proposal.fromJson(p as Map<String, dynamic>),
+    ],
   );
 
   final String id;
   final bool fromUser;
   final String content;
   final List<String> toolsUsed;
+  final List<Proposal> proposals;
+
+  ChatMessage withProposal(Proposal updated) => ChatMessage(
+    id: id,
+    fromUser: fromUser,
+    content: content,
+    toolsUsed: toolsUsed,
+    proposals: [for (final p in proposals) p.id == updated.id ? updated : p],
+  );
 }
 
 /// Resposta de uma pergunta: as duas mensagens gravadas e o estado da cota.

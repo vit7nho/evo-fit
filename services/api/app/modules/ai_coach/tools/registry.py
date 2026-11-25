@@ -20,7 +20,15 @@ from pydantic import ValidationError
 
 from app.core.errors import AppError
 from app.integrations.ai.provider import ToolCall, ToolResult, ToolSpec
-from app.modules.ai_coach.tools import activities, analytics, goals, profile, workouts
+from app.modules.ai_coach.tools import (
+    activities,
+    analytics,
+    goals,
+    profile,
+    proposals,
+    templates,
+    workouts,
+)
 from app.modules.ai_coach.tools.base import Tool, ToolContext, ToolError
 
 logger = logging.getLogger(__name__)
@@ -31,8 +39,10 @@ TOOLS: dict[str, Tool] = {
         *profile.TOOLS,
         *goals.TOOLS,
         *workouts.TOOLS,
+        *templates.TOOLS,
         *analytics.TOOLS,
         *activities.TOOLS,
+        *proposals.TOOLS,
     )
 }
 
@@ -91,7 +101,12 @@ def execute(ctx: ToolContext, call: ToolCall) -> ToolResult:
         except AppError as error:
             # Mesmas regras da API (período longo, registro de outra pessoa...).
             outcome = "tool_error"
-            fields = "; ".join(e["message"] for e in error.errors if e.get("message"))
+            # Erro de campo explica nos campos; os outros (consentimento, limite), no detalhe.
+            fields = (
+                "; ".join(e["message"] for e in error.errors if e.get("message"))
+                if error.code == "validation_error"
+                else ""
+            )
             return _error(call, fields or error.detail or error.title)
         except Exception:
             outcome = "failed"

@@ -106,6 +106,8 @@ usuário: "adicione um exercício para posterior de coxa na ficha B"
 
 Propostas expiram em 7 dias. Uma proposta aceita registra `decided_at` e o resultado.
 
+**Implementado na 4.6** (`modules/ai_coach/proposals.py`, ADR-053): tipos `template_add_exercise`, `template_replace_exercise`, `template_adjust_sets` e `goal_create`; a ferramenta de leitura `get_templates` dá os ids das fichas e dos itens; a proposta é validada pelas regras do serviço dono (`TemplateService.check`, `GoalService.check`), guarda a impressão digital da ficha e o texto do cartão; no máximo 3 abertas por conversa; aceitar valida de novo, recusa se a ficha mudou e aplica pelo `replace` da ficha ou pelo `create` da meta, gravando o status junto. Prompt `coach.v2` (o v1 continua no repositório).
+
 ## 8. Privacidade
 
 - O e-mail, o nome real e os IDs internos desnecessários não são enviados ao modelo.

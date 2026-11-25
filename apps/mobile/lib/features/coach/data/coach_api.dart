@@ -51,6 +51,16 @@ class CoachApi {
   Future<void> delete(String id) =>
       guardApiCall(() => _dio.delete<void>('/ai/conversations/$id'));
 
+  /// Confirma (aplica) ou recusa uma proposta; devolve como ela ficou.
+  Future<Proposal> decide(String proposalId, {required bool accept}) =>
+      guardApiCall(() async {
+        final action = accept ? 'accept' : 'reject';
+        final response = await _dio.post<Map<String, dynamic>>(
+          '/ai/proposals/$proposalId/$action',
+        );
+        return Proposal.fromJson(response.data!);
+      });
+
   Future<CoachReply> ask(String id, String question) => guardApiCall(() async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/ai/conversations/$id/messages',

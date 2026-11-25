@@ -143,6 +143,8 @@ Casos de teste obrigatórios: sem histórico; período sem sessões; série sem 
 > **Implementado na 4.3 (migração 0013, ADR-051):** `ai_conversations` (com `updated_at`; `scope` validado por CHECK), `ai_messages` só com `user` e `assistant` (os resultados das ferramentas não são guardados; a mensagem da IA leva `tools_used`, só os nomes) e `ai_run_logs` com, além do previsto, `prompt_hash`, `iterations`, `tool_calls` (nome, se deu certo e o tempo de cada consulta — sem argumentos), `unverified_numbers` e `error_code`; `refused` marca as recusas pelos limites, que não contam para eles. Apagar a conversa apaga as mensagens e deixa o registro sem vínculo (`SET NULL`); apagar a conta apaga tudo. `ai_tool_calls` não foi criada: os nomes e tempos ficam no registro da execução.
 **change_proposals**: `user_id`, `conversation_id`, `kind` (`template_add_exercise|template_replace_exercise|template_adjust_sets|goal_create|goal_update|plan_adjust`), `target_id`, `payload` (JSONB validado por `kind`), `rationale`, `status` (`pending|accepted|rejected|expired|failed`), `expires_at`, `decided_at`.
 
+> **Implementado na 4.6 (migração 0014, ADR-053):** `change_proposals` com os quatro primeiros tipos (`goal_update` e `plan_adjust` ficam para depois), `message_id` (a resposta que trouxe a proposta), `payload` com a alteração validada (o alvo vem nele: `template_id`, `item_id`), `base_hash` (impressão digital da ficha no momento da proposta), `summary` e `details` (o texto que o app mostra, montado pelo servidor), `result` (por que falhou) e `created_at`. Apagar a conversa ou a mensagem deixa a proposta sem vínculo; apagar a conta apaga tudo.
+
 ## 8. Armazenado × calculado
 
 | Armazenado | Calculado sob demanda |
