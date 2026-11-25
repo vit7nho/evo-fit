@@ -202,6 +202,16 @@ class HomePage extends ConsumerWidget {
             EvoEntrance(
               delay: EvoEntrance.stagger(3),
               child: _LinkCard(
+                icon: Icons.restaurant_outlined,
+                title: 'Nutrição',
+                subtitle: 'Refeições, calorias e macronutrientes do dia',
+                onTap: () => go(AppRoutes.nutrition),
+              ),
+            ),
+            const SizedBox(height: EvoSpace.md),
+            EvoEntrance(
+              delay: EvoEntrance.stagger(3),
+              child: _LinkCard(
                 icon: Icons.directions_run_rounded,
                 title: 'Atividades',
                 subtitle: 'Corrida, caminhada, ciclismo e natação',

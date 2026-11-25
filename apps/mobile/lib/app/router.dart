@@ -20,6 +20,9 @@ import '../features/history/presentation/exercise_history_page.dart';
 import '../features/history/presentation/history_page.dart';
 import '../features/history/presentation/workout_detail_page.dart';
 import '../features/home/presentation/home_page.dart';
+import '../features/nutrition/presentation/food_picker_page.dart';
+import '../features/nutrition/presentation/meal_form_page.dart';
+import '../features/nutrition/presentation/nutrition_page.dart';
 import '../features/profile/presentation/edit_profile_section_page.dart';
 import '../features/profile/presentation/onboarding_page.dart';
 import '../features/profile/presentation/profile_page.dart';
@@ -241,6 +244,28 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.nutrition,
+        pageBuilder: (context, state) => _page(state, const NutritionPage()),
+        routes: [
+          GoRoute(
+            path: 'refeicao',
+            pageBuilder: (context, state) => _page(
+              state,
+              MealFormPage(
+                args:
+                    state.extra as MealFormArgs? ??
+                    MealFormArgs(day: DateTime.now()),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: 'alimentos',
+            pageBuilder: (context, state) =>
+                _page(state, const FoodPickerPage()),
           ),
         ],
       ),

@@ -43,7 +43,7 @@ Registrados em `user_consents` (tipo, versão do texto, data, revogação):
 - **Acesso/portabilidade:** `GET /api/v1/me/export` (JSON com todos os dados do usuário).
 - **Exclusão de conta:** `DELETE /api/v1/me` com reautenticação → exclusão física em cascata dos dados pessoais; logs técnicos mantêm só IDs pseudônimos até expirarem.
 - **Correção:** edição normal pelos endpoints de cada módulo.
-- **Revogação de consentimento:** revogar `ai_processing` bloqueia novas chamadas; revogar `health_data` oferece a exclusão dos dados sensíveis.
+- **Revogação de consentimento:** revogar `ai_processing` bloqueia novas chamadas; revogar `health_data` oferece a exclusão dos dados sensíveis. **(5.1)** Refeições exigem `health_data` e são apagadas na revogação; os alimentos próprios (valores de embalagem) não são dado de saúde e ficam. Os logs das refeições levam só os ids.
 
 ## 5. Retenção (proposta)
 

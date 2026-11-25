@@ -96,6 +96,8 @@ Restrição: `kind in (drop, rest_pause, cluster)` ⇔ `parent_set_id IS NOT NUL
 **foods**: `owner_user_id` (NULL = catálogo), `name`, `source` (`user|seed|taco|off`), `source_ref`, valores por 100 g: `kcal`, `protein_g`, `carbs_g`, `fat_g`, `fiber_g` (opcional), `default_portion_g`.
 **meals**: `user_id`, `eaten_at`, `meal_type` (`breakfast|lunch|dinner|snack|other`), `notes`.
 **meal_items**: `meal_id`, `food_id`, `quantity_g`, **cópia dos nutrientes calculados** (`kcal`, `protein_g`, …) no momento do registro — para que editar um alimento depois não altere o histórico.
+> **Implementado na 5.1 (migração 0015, ADR-055):** `foods` (com `search_name` para a busca sem acentos e CHECK de que `source = 'user'` ⇔ tem dono; `source` em `user|seed|taco` — `off` fica de fora), `meals` (com `created_at`/`updated_at`) e `meal_items` (com `position`, `food_name` e a cópia dos nutrientes da quantidade; `food_id` vira nulo se o alimento próprio for apagado). Revogar `health_data` apaga as refeições; os alimentos próprios ficam.
+
 **nutrition_targets**: `user_id`, `valid_from`, `kcal`, `protein_g`, `carbs_g`, `fat_g` (todos opcionais; histórico por `valid_from`).
 **body_measurements**: `user_id`, `measured_at`, `weight_kg`, `body_fat_pct` (rotulado como estimativa), `waist_cm`, `hip_cm`, `chest_cm`, `arm_cm`, `thigh_cm`, `calf_cm`, `notes`. Todos opcionais, mas ao menos um valor obrigatório.
 

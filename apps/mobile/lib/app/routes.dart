@@ -66,6 +66,11 @@ abstract final class AppRoutes {
   static const coach = '/assistente';
   static String coachChat(String id) => '/assistente/$id';
 
+  /// Nutrição (5.1): o dia, o formulário da refeição e a escolha do alimento.
+  static const nutrition = '/nutricao';
+  static const nutritionMeal = '/nutricao/refeicao';
+  static const nutritionFoods = '/nutricao/alimentos';
+
   /// Telas abertas a quem não entrou.
   static const public = {login, register};
 }

@@ -9,6 +9,7 @@ from app.modules.dashboard.router import router as dashboard_router
 from app.modules.exercises.router import router as exercises_router
 from app.modules.goals.router import router as goals_router
 from app.modules.history.router import router as history_router
+from app.modules.nutrition.router import router as nutrition_router
 from app.modules.plans.router import router as plans_router
 from app.modules.sessions.router import router as sessions_router
 from app.modules.training.router import router as training_router
@@ -28,3 +29,4 @@ api_router.include_router(plans_router)
 api_router.include_router(analytics_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(ai_router)
+api_router.include_router(nutrition_router)

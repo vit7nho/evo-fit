@@ -72,9 +72,12 @@
 ### Fase 5: nutrição e corpo
 | Método | Caminho | Descrição |
 |---|---|---|
-| GET/POST | `/foods` | catálogo + próprios; busca `q` |
-| CRUD | `/meals`, `/meals/{id}/items` | refeições |
-| GET | `/nutrition/daily?date` · `/nutrition/summary?from&to` | totais vs. metas |
+| GET ✅ | `/nutrition-options` | tipos de refeição (público) |
+| GET/POST ✅ | `/foods` | catálogo + próprios; busca `q` (por palavra, sem acentos) e `mine`; até 200. Criar: valores por 100 g (kcal até 900; proteína, carboidratos, gordura e fibras somando até 100 g); porção comum opcional |
+| GET/PATCH/DELETE ✅ | `/foods/{id}` | só o próprio muda ou sai (o catálogo é de todos: 404); apagar não muda as refeições registradas |
+| POST · GET/PUT/DELETE ✅ | `/meals` · `/meals/{id}` | refeição inteira (`eaten_at`, `meal_type`, `notes`, 1 a 30 itens `{food_id, quantity_g}`); exige `health_data` (403). `eaten_at` sem fuso vale no fuso do perfil; a resposta traz `local_time`. Cada item guarda a cópia do nome e dos nutrientes da quantidade; regravar recalcula pelos alimentos atuais. (`/meals/{id}/items` não existe: a refeição é salva inteira) |
+| GET ✅ | `/nutrition/daily?date` | as refeições do dia (no fuso do perfil; sem `date`, hoje) e os totais (fibras nulas quando nada tem fibra registrada) |
+| GET | `/nutrition/summary?from&to` | totais vs. metas (5.2) |
 | GET/PUT | `/nutrition/targets` | metas (com histórico) |
 | CRUD | `/body-measurements` | peso e medidas |
 | GET | `/analytics/body?metric&from&to` | tendência |

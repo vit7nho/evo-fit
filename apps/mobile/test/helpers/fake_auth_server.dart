@@ -157,6 +157,38 @@ class FakeAuthServer {
   Map<String, Map<String, Object?>> overviewByFrom = {};
 
   /// Painel do Início (3.8) como a API devolve; padrão: conta sem registros.
+  // --- nutrição (5.1) ---
+
+  /// Alimentos (como a API devolve), refeições guardadas e as datas pedidas.
+  final foods = <Map<String, Object?>>[];
+  final meals = <Map<String, Object?>>[];
+  final dailyQueries = <String>[];
+  final mealBodies = <Map<String, Object?>>[];
+
+  static Map<String, Object?> catalogFood(
+    String id,
+    String name, {
+    num kcal = 128,
+    num protein = 2.5,
+    num carbs = 28.1,
+    num fat = 0.2,
+    num? fiber = 1.6,
+    int? portion = 150,
+    String source = 'taco',
+  }) => {
+    'id': id,
+    'name': name,
+    'source': source,
+    'source_ref': source == 'taco' ? 'TACO 3' : null,
+    'mine': source == 'user',
+    'kcal': kcal,
+    'protein_g': protein,
+    'carbs_g': carbs,
+    'fat_g': fat,
+    'fiber_g': fiber,
+    'default_portion_g': portion,
+  };
+
   // --- assistente (4.5) ---
 
   /// Conversas guardadas (como a API devolve, sem as mensagens) e as mensagens.
@@ -1118,6 +1150,38 @@ class FakeAuthServer {
         _authorized(options)
             ? _goal(method, path.split('/').last, body.cast<String, Object?>())
             : _invalidToken(),
+      ('GET', '/foods') =>
+        _authorized(options)
+            ? FakeHttpAdapter.json(200, [
+                for (final f in foods)
+                  if (_matches(
+                    f['name']! as String,
+                    options.queryParameters['q'],
+                  ))
+                    f,
+              ])
+            : _invalidToken(),
+      ('POST', '/foods') =>
+        _authorized(options)
+            ? _createFood(body.cast<String, Object?>())
+            : _invalidToken(),
+      ('GET', '/nutrition/daily') =>
+        _authorized(options)
+            ? _daily(options.queryParameters['date'] as String?)
+            : _invalidToken(),
+      ('POST', '/meals') =>
+        _authorized(options)
+            ? _saveMeal(null, body.cast<String, Object?>())
+            : _invalidToken(),
+      (final method, final path) when path.startsWith('/meals/') =>
+        _authorized(options)
+            ? (method == 'DELETE'
+                  ? _deleteMeal(path.split('/').last)
+                  : _saveMeal(
+                      path.split('/').last,
+                      body.cast<String, Object?>(),
+                    ))
+            : _invalidToken(),
       ('GET', '/ai/conversations') =>
         _authorized(options)
             ? FakeHttpAdapter.json(200, [
@@ -1857,6 +1921,115 @@ class FakeAuthServer {
       return FakeHttpAdapter.json(200, _planOut(plan));
     }
     return _problem(404, 'not_found', 'Rota não encontrada no servidor falso.');
+  }
+
+  static String _plain(String text) => text
+      .toLowerCase()
+      .replaceAll(RegExp('[áàâã]'), 'a')
+      .replaceAll(RegExp('[éê]'), 'e')
+      .replaceAll('í', 'i')
+      .replaceAll(RegExp('[óôõ]'), 'o')
+      .replaceAll('ú', 'u')
+      .replaceAll('ç', 'c');
+
+  static bool _matches(String name, Object? query) {
+    final q = (query as String?)?.trim() ?? '';
+    return q.isEmpty ||
+        _plain(q).split(' ').every((word) => _plain(name).contains(word));
+  }
+
+  ResponseBody _createFood(Map<String, Object?> body) {
+    final food = {
+      'id': 'alimento-${foods.length + 1}',
+      'source': 'user',
+      'source_ref': null,
+      'mine': true,
+      'fiber_g': null,
+      'default_portion_g': null,
+      ...body,
+    };
+    foods.add(food);
+    return FakeHttpAdapter.json(201, food);
+  }
+
+  static num _r(num v) => (v * 10).round() / 10;
+
+  Map<String, Object?> _totals(List<Map<String, Object?>> items) {
+    num sum(String k) => _r(items.fold<num>(0, (s, i) => s + (i[k]! as num)));
+    final fibers = [for (final i in items) i['fiber_g']].whereType<num>();
+    return {
+      'kcal': sum('kcal'),
+      'protein_g': sum('protein_g'),
+      'carbs_g': sum('carbs_g'),
+      'fat_g': sum('fat_g'),
+      'fiber_g': fibers.isEmpty
+          ? null
+          : _r(fibers.fold<num>(0, (s, f) => s + f)),
+    };
+  }
+
+  ResponseBody _saveMeal(String? id, Map<String, Object?> body) {
+    if (!consents.contains('health_data')) {
+      return _problem(403, 'consent_required', 'Autorize os dados de saúde.');
+    }
+    mealBodies.add(body);
+    final items = <Map<String, Object?>>[];
+    for (final raw in body['items']! as List) {
+      final item = raw as Map;
+      final food = foods.firstWhere((f) => f['id'] == item['food_id']);
+      final factor = (item['quantity_g']! as num) / 100;
+      items.add({
+        'id': 'item-${items.length}',
+        'food_id': food['id'],
+        'food_name': food['name'],
+        'quantity_g': item['quantity_g'],
+        'kcal': _r((food['kcal']! as num) * factor),
+        'protein_g': _r((food['protein_g']! as num) * factor),
+        'carbs_g': _r((food['carbs_g']! as num) * factor),
+        'fat_g': _r((food['fat_g']! as num) * factor),
+        'fiber_g': food['fiber_g'] == null
+            ? null
+            : _r((food['fiber_g']! as num) * factor),
+      });
+    }
+    final type = body['meal_type']! as String;
+    final meal = {
+      'id': id ?? 'refeicao-${meals.length + 1}',
+      'eaten_at': body['eaten_at'],
+      // O app manda o horário sem fuso: é o local do perfil.
+      'local_time': body['eaten_at'],
+      'meal_type': type,
+      'meal_type_label': type,
+      'notes': body['notes'],
+      'items': items,
+      'totals': _totals(items),
+    };
+    meals.removeWhere((m) => m['id'] == meal['id']);
+    meals.add(meal);
+    return FakeHttpAdapter.json(id == null ? 201 : 200, meal);
+  }
+
+  ResponseBody _deleteMeal(String id) {
+    meals.removeWhere((m) => m['id'] == id);
+    return ResponseBody.fromString('', 204);
+  }
+
+  /// Sem data: hoje (no teste, o fuso do perfil é o da máquina).
+  ResponseBody _daily(String? requested) {
+    dailyQueries.add(requested ?? 'hoje');
+    final date = requested ?? DateTime.now().toIso8601String().substring(0, 10);
+    final ofDay = [
+      for (final m in meals)
+        if ((m['local_time']! as String).startsWith(date)) m,
+    ];
+    return FakeHttpAdapter.json(200, {
+      'date': date,
+      'totals': _totals([
+        for (final m in ofDay)
+          for (final i in m['items']! as List) i as Map<String, Object?>,
+      ]),
+      'meals': ofDay,
+    });
   }
 
   ResponseBody _createConversation(Map<String, Object?> body) {

@@ -32,6 +32,8 @@ from tests.test_sessions import SUPINO, TEMPLATE
 API = "/api/v1"
 SESSIONS = f"{API}/workout-sessions"
 
+FOOD = {"name": "Arroz da Ana", "kcal": 128, "protein_g": 2.5, "carbs_g": 28, "fat_g": 0.2}
+
 PUBLIC = {
     ("GET", "/api/v1/health"),
     ("POST", "/api/v1/auth/register"),
@@ -44,6 +46,7 @@ PUBLIC = {
     ("GET", "/api/v1/exercise-options"),
     ("GET", "/api/v1/workout-options"),
     ("GET", "/api/v1/activity-options"),
+    ("GET", "/api/v1/nutrition-options"),
 }
 
 # Operação autenticada -> corpo válido (None: sem corpo). Os ids no caminho são da Ana.
@@ -115,6 +118,24 @@ PROTECTED: dict[tuple[str, str], dict | None] = {
     ("DELETE", "/api/v1/ai/conversations/{conversation_id}"): None,
     ("POST", "/api/v1/ai/conversations/{conversation_id}/messages"): {"content": "Oi"},
     ("GET", "/api/v1/ai/proposals"): None,
+    ("GET", "/api/v1/foods"): None,
+    ("POST", "/api/v1/foods"): FOOD,
+    ("GET", "/api/v1/foods/{food_id}"): None,
+    ("PATCH", "/api/v1/foods/{food_id}"): {"kcal": 1},
+    ("DELETE", "/api/v1/foods/{food_id}"): None,
+    ("POST", "/api/v1/meals"): {
+        "eaten_at": "2026-11-01T15:30:00Z",
+        "meal_type": "lunch",
+        "items": [{"food_id": str(uuid.UUID(int=1)), "quantity_g": 100}],
+    },
+    ("GET", "/api/v1/meals/{meal_id}"): None,
+    ("PUT", "/api/v1/meals/{meal_id}"): {
+        "eaten_at": "2026-11-01T15:30:00Z",
+        "meal_type": "lunch",
+        "items": [{"food_id": str(uuid.UUID(int=1)), "quantity_g": 100}],
+    },
+    ("DELETE", "/api/v1/meals/{meal_id}"): None,
+    ("GET", "/api/v1/nutrition/daily"): None,
     ("POST", "/api/v1/ai/proposals/{proposal_id}/accept"): None,
     ("POST", "/api/v1/ai/proposals/{proposal_id}/reject"): None,
 }
@@ -200,7 +221,22 @@ def build_world(client: TestClient, headers: dict[str, str]) -> dict[str, str]:
             json={"activity_id": run["id"]},
         )
     )
+    food = ok(client.post(f"{API}/foods", headers=headers, json=FOOD), 201)
+    meal = ok(
+        client.post(
+            f"{API}/meals",
+            headers=headers,
+            json={
+                "eaten_at": "2026-11-01T15:30:00Z",
+                "meal_type": "lunch",
+                "items": [{"food_id": food["id"], "quantity_g": 150}],
+            },
+        ),
+        201,
+    )
     return {
+        "food_id": food["id"],
+        "meal_id": meal["id"],
         "plan_id": plan["id"],
         "conversation_id": chat["id"],
         "plan_session_id": first,
@@ -240,6 +276,10 @@ def snapshot(client: TestClient, headers: dict[str, str], ids: dict) -> dict:
         f"{API}/ai/conversations",
         f"{API}/ai/conversations/{ids['conversation_id']}",
         f"{API}/ai/proposals",
+        f"{API}/foods?mine=true",
+        f"{API}/foods/{ids['food_id']}",
+        f"{API}/meals/{ids['meal_id']}",
+        f"{API}/nutrition/daily?date=2026-11-01",
     ]
     return {url: ok(client.get(url, headers=headers)) for url in urls}
 
@@ -594,6 +634,8 @@ def test_lists_and_derived_data_never_include_another_user(
         f"{API}/training-plan-templates",
         f"{API}/ai/conversations",
         f"{API}/ai/proposals",
+        f"{API}/foods",
+        f"{API}/nutrition/daily?date=2026-11-01",
     ]
     for url in urls:
         text = client.get(url, headers=bia).text
