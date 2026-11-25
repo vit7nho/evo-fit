@@ -119,7 +119,7 @@ Propostas expiram em 7 dias. Uma proposta aceita registra `decided_at` e o resul
 - **Unitários das ferramentas:** dados semeados para dois usuários; cada ferramenta retorna apenas os dados do usuário do contexto.
 - **Orquestrador com `FakeProvider` roteirizado:** sequência de tool calls → resposta; limites de iteração; tratamento de argumentos inválidos; indisponibilidade/timeout/rate limit.
 - **Segurança:** tentativa de passar `user_id` ou IDs de outro usuário → ignorada/negada; proposta inválida → rejeitada; meta nutricional extrema → rejeitada.
-- **Avaliação (opcional, manual):** um conjunto de ~20 perguntas de referência (as do enunciado do projeto) executadas contra o provedor real, com uma checklist (usou ferramentas? números corretos? admitiu falta de dados?). Resultado registrado em `docs/` — útil para a banca.
+- **Avaliação (opcional, manual):** um conjunto de ~20 perguntas de referência (as do enunciado do projeto) executadas contra o provedor real, com uma checklist (usou ferramentas? números corretos? admitiu falta de dados?). Resultado registrado em `docs/` — útil para a banca. **(4.7)** Implementada como roteiro de testes (`tests/coach_eval.py`, ADR-054): 21 perguntas, checagens automáticas e relatório com a revisão humana; método e perguntas em `AVALIACAO_IA.md`. O resultado com o provedor real fica para depois da 4.4.
 
 ## 10. Custos
 
