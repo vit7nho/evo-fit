@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response, status
@@ -19,11 +19,17 @@ from app.modules.nutrition.schemas import (
     MealOut,
     NutritionOptions,
     Option,
+    SummaryOut,
+    TargetsIn,
+    TargetsOut,
 )
 from app.modules.nutrition.service import (
     MEAL_TYPE_LABELS,
     FoodService,
     MealService,
+    TargetService,
+    target_limits,
+    targets_out,
     totals,
 )
 from app.modules.users.models import User
@@ -164,4 +170,44 @@ def daily(
         date=day,
         totals=totals(item for m in meals for item in m.items),
         meals=[meal_out(m, user) for m in meals],
+        targets=targets_out(TargetService(db).on(user, day)),
     )
+
+
+# --- metas (5.2) ---
+
+
+def _targets(db: Session, user: User) -> TargetsOut:
+    service, day = TargetService(db), today(user)
+    history = [t for t in map(targets_out, service.history(user)) if t is not None]
+    return TargetsOut(
+        current=targets_out(service.on(user, day)),
+        history=history,
+        limits=target_limits(user, day),
+    )
+
+
+@router.get("/nutrition/targets", summary="Metas diárias: a atual, o histórico e os limites")
+def get_targets(user: CurrentUser, db: DbSession) -> TargetsOut:
+    return _targets(db, user)
+
+
+@router.put(
+    "/nutrition/targets",
+    summary="Define as metas a partir de hoje (exige health_data; limites de segurança)",
+)
+def put_targets(data: TargetsIn, user: CurrentUser, db: DbSession) -> TargetsOut:
+    TargetService(db).set(user, data)
+    return _targets(db, user)
+
+
+@router.get("/nutrition/summary", summary="Totais de cada dia e a meta que valia; padrão: 7 dias")
+def summary(
+    user: CurrentUser,
+    db: DbSession,
+    start: Annotated[date | None, Query(alias="from")] = None,
+    end: Annotated[date | None, Query(alias="to")] = None,
+) -> SummaryOut:
+    end = end or today(user)
+    start = start or end - timedelta(days=6)
+    return TargetService(db).summary(user, start, end)

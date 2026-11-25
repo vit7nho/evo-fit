@@ -78,8 +78,8 @@
 | GET/PATCH/DELETE ✅ | `/foods/{id}` | só o próprio muda ou sai (o catálogo é de todos: 404); apagar não muda as refeições registradas |
 | POST · GET/PUT/DELETE ✅ | `/meals` · `/meals/{id}` | refeição inteira (`eaten_at`, `meal_type`, `notes`, 1 a 30 itens `{food_id, quantity_g}`); exige `health_data` (403). `eaten_at` sem fuso vale no fuso do perfil; a resposta traz `local_time`. Cada item guarda a cópia do nome e dos nutrientes da quantidade; regravar recalcula pelos alimentos atuais. (`/meals/{id}/items` não existe: a refeição é salva inteira) |
 | GET ✅ | `/nutrition/daily?date` | as refeições do dia (no fuso do perfil; sem `date`, hoje) e os totais (fibras nulas quando nada tem fibra registrada) |
-| GET | `/nutrition/summary?from&to` | totais vs. metas (5.2) |
-| GET/PUT | `/nutrition/targets` | metas (com histórico) |
+| GET ✅ | `/nutrition/summary?from&to` | cada dia (refeições, totais e a meta que valia) e a média dos dias com refeição; até 92 dias, padrão os últimos 7 (ADR-059) |
+| GET/PUT ✅ | `/nutrition/targets` | `{current, history, limits}`. PUT `{kcal, protein_g, carbs_g, fat_g}` (inteiros, opcionais; todos nulos = sem metas) vale a partir de hoje no fuso do perfil e substitui outra do mesmo dia; exige `health_data` (403). Limites de segurança (422): 1.200 a 5.000 kcal (piso de 1.500 para o sexo masculino), proteína 20–300 g, carboidratos 20–800 g, gordura 20–250 g, sem meta de calorias para menores de 18 anos e macronutrientes a até 15 % da meta de calorias (ADR-059). `/nutrition/daily` traz `targets`, a meta do dia |
 | CRUD | `/body-measurements` | peso e medidas |
 | GET | `/analytics/body?metric&from&to` | tendência |
 

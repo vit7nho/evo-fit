@@ -165,6 +165,26 @@ class FakeAuthServer {
   final dailyQueries = <String>[];
   final mealBodies = <Map<String, Object?>>[];
 
+  // --- metas nutricionais (5.2) ---
+
+  /// A meta atual (como a API devolve) e o histórico, o mais recente primeiro.
+  Map<String, Object?>? nutritionTargets;
+  final targetsHistory = <Map<String, Object?>>[];
+  final targetsBodies = <Map<String, Object?>>[];
+
+  /// Os limites; `kcal_allowed: false` simula uma pessoa menor de idade.
+  Map<String, Object?> targetLimits = {
+    'kcal': {'min': 1200, 'max': 5000},
+    'protein_g': {'min': 20, 'max': 300},
+    'carbs_g': {'min': 20, 'max': 800},
+    'fat_g': {'min': 20, 'max': 250},
+    'kcal_allowed': true,
+    'macros_tolerance_pct': 15,
+  };
+
+  /// Erros de campo que o próximo PUT devolve (422), como a API.
+  List<Map<String, String>>? targetsRejection;
+
   static Map<String, Object?> catalogFood(
     String id,
     String name, {
@@ -1186,6 +1206,12 @@ class FakeAuthServer {
         _authorized(options)
             ? _saveMeal(null, body.cast<String, Object?>())
             : _invalidToken(),
+      ('GET', '/nutrition/targets') =>
+        _authorized(options) ? _targets() : _invalidToken(),
+      ('PUT', '/nutrition/targets') =>
+        _authorized(options)
+            ? _saveTargets(body.cast<String, Object?>())
+            : _invalidToken(),
       (final method, final path) when path.startsWith('/meals/') =>
         _authorized(options)
             ? (method == 'DELETE'
@@ -2046,7 +2072,46 @@ class FakeAuthServer {
           for (final i in m['items']! as List) i as Map<String, Object?>,
       ]),
       'meals': ofDay,
+      'targets': nutritionTargets,
     });
+  }
+
+  ResponseBody _targets() => FakeHttpAdapter.json(200, {
+    'current': nutritionTargets,
+    'history': targetsHistory,
+    'limits': targetLimits,
+  });
+
+  /// Como a API: vale a partir de hoje; todas nulas = sem metas.
+  ResponseBody _saveTargets(Map<String, Object?> body) {
+    targetsBodies.add(body);
+    final rejection = targetsRejection;
+    if (rejection != null) {
+      targetsRejection = null;
+      return _problem(
+        422,
+        'validation_error',
+        'Verifique os campos informados.',
+        errors: rejection,
+      );
+    }
+    const keys = ['kcal', 'protein_g', 'carbs_g', 'fat_g'];
+    if (keys.every((k) => body[k] == null)) {
+      nutritionTargets = null;
+    } else {
+      int grams(String key, int factor) => (body[key] as int? ?? 0) * factor;
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      nutritionTargets = {
+        'valid_from': today,
+        for (final k in keys) k: body[k],
+        'macros_kcal':
+            grams('protein_g', 4) + grams('carbs_g', 4) + grams('fat_g', 9),
+      };
+      targetsHistory
+        ..removeWhere((t) => t['valid_from'] == today)
+        ..insert(0, nutritionTargets!);
+    }
+    return _targets();
   }
 
   ResponseBody _createConversation(Map<String, Object?> body) {

@@ -71,6 +71,9 @@ abstract final class AppRoutes {
   static const nutritionMeal = '/nutricao/refeicao';
   static const nutritionFoods = '/nutricao/alimentos';
 
+  /// Metas nutricionais (5.2).
+  static const nutritionTargets = '/nutricao/metas';
+
   /// Telas abertas a quem não entrou.
   static const public = {login, register};
 }

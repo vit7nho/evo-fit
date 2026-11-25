@@ -222,6 +222,162 @@ void main() {
     expect(find.text('Nenhuma refeição neste dia'), findsOneWidget);
   });
 
+  group('metas (5.2)', () {
+    Future<void> openTargets(WidgetTester tester) async {
+      await _openNutrition(tester);
+      await _tap(tester, find.text('Definir metas do dia'));
+      expect(find.text('Metas do dia'), findsOneWidget);
+    }
+
+    Future<void> fill(WidgetTester tester, Map<String, String> values) async {
+      for (final MapEntry(key: label, value: text) in values.entries) {
+        await tester.enterText(find.widgetWithText(TextField, label), text);
+      }
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('define as metas e o dia mostra quanto falta', (tester) async {
+      final server = await _pumpSignedIn(tester);
+      await openTargets(tester);
+      expect(find.text('Entre 1.200 e 5.000 kcal por dia'), findsOneWidget);
+      await fill(tester, {
+        'Calorias': '2000',
+        'Proteína': '150',
+        'Carboidratos': '200',
+        'Gordura': '67',
+      });
+      // A soma dos macronutrientes aparece enquanto a pessoa digita.
+      expect(
+        find.textContaining('Os macronutrientes somam 2.003 kcal'),
+        findsOneWidget,
+      );
+      await _tap(tester, find.text('Salvar metas'));
+
+      expect(server.targetsBodies.single, {
+        'kcal': 2000,
+        'protein_g': 150,
+        'carbs_g': 200,
+        'fat_g': 67,
+      });
+      // De volta ao dia (sem refeições): a meta e o que falta.
+      expect(find.text('Nutrição'), findsOneWidget);
+      expect(find.text('Faltam 2.000 kcal para a meta'), findsOneWidget);
+      expect(find.text('de 150 g'), findsOneWidget);
+      expect(find.text('Editar metas'), findsOneWidget);
+
+      // Num dia passado, as metas não se editam: valem a partir de hoje.
+      await _tap(tester, find.byTooltip('Dia anterior'));
+      expect(find.text('Editar metas'), findsNothing);
+      expect(find.text('Definir metas do dia'), findsNothing);
+    });
+
+    testWidgets('limites: conferidos no app e mensagens da API', (
+      tester,
+    ) async {
+      final server = await _pumpSignedIn(tester);
+      await openTargets(tester);
+
+      // Fora do intervalo: nem chega a enviar.
+      await fill(tester, {'Calorias': '800'});
+      await _tap(tester, find.text('Salvar metas'));
+      expect(find.text('Entre 1.200 e 5.000 kcal.'), findsOneWidget);
+      expect(server.targetsBodies, isEmpty);
+
+      // A soma dos macronutrientes é conferida pela API.
+      server.targetsRejection = [
+        {
+          'field': '__root__',
+          'message': 'Os macronutrientes somam 2.920 kcal, acima da meta de 2.000 kcal.',
+        },
+      ];
+      await fill(tester, {'Calorias': '2000', 'Carboidratos': '400'});
+      await _tap(tester, find.text('Salvar metas'));
+      expect(server.targetsBodies, hasLength(1));
+      expect(
+        find.text(
+          'Os macronutrientes somam 2.920 kcal, acima da meta de 2.000 kcal.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Metas do dia'), findsOneWidget);
+    });
+
+    testWidgets('menor de idade: sem meta de calorias', (tester) async {
+      final server = await _pumpSignedIn(
+        tester,
+        setUp: (s) =>
+            s.targetLimits = {...s.targetLimits, 'kcal_allowed': false},
+      );
+      await openTargets(tester);
+      final kcal = tester.widget<TextField>(
+        find.widgetWithText(TextField, 'Calorias'),
+      );
+      expect(kcal.enabled, isFalse);
+      expect(find.textContaining('menores de 18 anos'), findsOneWidget);
+
+      await fill(tester, {'Proteína': '90'});
+      await _tap(tester, find.text('Salvar metas'));
+      expect(server.targetsBodies.single['kcal'], isNull);
+      expect(server.targetsBodies.single['protein_g'], 90);
+    });
+
+    testWidgets('remove as metas com confirmação; mostra o histórico', (
+      tester,
+    ) async {
+      final today = apiDate(_today());
+      final targets = {
+        'valid_from': today,
+        'kcal': 1800,
+        'protein_g': 120,
+        'carbs_g': null,
+        'fat_g': null,
+        'macros_kcal': 480,
+      };
+      final server = await _pumpSignedIn(
+        tester,
+        setUp: (s) {
+          s.nutritionTargets = targets;
+          s.targetsHistory.add(targets);
+        },
+      );
+      await _openNutrition(tester);
+      expect(find.text('Faltam 1.800 kcal para a meta'), findsOneWidget);
+      await _tap(tester, find.text('Editar metas'));
+      await tester.scrollUntilVisible(
+        find.textContaining('1.800 kcal · P 120 g'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.textContaining('1.800 kcal · P 120 g'), findsOneWidget);
+
+      await _tap(tester, find.text('Remover metas'));
+      expect(find.text('Remover as metas?'), findsOneWidget);
+      await _tap(tester, find.text('Remover'));
+      expect(
+        server.targetsBodies.single.values.every((v) => v == null),
+        isTrue,
+      );
+      expect(find.text('Definir metas do dia'), findsOneWidget);
+    });
+  });
+
+  test('metas: calorias dos macronutrientes e formatação', () {
+    expect(macrosKcal(150, 200, 67), 2003);
+    expect(macrosKcal(120, null, null), 480);
+    expect(macrosKcal(null, null, null), isNull);
+    expect(formatInt(2000), '2.000');
+    expect(formatInt(950), '950');
+    expect(formatInt(12500), '12.500');
+    expect(progressOf(1500, 2000), 0.75);
+    expect(progressOf(2500, 2000), 1);
+    final targets = NutritionTargets(
+      validFrom: DateTime(2026, 11, 25),
+      kcal: 2000,
+      fatG: 67,
+    );
+    expect(targets.description, '2.000 kcal · G 67 g');
+  });
+
   test('regras de cálculo e formatação', () {
     const per100 = Nutrients(
       kcal: 128,

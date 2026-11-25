@@ -7,7 +7,7 @@ from app.modules.analytics.models import StimulusMethodology
 from app.modules.auth.models import RefreshToken
 from app.modules.exercises.models import Exercise, ExerciseMuscle, MuscleGroupRow
 from app.modules.goals.models import Goal
-from app.modules.nutrition.models import Food, Meal, MealItem
+from app.modules.nutrition.models import Food, Meal, MealItem, NutritionTarget
 from app.modules.plans.models import PlanSession, TrainingPlan
 from app.modules.sessions.models import SessionExercise, SetEntry, WorkoutSession
 from app.modules.training.models import ExerciseGroup, TemplateItem, WorkoutTemplate
@@ -30,6 +30,7 @@ __all__ = [
     "Meal",
     "MealItem",
     "MuscleGroupRow",
+    "NutritionTarget",
     "PlanSession",
     "RefreshToken",
     "SessionExercise",

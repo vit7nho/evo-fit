@@ -98,10 +98,75 @@ class MealOut(BaseModel):
     totals: Nutrients
 
 
+Grams = Annotated[int, Field(ge=0, le=5000)]
+
+
+class TargetsIn(_Closed):
+    """Metas diárias; todas nulas = sem metas a partir de hoje. Os limites de
+    segurança (ADR-059) são conferidos no serviço, porque dependem do perfil."""
+
+    kcal: Annotated[int, Field(ge=0, le=20000)] | None = None
+    protein_g: Grams | None = None
+    carbs_g: Grams | None = None
+    fat_g: Grams | None = None
+
+
+class Targets(BaseModel):
+    valid_from: date
+    kcal: int | None
+    protein_g: int | None
+    carbs_g: int | None
+    fat_g: int | None
+    # Calorias dos macronutrientes informados (4/4/9 kcal por grama); nulo sem nenhum.
+    macros_kcal: int | None
+
+
+class Range(BaseModel):
+    min: int
+    max: int
+
+
+class TargetLimits(BaseModel):
+    """O que a pessoa pode escolher (para o formulário explicar antes de enviar)."""
+
+    kcal: Range
+    protein_g: Range
+    carbs_g: Range
+    fat_g: Range
+    # Falso para menores de 18 anos: meta de calorias só com acompanhamento.
+    kcal_allowed: bool
+    # Tolerância entre as calorias dos macronutrientes e a meta de calorias.
+    macros_tolerance_pct: int
+
+
+class TargetsOut(BaseModel):
+    current: Targets | None
+    history: list[Targets]
+    limits: TargetLimits
+
+
 class DailyOut(BaseModel):
     date: date
     totals: Nutrients
     meals: list[MealOut]
+    # A meta que vale neste dia (nula sem metas).
+    targets: Targets | None = None
+
+
+class SummaryDay(BaseModel):
+    date: date
+    meals: int
+    totals: Nutrients
+    targets: Targets | None
+
+
+class SummaryOut(BaseModel):
+    from_date: date
+    to_date: date
+    # Dias com ao menos uma refeição; a média é só deles.
+    logged_days: int
+    average: Nutrients | None
+    days: list[SummaryDay]
 
 
 class Option(BaseModel):

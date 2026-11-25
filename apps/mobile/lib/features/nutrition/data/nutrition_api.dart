@@ -65,6 +65,31 @@ class NutritionApi {
 
   Future<void> deleteMeal(String id) =>
       guardApiCall(() => _dio.delete<void>('/meals/$id'));
+
+  /// Metas (5.2): a atual, o histórico e os limites de segurança.
+  Future<TargetsInfo> targets() => guardApiCall(() async {
+    final response = await _dio.get<Map<String, dynamic>>('/nutrition/targets');
+    return TargetsInfo.fromJson(response.data!);
+  });
+
+  /// Valem a partir de hoje; todas nulas = sem metas.
+  Future<TargetsInfo> saveTargets({
+    int? kcal,
+    int? proteinG,
+    int? carbsG,
+    int? fatG,
+  }) => guardApiCall(() async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/nutrition/targets',
+      data: {
+        'kcal': kcal,
+        'protein_g': proteinG,
+        'carbs_g': carbsG,
+        'fat_g': fatG,
+      },
+    );
+    return TargetsInfo.fromJson(response.data!);
+  });
 }
 
 /// "2026-11-24T12:30:00" (horário de parede, sem fuso).

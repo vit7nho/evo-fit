@@ -6,9 +6,17 @@ alimento depois não muda o histórico.
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, Float, ForeignKey, Index, SmallInteger, String
+from sqlalchemy import (
+    CheckConstraint,
+    Float,
+    ForeignKey,
+    Index,
+    SmallInteger,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, Timestamps, UUIDPrimaryKey
@@ -90,3 +98,20 @@ class MealItem(UUIDPrimaryKey, Base):
     meal: Mapped[Meal] = relationship(back_populates="items")
 
     __table_args__ = (Index("ix_meal_items_meal_id", "meal_id"),)
+
+
+class NutritionTarget(UUIDPrimaryKey, Timestamps, Base):
+    """Metas diárias (5.2, ADR-059), com histórico: vale a de `valid_from` mais recente
+    até o dia. Todos os valores nulos = sem metas a partir dessa data."""
+
+    __tablename__ = "nutrition_targets"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    # Dia no fuso do perfil (o mesmo que separa as refeições).
+    valid_from: Mapped[date]
+    kcal: Mapped[int | None] = mapped_column(SmallInteger)
+    protein_g: Mapped[int | None] = mapped_column(SmallInteger)
+    carbs_g: Mapped[int | None] = mapped_column(SmallInteger)
+    fat_g: Mapped[int | None] = mapped_column(SmallInteger)
+
+    __table_args__ = (UniqueConstraint("user_id", "valid_from"),)

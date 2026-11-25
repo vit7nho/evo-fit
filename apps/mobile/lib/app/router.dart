@@ -23,6 +23,7 @@ import '../features/home/presentation/home_page.dart';
 import '../features/nutrition/presentation/food_picker_page.dart';
 import '../features/nutrition/presentation/meal_form_page.dart';
 import '../features/nutrition/presentation/nutrition_page.dart';
+import '../features/nutrition/presentation/targets_page.dart';
 import '../features/profile/presentation/edit_profile_section_page.dart';
 import '../features/profile/presentation/onboarding_page.dart';
 import '../features/profile/presentation/profile_page.dart';
@@ -266,6 +267,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'alimentos',
             pageBuilder: (context, state) =>
                 _page(state, const FoodPickerPage()),
+          ),
+          GoRoute(
+            path: 'metas',
+            pageBuilder: (context, state) => _page(state, const TargetsPage()),
           ),
         ],
       ),

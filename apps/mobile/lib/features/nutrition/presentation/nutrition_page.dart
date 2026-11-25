@@ -108,7 +108,13 @@ class _NutritionPageState extends ConsumerState<NutritionPage> {
                   ),
                 ],
                 data: (data) => [
-                  _Totals(totals: data.totals),
+                  _Totals(
+                    totals: data.totals,
+                    targets: data.targets,
+                    onTargets: isToday
+                        ? () => context.push(AppRoutes.nutritionTargets)
+                        : null,
+                  ),
                   const SizedBox(height: EvoSpace.xl),
                   if (data.meals.isEmpty)
                     EvoEmptyView(
@@ -139,42 +145,120 @@ class _NutritionPageState extends ConsumerState<NutritionPage> {
 }
 
 class _Totals extends StatelessWidget {
-  const _Totals({required this.totals});
+  const _Totals({required this.totals, this.targets, this.onTargets});
 
   final Nutrients totals;
+
+  /// A meta que vale no dia (5.2); nula sem metas.
+  final NutritionTargets? targets;
+
+  /// Abre as metas; nulo nos dias passados.
+  final VoidCallback? onTargets;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    Widget stat(String label, String value) => Expanded(
-      child: Column(
-        children: [
-          Text(value, style: theme.textTheme.titleLarge),
-          Text(label, style: theme.textTheme.labelSmall),
-        ],
+    final goal = targets;
+    final kcal = totals.kcal.round();
+    Widget stat(String label, double value, int? target) => Expanded(
+      child: Semantics(
+        label: target == null
+            ? '$label: ${formatGrams(value)} gramas'
+            : '$label: ${formatGrams(value)} de $target gramas',
+        excludeSemantics: true,
+        child: Column(
+          children: [
+            Text('${formatGrams(value)} g', style: theme.textTheme.titleLarge),
+            if (target != null) ...[
+              Text('de $target g', style: theme.textTheme.labelSmall),
+              const SizedBox(height: EvoSpace.xs),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: EvoSpace.sm),
+                child: LinearProgressIndicator(
+                  value: progressOf(value, target),
+                  minHeight: 4,
+                  borderRadius: BorderRadius.circular(EvoRadius.pill),
+                  backgroundColor: EvoColors.bgElevated,
+                  color: EvoColors.accent,
+                ),
+              ),
+              const SizedBox(height: EvoSpace.xs),
+            ],
+            Text(label, style: theme.textTheme.labelSmall),
+          ],
+        ),
       ),
     );
+    final kcalTarget = goal?.kcal;
     return EvoCard(
       child: Column(
         children: [
           Semantics(
-            label: 'Total do dia: ${totals.kcal.round()} quilocalorias',
+            label: kcalTarget == null
+                ? 'Total do dia: $kcal quilocalorias'
+                : 'Total do dia: $kcal de $kcalTarget quilocalorias',
             excludeSemantics: true,
-            child: Text(
-              '${totals.kcal.round()} kcal',
-              style: theme.textTheme.displaySmall,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '${formatInt(kcal)} kcal',
+                    style: theme.textTheme.displaySmall,
+                  ),
+                  if (kcalTarget != null)
+                    TextSpan(
+                      text: '  de ${formatInt(kcalTarget)}',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: EvoColors.textSecondary,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
+          if (kcalTarget != null) ...[
+            const SizedBox(height: EvoSpace.sm),
+            // O texto abaixo já diz quanto falta: a barra não é lida duas vezes.
+            ExcludeSemantics(
+              child: LinearProgressIndicator(
+                value: progressOf(totals.kcal, kcalTarget),
+                minHeight: 8,
+                borderRadius: BorderRadius.circular(EvoRadius.pill),
+                backgroundColor: EvoColors.bgElevated,
+                color: EvoColors.accent,
+              ),
+            ),
+            const SizedBox(height: EvoSpace.xs),
+            Text(
+              kcal <= kcalTarget
+                  ? 'Faltam ${formatInt(kcalTarget - kcal)} kcal para a meta'
+                  : '${formatInt(kcal - kcalTarget)} kcal acima da meta',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: EvoColors.textSecondary,
+              ),
+            ),
+          ],
           const SizedBox(height: EvoSpace.md),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              stat('Proteína', '${formatGrams(totals.proteinG)} g'),
-              stat('Carboidratos', '${formatGrams(totals.carbsG)} g'),
-              stat('Gordura', '${formatGrams(totals.fatG)} g'),
-              if (totals.fiberG case final fiber?)
-                stat('Fibras', '${formatGrams(fiber)} g'),
+              stat('Proteína', totals.proteinG, goal?.proteinG),
+              stat('Carboidratos', totals.carbsG, goal?.carbsG),
+              stat('Gordura', totals.fatG, goal?.fatG),
+              if (totals.fiberG case final fiber?) stat('Fibras', fiber, null),
             ],
           ),
+          // As metas valem a partir de hoje: num dia passado, só se vê a que valia.
+          if (onTargets case final open?) ...[
+            const SizedBox(height: EvoSpace.sm),
+            TextButton.icon(
+              onPressed: open,
+              icon: const Icon(Icons.flag_outlined),
+              label: Text(
+                goal == null ? 'Definir metas do dia' : 'Editar metas',
+              ),
+            ),
+          ],
         ],
       ),
     );

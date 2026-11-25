@@ -11,7 +11,7 @@ from app.core.errors import AppError, FieldValidationError
 from app.modules.activities.models import Activity, EnduranceDetails
 from app.modules.goals.kinds import HEALTH_KINDS
 from app.modules.goals.models import Goal
-from app.modules.nutrition.models import Meal
+from app.modules.nutrition.models import Meal, NutritionTarget
 from app.modules.plans.models import HEALTH_FLAGS, TrainingPlan
 from app.modules.users.models import ConsentKind, User, UserConsent, UserProfile
 from app.modules.users.schemas import ProfileUpdate
@@ -169,6 +169,8 @@ class ProfileService:
             )
             # E as refeições (5.1): alimentação também é dado de saúde.
             self.db.execute(delete(Meal).where(Meal.user_id == user.id))
+            # E as metas nutricionais (5.2).
+            self.db.execute(delete(NutritionTarget).where(NutritionTarget.user_id == user.id))
             # E, nos planos, os ajustes que vieram das limitações (as sessões ficam).
             for plan in self.db.scalars(
                 select(TrainingPlan).where(TrainingPlan.user_id == user.id)

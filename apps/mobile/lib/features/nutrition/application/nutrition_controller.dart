@@ -30,6 +30,12 @@ final foodSearchProvider = FutureProvider.autoDispose
       return ref.watch(nutritionApiProvider).foods(query: query);
     });
 
+/// As metas nutricionais (5.2).
+final nutritionTargetsProvider = FutureProvider.autoDispose<TargetsInfo>((ref) {
+  _userId(ref);
+  return ref.watch(nutritionApiProvider).targets();
+});
+
 /// Hoje, sem hora (a chave do dia).
 DateTime dayOf(DateTime moment) =>
     DateTime(moment.year, moment.month, moment.day);

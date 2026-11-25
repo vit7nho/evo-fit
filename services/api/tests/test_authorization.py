@@ -137,6 +137,9 @@ PROTECTED: dict[tuple[str, str], dict | None] = {
     },
     ("DELETE", "/api/v1/meals/{meal_id}"): None,
     ("GET", "/api/v1/nutrition/daily"): None,
+    ("GET", "/api/v1/nutrition/targets"): None,
+    ("PUT", "/api/v1/nutrition/targets"): {"kcal": 2000},
+    ("GET", "/api/v1/nutrition/summary"): None,
     ("POST", "/api/v1/ai/proposals/{proposal_id}/accept"): None,
     ("POST", "/api/v1/ai/proposals/{proposal_id}/reject"): None,
 }
@@ -235,6 +238,7 @@ def build_world(client: TestClient, headers: dict[str, str]) -> dict[str, str]:
         ),
         201,
     )
+    ok(client.put(f"{API}/nutrition/targets", headers=headers, json={"kcal": 2345}))
     return {
         "food_id": food["id"],
         "meal_id": meal["id"],
@@ -281,6 +285,8 @@ def snapshot(client: TestClient, headers: dict[str, str], ids: dict) -> dict:
         f"{API}/foods/{ids['food_id']}",
         f"{API}/meals/{ids['meal_id']}",
         f"{API}/nutrition/daily?date=2026-11-01",
+        f"{API}/nutrition/targets",
+        f"{API}/nutrition/summary?from=2026-10-26&to=2026-11-01",
     ]
     return {url: ok(client.get(url, headers=headers)) for url in urls}
 
@@ -637,6 +643,8 @@ def test_lists_and_derived_data_never_include_another_user(
         f"{API}/ai/proposals",
         f"{API}/foods",
         f"{API}/nutrition/daily?date=2026-11-01",
+        f"{API}/nutrition/targets",
+        f"{API}/nutrition/summary?from=2026-10-26&to=2026-11-01",
     ]
     for url in urls:
         text = client.get(url, headers=bia).text
