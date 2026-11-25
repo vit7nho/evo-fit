@@ -56,8 +56,23 @@ Future<void> _type(WidgetTester tester, String label, String text) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _openNew(WidgetTester tester) async {
+/// O cartão fica mais abaixo no início (lista preguiçosa): rola até ele.
+Future<void> _scrollToCard(WidgetTester tester) async {
+  await tester.scrollUntilVisible(
+    find.text('Atividades'),
+    200,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openActivities(WidgetTester tester) async {
+  await _scrollToCard(tester);
   await _tap(tester, find.text('Atividades'));
+}
+
+Future<void> _openNew(WidgetTester tester) async {
+  await _openActivities(tester);
   await _tap(tester, find.widgetWithText(FilledButton, 'Registrar atividade'));
 }
 
@@ -92,9 +107,10 @@ void main() {
     tester,
   ) async {
     await _pumpSignedIn(tester);
+    await _scrollToCard(tester);
     expect(find.text('Corrida, caminhada, ciclismo e natação'), findsOneWidget);
 
-    await _tap(tester, find.text('Atividades'));
+    await _openActivities(tester);
     expect(find.text('Nenhuma atividade ainda'), findsOneWidget);
     await _tap(
       tester,
@@ -198,7 +214,7 @@ void main() {
       tester,
       activities: [FakeAuthServer.run()],
     );
-    await _tap(tester, find.text('Atividades'));
+    await _openActivities(tester);
     expect(find.text('30:00 · 5 km · 6:00 /km · esforço 6/10'), findsOneWidget);
 
     await _tap(tester, find.text('Corrida'));
@@ -243,7 +259,7 @@ void main() {
           ),
       ],
     );
-    await _tap(tester, find.text('Atividades'));
+    await _openActivities(tester);
 
     // Fim da lista, que é montada sob demanda.
     await tester.scrollUntilVisible(

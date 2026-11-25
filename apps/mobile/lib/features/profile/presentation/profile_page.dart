@@ -307,9 +307,10 @@ class _AiConsentCardState extends ConsumerState<_AiConsentCard> {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: EvoSpace.xs),
           child: Text(
-            'Permite que o assistente (em desenvolvimento) consulte seus '
-            'registros para responder perguntas. Pode ser desligado a qualquer '
-            'momento.',
+            'Permite que o assistente consulte os registros ligados à '
+            'pergunta (treinos, atividades, metas e perfil) e os envie ao '
+            'provedor de IA do servidor para responder. Nome e e-mail não são '
+            'enviados. Pode ser desligado a qualquer momento.',
             style: theme.textTheme.bodyMedium,
           ),
         ),

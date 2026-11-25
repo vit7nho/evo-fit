@@ -157,6 +157,25 @@ class FakeAuthServer {
   Map<String, Map<String, Object?>> overviewByFrom = {};
 
   /// Painel do Início (3.8) como a API devolve; padrão: conta sem registros.
+  // --- assistente (4.5) ---
+
+  /// Conversas guardadas (como a API devolve, sem as mensagens) e as mensagens.
+  final conversations = <Map<String, Object?>>[];
+  final conversationMessages = <String, List<Map<String, Object?>>>{};
+
+  /// Corpos de POST /ai/conversations e perguntas recebidas, na ordem.
+  final conversationBodies = <Map<String, Object?>>[];
+  final questions = <String>[];
+
+  /// Próximas respostas: `(texto, ferramentas)` ou um `ResponseBody` de erro.
+  /// Sem nada na fila, responde como o modo de demonstração.
+  final coachReplies = <Object>[];
+  bool coachSimulated = true;
+  int coachRemaining = 30;
+
+  static const demoReply =
+      'Esta é uma resposta simulada: a IA de verdade ainda não está ligada.';
+
   Map<String, Object?> dashboard = emptyDashboard();
   int dashboardCalls = 0;
 
@@ -1072,6 +1091,20 @@ class FakeAuthServer {
         _authorized(options)
             ? _goal(method, path.split('/').last, body.cast<String, Object?>())
             : _invalidToken(),
+      ('GET', '/ai/conversations') =>
+        _authorized(options)
+            ? FakeHttpAdapter.json(200, [
+                for (final c in conversations.reversed) c,
+              ])
+            : _invalidToken(),
+      ('POST', '/ai/conversations') =>
+        _authorized(options)
+            ? _createConversation(body.cast<String, Object?>())
+            : _invalidToken(),
+      (final method, final path) when path.startsWith('/ai/conversations/') =>
+        _authorized(options)
+            ? _conversationRoute(method, path, body.cast<String, Object?>())
+            : _invalidToken(),
       (final method, final path) when path.startsWith('/me/consents/') =>
         _authorized(options)
             ? _consent(method, path.split('/').last)
@@ -1796,6 +1829,104 @@ class FakeAuthServer {
     }
     return _problem(404, 'not_found', 'Rota não encontrada no servidor falso.');
   }
+
+  ResponseBody _createConversation(Map<String, Object?> body) {
+    conversationBodies.add(body);
+    final scope = body['scope'] as String? ?? 'global';
+    final id = 'conversa-${conversations.length + 1}';
+    final conversation = <String, Object?>{
+      'id': id,
+      'scope': scope,
+      'scope_ref': body['scope_ref'],
+      'title':
+          body['title'] ??
+          (scope == 'global' ? 'Conversa geral' : 'Sobre um registro'),
+      'created_at': '2026-11-24T12:00:00Z',
+      'updated_at': '2026-11-24T12:00:00Z',
+    };
+    conversations.add(conversation);
+    conversationMessages[id] = [];
+    return FakeHttpAdapter.json(201, conversation);
+  }
+
+  ResponseBody _conversationRoute(
+    String method,
+    String path,
+    Map<String, Object?> body,
+  ) {
+    final parts = path.split('/'); // ['', 'ai', 'conversations', id, ...]
+    final id = parts[3];
+    final conversation = conversations.where((c) => c['id'] == id).firstOrNull;
+    if (conversation == null) {
+      return _problem(404, 'not_found', 'Conversa não encontrada.');
+    }
+    final messages = conversationMessages[id]!;
+    if (parts.length == 5 && parts[4] == 'messages' && method == 'POST') {
+      return _ask(conversation, messages, body['content'] as String);
+    }
+    return switch (method) {
+      'GET' => FakeHttpAdapter.json(200, {
+        ...conversation,
+        'messages': messages,
+      }),
+      'DELETE' => () {
+        conversations.remove(conversation);
+        conversationMessages.remove(id);
+        return ResponseBody.fromString('', 204);
+      }(),
+      _ => _problem(405, 'method_not_allowed', 'Método não permitido.'),
+    };
+  }
+
+  ResponseBody _ask(
+    Map<String, Object?> conversation,
+    List<Map<String, Object?>> messages,
+    String question,
+  ) {
+    questions.add(question);
+    if (!consents.contains('ai_processing')) {
+      return _problem(
+        403,
+        'consent_required',
+        'Para conversar com a IA, autorize o processamento por IA no seu perfil.',
+      );
+    }
+    final next = coachReplies.isEmpty ? null : coachReplies.removeAt(0);
+    if (next is ResponseBody) return next;
+    final (text, tools) = next is (String, List<String>)
+        ? next
+        : (demoReply, const <String>[]);
+    final n = messages.length;
+    final asked = {
+      'id': 'm${n + 1}',
+      'role': 'user',
+      'content': question,
+      'tools_used': <String>[],
+      'created_at': '2026-11-24T12:00:00Z',
+    };
+    final answered = {
+      'id': 'm${n + 2}',
+      'role': 'assistant',
+      'content': text,
+      'tools_used': tools,
+      'created_at': '2026-11-24T12:00:01Z',
+    };
+    messages.addAll([asked, answered]);
+    if (n == 0 && conversation['scope'] == 'global') {
+      conversation['title'] = question;
+    }
+    coachRemaining = coachRemaining > 0 ? coachRemaining - 1 : 0;
+    return FakeHttpAdapter.json(200, {
+      'question': asked,
+      'answer': answered,
+      'simulated': coachSimulated,
+      'remaining_today': coachRemaining,
+    });
+  }
+
+  /// Erro da API do jeito que o backend responde (para [coachReplies]).
+  static ResponseBody problem(int status, String code, String detail) =>
+      _problem(status, code, detail);
 
   ResponseBody _dashboard() {
     dashboardCalls++;

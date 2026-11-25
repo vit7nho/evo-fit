@@ -319,4 +319,40 @@ void main() {
     );
     expect(period == const AnalyticsPeriod(31), isFalse);
   });
+
+  testWidgets('"Perguntar à IA" no músculo leva o músculo e o período', (
+    tester,
+  ) async {
+    final server = await _pumpSignedIn(tester, setUp: _withData);
+    await _openBody(tester);
+    await _scrollTo(tester, find.text('Peito'));
+    await tester.tap(find.text('Peito'));
+    await tester.pumpAndSettle();
+    final ask = find.text('Perguntar à IA');
+    await tester.scrollUntilVisible(
+      ask,
+      200,
+      scrollable: find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(ask);
+    await tester.pumpAndSettle();
+
+    const period = AnalyticsPeriod(30);
+    expect(server.conversationBodies.single, {
+      'scope': 'muscle',
+      'scope_ref': {
+        'muscle_id': 'chest',
+        'from_date': apiDate(period.from),
+        'to_date': apiDate(period.to),
+      },
+      'title': 'Peito · 30 dias',
+    });
+    // A folha fecha e a conversa abre com o foco e as sugestões do músculo.
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.text('Sobre um músculo'), findsOneWidget);
+    expect(find.text('Como está o estímulo deste músculo?'), findsOneWidget);
+  });
 }

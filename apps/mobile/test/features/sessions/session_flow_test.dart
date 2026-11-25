@@ -88,6 +88,13 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
 }
 
 Future<void> _startTemplate(WidgetTester tester) async {
+  // Com o treino em andamento no topo, o cartão fica mais abaixo (lista preguiçosa).
+  await tester.scrollUntilVisible(
+    find.text('Fichas de treino'),
+    200,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
   await _tap(tester, find.text('Fichas de treino'));
   await _tap(tester, find.byTooltip('Iniciar Treino A'));
 }

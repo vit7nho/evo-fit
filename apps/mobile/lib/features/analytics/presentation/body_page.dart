@@ -6,6 +6,8 @@ import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/evo_card.dart';
 import '../../../shared/widgets/evo_selection.dart';
 import '../../../shared/widgets/evo_state_views.dart';
+import '../../coach/domain/coach.dart';
+import '../../coach/presentation/open_coach.dart';
 import '../../goals/presentation/goal_format.dart';
 import '../application/analytics_controller.dart';
 import '../domain/analytics.dart';
@@ -465,6 +467,17 @@ class _MuscleSheet extends ConsumerWidget {
             ),
           ),
       ],
+      const SizedBox(height: EvoSpace.lg),
+      AskCoachButton(
+        scope: CoachScope.muscle,
+        scopeRef: {
+          'muscle_id': m.muscleId,
+          'from_date': apiDate(period.from),
+          'to_date': apiDate(period.to),
+        },
+        title: '${m.name} · $days dias',
+        closeSheet: true,
+      ),
       const SizedBox(height: EvoSpace.md),
       Text(
         data.notice,

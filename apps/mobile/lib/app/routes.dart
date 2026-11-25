@@ -62,6 +62,10 @@ abstract final class AppRoutes {
   static String planSessionLog(String planId, String sessionId) =>
       '/planos/$planId/sessoes/$sessionId/registrar';
 
+  /// Assistente de IA: conversas e uma conversa aberta (4.5).
+  static const coach = '/assistente';
+  static String coachChat(String id) => '/assistente/$id';
+
   /// Telas abertas a quem não entrou.
   static const public = {login, register};
 }

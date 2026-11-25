@@ -400,4 +400,31 @@ void main() {
     expect(chart.format(76.5), '76,5 kg');
     expect(find.text('Todos os treinos com carga.'), findsOneWidget);
   });
+
+  testWidgets('"Perguntar à IA" no treino abre uma conversa sobre ele', (
+    tester,
+  ) async {
+    late Map<String, Object?> workout;
+    final server = await _pump(
+      tester,
+      setUp: (s) {
+        workout = _pastWorkout(s);
+        s.pastSessions = [workout];
+        s.historyItems = [_summary(workout['id']! as String, 'Peito')];
+        s.consents.add('ai_processing');
+      },
+    );
+    await _openHistory(tester);
+    await _tap(tester, find.text('Peito'));
+    await _tap(tester, find.text('Perguntar à IA'));
+
+    expect(server.conversationBodies.single, {
+      'scope': 'session',
+      'scope_ref': {'session_id': workout['id']},
+      'title': 'Treino: Peito',
+    });
+    expect(find.text('Treino: Peito'), findsOneWidget);
+    expect(find.text('Sobre um treino'), findsOneWidget);
+    expect(find.text('Como foi este treino?'), findsOneWidget);
+  });
 }

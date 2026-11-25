@@ -160,6 +160,16 @@ class HomePage extends ConsumerWidget {
             EvoEntrance(
               delay: EvoEntrance.stagger(2),
               child: _LinkCard(
+                icon: Icons.auto_awesome_outlined,
+                title: 'Assistente',
+                subtitle: 'Pergunte sobre seus treinos e sua evolução',
+                onTap: () => go(AppRoutes.coach),
+              ),
+            ),
+            const SizedBox(height: EvoSpace.md),
+            EvoEntrance(
+              delay: EvoEntrance.stagger(2),
+              child: _LinkCard(
                 icon: Icons.flag_outlined,
                 title: 'Metas',
                 subtitle: switch (goals) {

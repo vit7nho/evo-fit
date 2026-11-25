@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../features/activities/presentation/activities_page.dart';
 import '../features/activities/presentation/activity_form_page.dart';
 import '../features/auth/application/auth_controller.dart';
+import '../features/coach/presentation/chat_page.dart';
+import '../features/coach/presentation/coach_page.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/register_page.dart';
 import '../features/auth/presentation/splash_page.dart';
@@ -239,6 +241,19 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.coach,
+        pageBuilder: (context, state) => _page(state, const CoachPage()),
+        routes: [
+          GoRoute(
+            path: ':id',
+            pageBuilder: (context, state) => _page(
+              state,
+              ChatPage(conversationId: state.pathParameters['id']!),
+            ),
           ),
         ],
       ),

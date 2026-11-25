@@ -6,6 +6,8 @@ import '../../../app/routes.dart';
 import '../../../app/theme/tokens.g.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/evo_state_views.dart';
+import '../../coach/domain/coach.dart';
+import '../../coach/presentation/open_coach.dart';
 import '../../goals/presentation/goal_format.dart';
 import '../../sessions/domain/session.dart';
 import '../../sessions/domain/set_rows.dart';
@@ -98,6 +100,15 @@ class _Detail extends StatelessWidget {
           const SizedBox(height: EvoSpace.md),
           Text(session.notes!, style: theme.textTheme.bodyMedium),
         ],
+        const SizedBox(height: EvoSpace.lg),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: AskCoachButton(
+            scope: CoachScope.session,
+            scopeRef: {'session_id': session.id},
+            title: 'Treino: ${session.name}',
+          ),
+        ),
         if (session.records.isNotEmpty) ...[
           const SizedBox(height: EvoSpace.xl),
           Semantics(
