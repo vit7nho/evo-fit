@@ -168,6 +168,17 @@ class _Messages extends StatelessWidget {
             ),
           ),
         ),
+      if (state.demo && !state.simulated)
+        Padding(
+          padding: const EdgeInsets.only(top: EvoSpace.sm),
+          child: Text(
+            'Modo demonstração: a resposta foi montada por regras, no próprio '
+            'servidor, a partir dos seus registros — sem IA externa.',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: EvoColors.warning,
+            ),
+          ),
+        ),
     ];
     return ListView(
       reverse: true,
@@ -300,8 +311,22 @@ class _Bubble extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SelectableText(
-                  message.content,
+                SelectableText.rich(
+                  TextSpan(
+                    children: [
+                      // A pergunta vai como foi escrita; a resposta, com o Markdown básico.
+                      if (fromUser)
+                        TextSpan(text: message.content)
+                      else
+                        for (final run in answerRuns(message.content))
+                          TextSpan(
+                            text: run.text,
+                            style: run.bold
+                                ? const TextStyle(fontWeight: FontWeight.w700)
+                                : null,
+                          ),
+                    ],
+                  ),
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: fromUser
                         ? EvoColors.onAccent
@@ -502,10 +527,7 @@ class _ConsentCardState extends ConsumerState<_ConsentCard> {
             ),
             const SizedBox(height: EvoSpace.sm),
             Text(
-              'Para responder, o assistente consulta os registros ligados à '
-              'pergunta (treinos, atividades, metas e perfil) e os envia ao '
-              'provedor de IA do servidor. Seu nome e e-mail não são enviados. '
-              'Dá para desligar no perfil a qualquer momento.',
+              aiConsentText(ref.watch(aiProviderInfoProvider).value),
               style: theme.textTheme.bodyMedium,
             ),
             if (_error case final message?) ...[

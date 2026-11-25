@@ -272,3 +272,20 @@ def test_every_tool_returns_valid_json_for_an_empty_account(db: Session, two_peo
         body, is_error = run(db, "bia@exemplo.com", tool, **arguments)
         assert not is_error, (tool, body)
         assert isinstance(body, dict)
+
+
+# Plano gratuito do provedor (ADR-056).
+
+
+def test_free_tier_never_sends_the_limitations_text(db, two_people) -> None:
+    def profile(withhold: bool) -> dict:
+        ctx = ToolContext(db, user_of(db, "ana@exemplo.com"), withhold_health_notes=withhold)
+        call = ToolCall("c1", "get_profile_summary", {"include_limitations_note": True})
+        return json.loads(registry.execute(ctx, call).content)
+
+    assert profile(False)["limitations_note"] == "Dor no joelho ao agachar fundo"
+    withheld = profile(True)
+    assert withheld["limitations_note"] is None
+    assert "plano gratuito" in withheld["limitations_note_status"]
+    assert withheld["limitation_tags"] == ["Joelho"]  # as etiquetas continuam
+    assert "joelho ao agachar" not in json.dumps(withheld, ensure_ascii=False)

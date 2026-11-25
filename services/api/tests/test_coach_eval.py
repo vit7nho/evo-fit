@@ -14,6 +14,7 @@
 
 # ruff: noqa: F811  (a fixture two_people vem de test_ai_tools)
 import os
+import time
 from datetime import date
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.integrations.ai.factory import build_provider
 from app.integrations.ai.provider import Completion, ToolCall, Usage
+from app.integrations.ai.providers.demo import DemoProvider
 from app.integrations.ai.providers.fake import FakeProvider
 from app.modules.ai_coach import orchestrator
 from app.modules.ai_coach import service as ai_service
@@ -39,6 +41,9 @@ from tests.test_ai_tools import (
 from tests.test_analytics import ok
 
 API = "/api/v1"
+
+# Capturado antes das fixtures: a do relógio troca o `time.sleep` do processo todo.
+REAL_SLEEP = time.sleep
 
 
 @pytest.fixture(autouse=True)
@@ -182,16 +187,38 @@ def test_normalize_ignores_case_and_accents() -> None:
 # --- a avaliação de verdade (só quando pedida) ---
 
 
-@pytest.mark.skipif(os.environ.get("EVOFIT_EVAL") != "1", reason="defina EVOFIT_EVAL=1")
-def test_run_the_evaluation(app: FastAPI, client: TestClient, db: Session, accounts) -> None:
-    settings = get_settings()
-    provider = build_provider(settings)
-    use(app, provider)
+def test_demo_mode_passes_the_whole_set(
+    app: FastAPI, client: TestClient, db: Session, accounts
+) -> None:
+    """O modo demonstração (ADR-058) roda sem rede: a avaliação inteira vira teste."""
+    use(app, DemoProvider())
     results = [run(client, db, accounts, q) for q in coach_eval.QUESTIONS]
+    assert {r.question.id: r.failures for r in results if not r.passed} == {}
+    assert coach_eval.proposals_applied(db) == 0
+
+
+@pytest.mark.skipif(os.environ.get("EVOFIT_EVAL") != "1", reason="defina EVOFIT_EVAL=1")
+def test_run_the_evaluation(
+    app: FastAPI, client: TestClient, db: Session, accounts, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Com o provedor de verdade, as esperas da nova tentativa (503, 429) são reais.
+    monkeypatch.setattr(orchestrator.time, "sleep", REAL_SLEEP)
+    settings = get_settings()
+    # Um provedor novo por pergunta, como na API: cada pergunta recomeça no primeiro
+    # da lista (os modelos com a cota do dia esgotada continuam de lado).
+    app.dependency_overrides[get_provider_factory] = lambda: lambda: build_provider(settings)
+    # Pausa entre as perguntas (EVOFIT_EVAL_PAUSE_S): o plano gratuito limita por minuto.
+    pause = float(os.environ.get("EVOFIT_EVAL_PAUSE_S", "0"))
+    results = []
+    for index, question in enumerate(coach_eval.QUESTIONS):
+        if index and pause:
+            REAL_SLEEP(pause)
+        results.append(run(client, db, accounts, question))
     markdown = coach_eval.report(
         results,
         provider=settings.ai_provider,
-        model=settings.ai_model or "",
+        # Os modelos que de fato responderam (o Gemini pode trocar de modelo na cota).
+        model=", ".join(sorted({r.model for r in results if r.model})) or settings.ai_model or "",
         applied=coach_eval.proposals_applied(db),
     )
     if path := os.environ.get("EVOFIT_EVAL_REPORT"):

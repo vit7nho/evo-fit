@@ -112,6 +112,7 @@ PROTECTED: dict[tuple[str, str], dict | None] = {
         "activity_id": str(uuid.uuid4())
     },
     ("DELETE", "/api/v1/training-plans/{plan_id}/sessions/{plan_session_id}/activity"): None,
+    ("GET", "/api/v1/ai/provider"): None,
     ("POST", "/api/v1/ai/conversations"): {"scope": "global"},
     ("GET", "/api/v1/ai/conversations"): None,
     ("GET", "/api/v1/ai/conversations/{conversation_id}"): None,

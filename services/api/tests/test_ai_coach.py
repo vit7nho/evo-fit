@@ -21,6 +21,7 @@ from app.integrations.ai.errors import (
     ProviderTimeout,
 )
 from app.integrations.ai.provider import Completion, ToolCall, Usage
+from app.integrations.ai.providers.demo import DemoProvider
 from app.integrations.ai.providers.fake import DEMO_REPLY, FakeProvider, FakeRequest
 from app.modules.ai_coach import guardrails, orchestrator, prompts
 from app.modules.ai_coach import service as ai_service
@@ -320,6 +321,17 @@ def test_demo_mode_without_a_script(client: TestClient, bia: dict, use) -> None:
     reply = ok(ask(client, bia, conversation(client, bia)))
     assert reply["answer"]["content"] == DEMO_REPLY
     assert reply["simulated"] is True
+    assert reply["demo"] is False
+
+
+def test_rule_based_demo_is_flagged_and_logged(
+    app: FastAPI, client: TestClient, db: Session, bia: dict
+) -> None:
+    app.dependency_overrides[get_provider_factory] = lambda: DemoProvider
+    reply = ok(ask(client, bia, conversation(client, bia)))
+    assert (reply["demo"], reply["simulated"]) == (True, False)
+    assert "Ainda não há registros" in reply["answer"]["content"]
+    assert (runs(db)[0].provider, runs(db)[0].model) == ("demo", "demo-v1")
 
 
 # --- entrada: consentimento, tamanho e limites ---

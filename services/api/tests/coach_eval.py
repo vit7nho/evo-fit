@@ -256,6 +256,7 @@ class Result:
     input_tokens: int = 0
     output_tokens: int = 0
     latency_ms: int = 0
+    model: str = ""
     failures: list[str] = field(default_factory=list)
 
     @property
@@ -302,6 +303,7 @@ def ask(client: TestClient, db: Session, headers: dict, user_id, q: Question) ->
         result.unverified = run.unverified_numbers
         result.input_tokens, result.output_tokens = run.input_tokens, run.output_tokens
         result.latency_ms = run.latency_ms
+        result.model = run.model or ""
     if response.status_code == 200:
         answer = response.json()["answer"]
         result.answer = answer["content"]

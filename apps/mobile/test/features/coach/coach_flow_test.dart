@@ -113,12 +113,35 @@ void main() {
     expect(find.text('Como estou indo?'), findsOneWidget);
   });
 
+  testWidgets('modo demonstração por regras: avisa que não há IA externa', (
+    tester,
+  ) async {
+    await _pumpSignedIn(
+      tester,
+      setUp: (s) => s
+        ..coachSimulated = false
+        ..coachDemo = true,
+    );
+    await _newConversation(tester);
+    await _type(tester, 'Como estou indo?');
+
+    expect(
+      find.textContaining('Modo demonstração: a resposta'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Modo de demonstração'), findsNothing);
+  });
+
   testWidgets('sem consentimento, autoriza antes de perguntar', (tester) async {
     final server = await _pumpSignedIn(tester, consented: false);
     await _newConversation(tester);
 
     expect(find.text('Autorize as análises com IA'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
+    expect(
+      find.textContaining('ao provedor de IA do servidor'),
+      findsOneWidget,
+    );
     await _tap(tester, find.text('Autorizar e continuar'));
 
     expect(server.consentCalls, ['PUT ai_processing']);

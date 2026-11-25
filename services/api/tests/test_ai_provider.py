@@ -47,7 +47,8 @@ def ask(provider: LLMProvider, *messages: Message, tools=(TOOL,)) -> Completion:
 
 def settings(**changes) -> Settings:
     base = {"database_url": "postgresql://x", "jwt_secret": "x" * 32}
-    return Settings(**{**base, **changes})  # type: ignore[arg-type]
+    # Sem o .env: o resultado depende só do teste (e nunca da chave real).
+    return Settings(_env_file=None, **{**base, **changes})  # type: ignore[arg-type, call-arg]
 
 
 # --- tipos neutros ---
@@ -231,9 +232,9 @@ def test_factory_uses_fake_by_default_and_refuses_unconfigured_real_provider() -
     assert config.ai_provider == "fake"
     assert isinstance(build_provider(config), FakeProvider)
 
-    with pytest.raises(errors.ProviderNotConfigured, match="AI_API_KEY"):
+    with pytest.raises(errors.ProviderNotConfigured, match="Sem adaptador"):
         build_provider(settings(ai_provider="anthropic"))
-    with pytest.raises(errors.ProviderNotConfigured, match=r"4.4"):
+    with pytest.raises(errors.ProviderNotConfigured, match="Sem adaptador"):
         build_provider(settings(ai_provider="anthropic", ai_api_key="sk-teste"))
 
 
@@ -260,7 +261,14 @@ def test_only_the_adapters_folder_may_know_the_vendor() -> None:
         if "providers" not in path.parts
         and any(
             name in path.read_text(encoding="utf-8")
-            for name in ("import anthropic", "from anthropic", "import openai")
+            for name in (
+                "import anthropic",
+                "from anthropic",
+                "import openai",
+                "generativelanguage.googleapis",
+                "x-goog-api-key",
+                "api.groq.com",
+            )
         )
     ]
     assert offenders == []

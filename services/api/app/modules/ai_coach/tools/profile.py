@@ -2,8 +2,9 @@
 
 Fora, sempre: nome, e-mail, ano de nascimento e sexo (AI_DESIGN §8). O texto livre
 das limitações só vai quando o modelo pede (a pergunta trata de limitações ou dor)
-e com o consentimento `health_data` ativo; as etiquetas de limitação vão sempre,
-porque orientam a segurança da resposta.
+e com o consentimento `health_data` ativo — e nunca quando o provedor está no plano
+gratuito (ADR-056). As etiquetas de limitação vão sempre, porque orientam a
+segurança da resposta.
 """
 
 from typing import Any
@@ -52,7 +53,12 @@ def profile_summary(ctx: ToolContext, args: ProfileInput) -> dict[str, Any]:
         "today": ctx.today,
     }
     if args.include_limitations_note:
-        if not consent:
+        if ctx.withhold_health_notes:
+            result["limitations_note"] = None
+            result["limitations_note_status"] = (
+                "não enviado: o provedor de IA está no plano gratuito; use as etiquetas"
+            )
+        elif not consent:
             result["limitations_note"] = None
             result["limitations_note_status"] = "sem consentimento para dados de saúde"
         else:

@@ -191,6 +191,16 @@ class FakeAuthServer {
 
   // --- assistente (4.5) ---
 
+  /// O que GET /ai/provider devolve (padrão: respostas simuladas).
+  Map<String, Object?> aiProvider = {
+    'provider': 'fake',
+    'label': 'Respostas simuladas (sem IA real)',
+    'companies': <String>[],
+    'content_used_by': <String>[],
+    'free_tier': false,
+    'international_transfer': false,
+  };
+
   /// Conversas guardadas (como a API devolve, sem as mensagens) e as mensagens.
   final conversations = <Map<String, Object?>>[];
   final conversationMessages = <String, List<Map<String, Object?>>>{};
@@ -230,6 +240,9 @@ class FakeAuthServer {
   /// Sem nada na fila, responde como o modo de demonstração.
   final coachReplies = <Object>[];
   bool coachSimulated = true;
+
+  /// A resposta veio do modo demonstração por regras (ADR-058).
+  bool coachDemo = false;
   int coachRemaining = 30;
 
   static const demoReply =
@@ -1182,6 +1195,10 @@ class FakeAuthServer {
                       body.cast<String, Object?>(),
                     ))
             : _invalidToken(),
+      ('GET', '/ai/provider') =>
+        _authorized(options)
+            ? FakeHttpAdapter.json(200, aiProvider)
+            : _invalidToken(),
       ('GET', '/ai/conversations') =>
         _authorized(options)
             ? FakeHttpAdapter.json(200, [
@@ -2124,6 +2141,7 @@ class FakeAuthServer {
       'question': asked,
       'answer': answered,
       'simulated': coachSimulated,
+      'demo': coachDemo,
       'remaining_today': coachRemaining,
     });
   }

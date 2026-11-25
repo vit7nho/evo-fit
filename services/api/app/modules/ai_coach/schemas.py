@@ -123,5 +123,23 @@ class ReplyOut(BaseModel):
     answer: MessageOut
     # true quando o servidor usa o provedor simulado (sem IA de verdade).
     simulated: bool
+    # true quando quem respondeu foi o modo demonstração (regras, ADR-058).
+    demo: bool = False
     # Perguntas que ainda cabem hoje (no fuso da pessoa).
     remaining_today: int = Field(ge=0)
+
+
+class ProviderInfo(BaseModel):
+    """Quem processa as perguntas (para o texto do consentimento nomear o operador)."""
+
+    provider: str
+    label: str
+    # Empresas que podem receber as perguntas, na ordem de uso (vazia sem IA real).
+    companies: list[str]
+    # Das empresas, as que podem usar o conteúdo para melhorar os produtos (plano
+    # gratuito do Gemini).
+    content_used_by: list[str]
+    free_tier: bool
+    # Modo demonstração (ADR-058): respostas por regras, montadas no próprio servidor.
+    demo: bool = False
+    international_transfer: bool

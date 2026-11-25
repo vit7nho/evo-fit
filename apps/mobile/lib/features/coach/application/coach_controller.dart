@@ -19,6 +19,14 @@ String? _userId(Ref ref) => ref.watch(
   ),
 );
 
+/// Quem processa as perguntas (para o texto do consentimento).
+final aiProviderInfoProvider = FutureProvider.autoDispose<AiProviderInfo?>((
+  ref,
+) {
+  if (_userId(ref) == null) return null;
+  return ref.watch(coachApiProvider).provider();
+});
+
 /// Conversas da pessoa, da mais recente.
 class ConversationsController extends AsyncNotifier<List<Conversation>> {
   CoachApi get _api => ref.read(coachApiProvider);
@@ -93,6 +101,7 @@ class ChatController extends AsyncNotifier<ChatState> {
           messages: [...now.messages, reply.question, reply.answer],
           pending: () => null,
           simulated: reply.simulated,
+          demo: reply.demo,
           remainingToday: reply.remainingToday,
         ),
       );

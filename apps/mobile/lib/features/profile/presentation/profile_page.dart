@@ -10,6 +10,8 @@ import '../../../shared/widgets/evo_card.dart';
 import '../../../shared/widgets/evo_entrance.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/domain/current_user.dart';
+import '../../coach/application/coach_controller.dart';
+import '../../coach/domain/coach.dart';
 import '../application/profile_actions.dart';
 import '../data/profile_api.dart';
 import '../domain/profile.dart';
@@ -307,10 +309,7 @@ class _AiConsentCardState extends ConsumerState<_AiConsentCard> {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: EvoSpace.xs),
           child: Text(
-            'Permite que o assistente consulte os registros ligados à '
-            'pergunta (treinos, atividades, metas e perfil) e os envie ao '
-            'provedor de IA do servidor para responder. Nome e e-mail não são '
-            'enviados. Pode ser desligado a qualquer momento.',
+            aiConsentText(ref.watch(aiProviderInfoProvider).value),
             style: theme.textTheme.bodyMedium,
           ),
         ),

@@ -235,7 +235,7 @@ class AiCoachService:
     def _log(self, user: User, conversation: AiConversation, **fields: Any) -> None:
         prompt = prompts.load()
         values: dict[str, Any] = {
-            "provider": self.settings.ai_provider,
+            "provider": self.settings.ai_providers[0],
             "model": "",
             "input_tokens": 0,
             "output_tokens": 0,
@@ -273,7 +273,7 @@ class AiCoachService:
 
     def ask(
         self, user: User, conversation_id: uuid.UUID, question: str
-    ) -> tuple[AiMessage, AiMessage, bool]:
+    ) -> tuple[AiMessage, AiMessage, str]:
         conversation = self.get(user, conversation_id)
         if active_consent(self.db, user.id, ConsentKind.AI_PROCESSING) is None:
             raise AiConsentRequired()
@@ -300,13 +300,19 @@ class AiCoachService:
 
         state = orchestrator.RunState()
         started = time.perf_counter()
-        provider_name = self.settings.ai_provider
+        provider_name = self.settings.ai_providers[0]
+        provider: LLMProvider | None = None
         try:
             provider = self.provider()
             provider_name = provider.name
             result = orchestrator.run(
                 provider,
-                ToolContext(self.db, user, conversation.id),
+                ToolContext(
+                    self.db,
+                    user,
+                    conversation.id,
+                    withhold_health_notes=self.settings.ai_free_tier,
+                ),
                 system=system,
                 history=history,
                 question=question,
@@ -315,6 +321,8 @@ class AiCoachService:
                 state=state,
             )
         except ProviderError as error:
+            # Com vários provedores, o registro leva o que respondeu (ou falhou) por último.
+            provider_name = provider.name if provider is not None else provider_name
             # Propostas criadas nesta rodada saem junto com a resposta que não veio.
             self.db.rollback()
             # A pergunta não é gravada: a conversa fica como estava e dá para repetir.
@@ -373,10 +381,12 @@ class AiCoachService:
             and conversation.title == SCOPE_TITLES["global"]
         ):
             conversation.title = _title_from(question)
+        # Quem respondeu de fato (numa lista, pode ser o segundo ou o demo).
+        answered_by = provider.name if provider is not None else provider_name
         self._log(
             user,
             conversation,
-            provider=provider_name,
+            provider=answered_by,
             model=result.model,
             input_tokens=result.usage.input_tokens,
             output_tokens=result.usage.output_tokens,
@@ -388,7 +398,7 @@ class AiCoachService:
             created_at=now,
         )
         self.db.commit()
-        return asked, answered, provider_name == "fake"
+        return asked, answered, answered_by
 
 
 def _title_from(question: str, limit: int = 60) -> str:

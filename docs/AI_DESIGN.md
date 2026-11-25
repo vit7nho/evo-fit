@@ -14,8 +14,12 @@
 integrations/ai/
 ├── provider.py          # Protocol LLMProvider + tipos neutros (Message, ToolSpec, ToolCall, Completion, Usage)
 ├── providers/
-│   ├── fake.py          # roteirizado/determinístico — testes e demonstração offline
-│   └── anthropic.py     # adaptador (SDK oficial ou httpx); único lugar que conhece o fornecedor
+│   ├── fake.py          # roteirizado/determinístico — testes
+│   ├── demo.py          # modo demonstração: regras + ferramentas reais, sem IA externa (ADR-058)
+│   ├── gemini.py        # adaptador do Google Gemini (REST, biblioteca padrão) (4.4, ADR-056)
+│   ├── groq.py          # adaptador do Groq (Chat Completions no formato da OpenAI, REST) (ADR-057)
+│   └── rotation.py      # HTTP e troca de modelo na cota, comuns aos dois
+├── fallback.py          # vários provedores em ordem (AI_PROVIDER=gemini,groq,demo)
 ├── errors.py            # ProviderUnavailable, ProviderTimeout, ProviderRateLimited, InvalidModelOutput, ProviderNotConfigured
 ├── retry.py             # nova tentativa só para erros transitórios (máx. 2, espera crescente)
 └── factory.py           # escolhe o provedor por AI_PROVIDER no ambiente
@@ -38,7 +42,11 @@ class LLMProvider(Protocol):
                  max_tokens: int, timeout_s: float) -> Completion: ...
 ```
 
-Trocar de fornecedor = escrever um novo adaptador. Nenhum outro arquivo importa o SDK do fornecedor (um teste confere).
+Trocar de fornecedor = escrever um novo adaptador. Nenhum outro arquivo importa o SDK do fornecedor nem conhece o endereço ou o cabeçalho da API dele (um teste confere).
+
+**Implementado na 4.4** (`providers/gemini.py`, ADR-056): `generateContent` da Gemini API por REST com `urllib` (sem dependência nova; transporte injetável nos testes). Ferramentas em `parametersJsonSchema` (o JSON Schema do Pydantic, com `$defs`, aceito como está); `assistant` vira o papel `model` com os `functionCall` e `tool` vira `functionResponse` (o resultado embrulhado em objeto). `ToolCall.signature` guarda a `thoughtSignature` do Gemini e o adaptador a devolve na rodada seguinte — sem ela a API recusa com 400 (verificado). Raciocínio `low` nos modelos 3.x; consumo de saída = resposta + raciocínio. Erros: 429 com o `retryDelay`, 5xx e rede transitórios, 4xx definitivos, bloqueio e chamada malformada como saída inválida; mensagens e logs levam só o código HTTP e o status do Google. `AI_FREE_TIER` liga as salvaguardas do plano gratuito (§8). `AI_MODEL` aceita uma lista (`a,b,c`): com 429 ou 503 no primeiro pedido da pergunta o adaptador passa ao próximo modelo, e o modelo com a cota do dia esgotada fica de lado (na memória do processo) até o prazo informado pelo Google; depois da primeira chamada de ferramenta a pergunta não troca de modelo (a assinatura é de quem a gerou). No app, as respostas mostram o Markdown básico que os modelos usam (negrito, itens de lista, títulos), sem pacote novo.
+
+**Groq e cadeia de provedores** (ADR-057): `providers/groq.py` fala o formato da OpenAI (`tools` com `parameters`, `tool_calls` com argumentos em texto JSON, mensagens `tool`); os `$ref` do Pydantic são resolvidos no lugar; nos `gpt-oss`, raciocínio `low` sem o texto do raciocínio e uma ferramenta por vez. `AI_PROVIDER=groq,gemini` monta um `FallbackProvider`: com 429/503 no primeiro pedido, a pergunta vai ao próximo provedor; depois da primeira ferramenta, fica no provedor que começou. Dentro do Groq a troca de modelo vale também no meio da pergunta (o limite de 8.000 tokens por minuto estoura na terceira chamada; o `gpt-oss-20b` tem a própria cota). O registro da execução guarda o provedor e o modelo que de fato responderam.
 
 **Implementado na 4.1** (`app/integrations/ai/`, ADR-049): `Message` (`user`, `assistant` com texto e/ou `tool_calls`, `tool` com `tool_results`; mensagens incoerentes são recusadas), `ToolSpec`, `ToolCall`, `ToolResult`, `Usage` e `Completion` (com `stop_reason` `end|tool_use|max_tokens` e o modelo que respondeu); o `FakeProvider` em dois modos — roteirizado (respostas, exceções ou funções do pedido; guarda cópia de cada pedido) e demonstração (texto fixo dizendo que é simulado, sem números); os erros com `code`, `transient` e `user_message`; `complete_with_retry` (só transitórios, 0,5 s e 1 s, `Retry-After` até 5 s); e `build_provider` (`fake` padrão; `anthropic` dá `ProviderNotConfigured` até a 4.4).
 
@@ -124,3 +132,5 @@ Propostas expiram em 7 dias. Uma proposta aceita registra `decided_at` e o resul
 ## 10. Custos
 
 Custo ≈ (tokens de entrada + saída) × preço do modelo. Para conter os custos: cartão de contexto enxuto, resultados de ferramentas resumidos, limite diário por usuário, modelo econômico por padrão e histórico de conversa truncado (últimas N mensagens + resumo). Valores concretos dependem do provedor escolhido (ADR-012).
+
+**Modo demonstração** (ADR-058): `providers/demo.py` responde por regras, sem IA externa, mas pelo mesmo orquestrador e pelas mesmas ferramentas — os números vêm dos registros da pessoa e passam pela mesma conferência. Palavras-chave escolhem a intenção; a intenção escolhe as ferramentas (uma ou várias por passo) e o modelo de texto da resposta. Dor, dieta, hormônio e outra conta: respostas fixas com encaminhamento, sem consulta. No fim da cadeia (`gemini,groq,demo`), é a reserva quando a cota acaba; a resposta vem marcada (`demo: true`) e o app avisa. Passa nas 21 perguntas da avaliação (teste sem rede).

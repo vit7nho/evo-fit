@@ -16,6 +16,7 @@ from app.modules.ai_coach.schemas import (
     MessageCreate,
     MessageOut,
     ProposalOut,
+    ProviderInfo,
     ReplyOut,
 )
 from app.modules.ai_coach.service import AiCoachService, ProviderFactory
@@ -94,6 +95,41 @@ def _messages(db: Session, user: CurrentUser, messages: list[AiMessage]) -> list
     return [_message(m, by_message.get(m.id, [])) for m in messages]
 
 
+# Rótulo e empresa de cada provedor (a escolha vem da configuração do servidor).
+_PROVIDERS: dict[str, tuple[str, str | None]] = {
+    "fake": ("Respostas simuladas (sem IA real)", None),
+    "demo": ("Modo demonstração (respostas por regras, sem IA externa)", None),
+    "groq": ("Groq (GPT-OSS)", "Groq"),
+    "gemini": ("Google Gemini", "Google"),
+    "anthropic": ("Anthropic Claude", "Anthropic"),
+}
+
+
+@router.get("/provider", summary="Quem processa as perguntas: provedores, empresas e plano")
+def provider_info(user: CurrentUser, settings: AppSettings) -> ProviderInfo:
+    # Só os provedores que podem receber dados: os reais com chave (o falso não envia).
+    real = [
+        name
+        for name in settings.ai_providers
+        if name in ("groq", "gemini") and settings.ai_key_for(name) is not None
+    ]
+    demo = "demo" in settings.ai_providers
+    names = [*real, "demo"] if demo else real or ["fake"]
+    companies = [c for n in names if (c := _PROVIDERS[n][1]) is not None]
+    # O plano gratuito do Gemini pode usar o conteúdo; o Groq não treina com ele.
+    content_used_by = ["Google"] if "gemini" in real and settings.ai_free_tier else []
+    return ProviderInfo(
+        provider=",".join(names),
+        # O rótulo nomeia os provedores reais; o demo de reserva vai no campo `demo`.
+        label=" e ".join(_PROVIDERS[n][0] for n in real or names),
+        companies=companies,
+        content_used_by=content_used_by,
+        free_tier=bool(content_used_by),
+        international_transfer=bool(companies),
+        demo=demo,
+    )
+
+
 @router.post(
     "/conversations",
     status_code=status.HTTP_201_CREATED,
@@ -146,12 +182,13 @@ def ask(
     service: Service,
     db: DbSession,
 ) -> ReplyOut:
-    question, answer, simulated = service.ask(user, conversation_id, data.content)
+    question, answer, answered_by = service.ask(user, conversation_id, data.content)
     _, answered = _messages(db, user, [question, answer])
     return ReplyOut(
         question=_message(question),
         answer=answered,
-        simulated=simulated,
+        simulated=answered_by == "fake",
+        demo=answered_by == "demo",
         remaining_today=service.remaining_today(user),
     )
 

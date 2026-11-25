@@ -32,6 +32,12 @@ os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 # Segredo fixo e exclusivo dos testes (não depende do .env).
 os.environ["JWT_SECRET"] = "segredo-de-teste-somente-para-pytest-0123456789"
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
+# As chaves reais do .env ficam fora dos testes: nenhum teste chama um provedor de
+# verdade nem vê a chave. Só a avaliação pedida (EVOFIT_EVAL=1) usa o .env.
+if os.environ.get("EVOFIT_EVAL") != "1":
+    os.environ["AI_PROVIDER"] = "fake"
+    for _name in ("AI_API_KEY", "AI_GROQ_API_KEY", "AI_GEMINI_API_KEY"):
+        os.environ[_name] = ""
 
 from app.core.config import get_settings  # noqa: E402
 from app.db.session import CONNECT_ARGS, get_db  # noqa: E402

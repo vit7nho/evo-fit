@@ -5,6 +5,7 @@ Etapa 4.7 (ADR-054). Um conjunto fixo de perguntas de referência, feito pelo ch
 ## Situação
 
 - **Roteiro pronto e testado** (`services/api/tests/coach_eval.py` e `tests/test_coach_eval.py`).
+- **Modo demonstração (ADR-058): 21 de 21** nas checagens automáticas, nenhum número fora dos dados e nenhuma proposta aplicada sem confirmação. Roda sempre na suíte (`test_demo_mode_passes_the_whole_set`), sem rede. Mostra que as ferramentas, as propostas e as respostas de segurança funcionam de ponta a ponta; não mede um modelo de linguagem — as regras foram escritas conhecendo estas perguntas.
 - **Resultado com a IA de verdade: pendente.** Depende do provedor real (etapa 4.4, decisão do ADR-012: conta e chave). Com o provedor simulado o ensaio rodou as 21 perguntas de ponta a ponta — 2 de 21 sem falha (as que não exigem consulta), nenhuma proposta aplicada sem confirmação —, o que só prova que o roteiro funciona: o simulado não consulta dados.
 
 ## Como funciona
@@ -60,5 +61,7 @@ Com o provedor real configurado no `.env` (`AI_PROVIDER`, `AI_API_KEY`, `AI_MODE
 ```powershell
 $env:EVOFIT_EVAL = "1"; $env:EVOFIT_EVAL_REPORT = "../../docs/avaliacao_ia_resultado.md"; .venv/Scripts/python.exe -m pytest tests/test_coach_eval.py -s
 ```
+
+No plano gratuito do Gemini, defina também `AI_MODEL` com vários modelos e `EVOFIT_EVAL_PAUSE_S` (ex.: 15) para espaçar as perguntas; a cota diária por modelo (20 pedidos no `gemini-3.6-flash`) não cobre as 21 perguntas num dia só (ADR-056).
 
 O relatório sai em `docs/avaliacao_ia_resultado.md`: o provedor, o modelo, a versão e o hash do prompt, o resumo das checagens, os tokens e a latência, a tabela com as colunas de revisão e as respostas completas. A avaliação usa o banco de testes, nunca o de desenvolvimento, e faz uma chamada ao provedor por rodada do laço (até 5 por pergunta): o custo é o de ~21 perguntas.

@@ -31,6 +31,8 @@ class ToolContext:
     user: User
     # A conversa da pergunta (as propostas ficam ligadas a ela); nula fora do chat.
     conversation_id: uuid.UUID | None = None
+    # Provedor no plano gratuito (ADR-056): o texto livre das limitações não sai.
+    withhold_health_notes: bool = False
 
     @property
     def today(self) -> date:

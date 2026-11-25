@@ -31,6 +31,9 @@ class ToolCall:
     id: str
     name: str
     arguments: dict[str, Any]
+    # Ficha opaca que alguns fornecedores exigem de volta na rodada seguinte (no
+    # Gemini, a `thoughtSignature`). Só o adaptador a interpreta; nunca vai a logs.
+    signature: str | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True)

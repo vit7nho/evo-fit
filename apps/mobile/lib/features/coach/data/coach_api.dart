@@ -14,6 +14,11 @@ class CoachApi {
   /// que as outras chamadas antes de desistir.
   static const askTimeout = Duration(seconds: 90);
 
+  Future<AiProviderInfo> provider() => guardApiCall(() async {
+    final response = await _dio.get<Map<String, dynamic>>('/ai/provider');
+    return AiProviderInfo.fromJson(response.data!);
+  });
+
   Future<List<Conversation>> list() => guardApiCall(() async {
     final response = await _dio.get<List<dynamic>>('/ai/conversations');
     return response.data!
