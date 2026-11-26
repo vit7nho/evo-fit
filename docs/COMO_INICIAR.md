@@ -93,6 +93,28 @@ Com a API rodando (`AI_PROVIDER=demo` no `.env`) e o emulador ligado, na pasta `
 
 Cria uma conta de teste, faz a jornada inteira (cadastro, ficha, treino com drop set, caminhada, peso, assistente) e exclui a conta no fim; leva uns 2 minutos. Com `-DemoPassword "senha da demo"`, confere também a conta de demonstração. A API aceita 5 cadastros por hora: para rodar mais vezes, reinicie a API.
 
+## APK de release (para instalar num celular)
+
+Uma vez por computador, crie a chave de assinatura (fica em `%USERPROFILE%\.evofit`, fora do repositório; guarde uma cópia):
+
+```powershell
+.\scripts\make-keystore.ps1
+```
+
+Depois, gere o APK com o endereço da API:
+
+```powershell
+.\scripts\build-apk.ps1 -ApiUrl https://api.exemplo.com.br
+```
+
+Para a API rodando no seu PC, com o celular no mesmo Wi-Fi (HTTP, sem certificado), use o IP do PC e `-AllowHttp`:
+
+```powershell
+.\scripts\build-apk.ps1 -ApiUrl http://192.168.0.10:8000 -AllowHttp
+```
+
+O APK fica em `dist\` (leva uns 3 minutos). A API precisa ouvir em `0.0.0.0` (o `dev-api.ps1` já faz isso), e o Firewall do Windows tem de liberar a porta 8000 na rede privada. No emulador, use `-ApiUrl http://10.0.2.2:8000 -AllowHttp` e instale com `adb install dist\evofit-1.0.0-http.apk`. Se o app de depuração já estiver instalado, desinstale antes (`adb uninstall br.tcc.evofit.evofit`): as chaves são diferentes.
+
 ## Antes de um commit
 
 Roda todas as verificações (tokens, API, app e site), na pasta `evofit`:

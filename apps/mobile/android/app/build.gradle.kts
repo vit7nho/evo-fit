@@ -1,8 +1,30 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Assinatura do release (Fase 6.3, ADR-067): a chave e as senhas ficam fora do
+// repositório, em android/key.properties (ignorado pelo git), criado por
+// scripts/make-keystore.ps1. Sem esse arquivo, um build de release falha com uma
+// mensagem clara em vez de sair assinado com a chave de depuração.
+val keyPropertiesFile = rootProject.file("key.properties")
+val keyProperties = Properties().apply {
+    if (keyPropertiesFile.exists()) keyPropertiesFile.inputStream().use { load(it) }
+}
+val wantsRelease = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+if (wantsRelease && !keyPropertiesFile.exists()) {
+    throw GradleException(
+        "Falta android/key.properties para assinar o release. " +
+            "Rode scripts/make-keystore.ps1 (veja docs/COMO_INICIAR.md).",
+    )
+}
+
+// HTTP sem TLS no release só quando pedido (-P evofit.allowHttp=true): APK de
+// demonstração apontando para a API num computador da rede local.
+val allowHttp = (project.findProperty("evofit.allowHttp") as String?) == "true"
 
 android {
     namespace = "br.tcc.evofit.evofit"
@@ -27,13 +49,24 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["networkSecurityConfig"] =
+            if (allowHttp) "@xml/network_security_config_http" else "@xml/network_security_config"
+    }
+
+    signingConfigs {
+        create("release") {
+            if (keyPropertiesFile.exists()) {
+                storeFile = file(keyProperties.getProperty("storeFile"))
+                storePassword = keyProperties.getProperty("storePassword")
+                keyAlias = keyProperties.getProperty("keyAlias")
+                keyPassword = keyProperties.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

@@ -38,3 +38,6 @@ Thumbs.db
 
 # Material de preparação da banca (fica só local)
 docs/banca/
+
+# APKs gerados por scripts/build-apk.ps1
+dist/
