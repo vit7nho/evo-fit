@@ -228,6 +228,42 @@ class _FormState extends ConsumerState<_Form> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final localizations = MaterialLocalizations.of(context);
+    // O botão fica fixo no rodapé, como nos outros formulários: quem só
+    // registra o peso não precisa rolar pelas medidas vazias (piloto da 5.7).
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: _fieldsList(theme, localizations)),
+        ConstrainedBox(
+          // Com fonte muito grande o rodapé rola, em vez de espremer a lista.
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.4,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              EvoSpace.xl,
+              EvoSpace.sm,
+              EvoSpace.xl,
+              EvoSpace.lg,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                EvoFormError(message: _error),
+                EvoButton(
+                  label: 'Salvar medida',
+                  isLoading: _saving,
+                  onPressed: _save,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _fieldsList(ThemeData theme, MaterialLocalizations localizations) {
     return ListView(
       padding: const EdgeInsets.all(EvoSpace.xl),
       children: [
@@ -285,9 +321,6 @@ class _FormState extends ConsumerState<_Form> {
           maxLength: 300,
           decoration: const InputDecoration(labelText: 'Observação (opcional)'),
         ),
-        const SizedBox(height: EvoSpace.lg),
-        EvoFormError(message: _error),
-        EvoButton(label: 'Salvar medida', isLoading: _saving, onPressed: _save),
         if (_editing != null) ...[
           const SizedBox(height: EvoSpace.sm),
           EvoButton(

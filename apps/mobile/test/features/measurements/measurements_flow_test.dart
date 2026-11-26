@@ -90,6 +90,29 @@ void main() {
     expect(find.text('Nenhuma medida neste período'), findsOneWidget);
   });
 
+  testWidgets('o botão Salvar medida fica à vista, sem rolar (piloto 5.7)', (
+    tester,
+  ) async {
+    final server = await _pumpSignedIn(tester);
+    await _open(tester);
+    await _tap(tester, find.text('Registrar medida').first);
+
+    // O botão fica no rodapé, fora da lista que rola: à vista em qualquer
+    // tela, sem passar pelas medidas vazias.
+    expect(
+      find.ancestor(
+        of: find.text('Salvar medida'),
+        matching: find.byType(ListView),
+      ),
+      findsNothing,
+    );
+    expect(find.text('Salvar medida').hitTestable(), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Peso'), '72,4');
+    await tester.tap(find.text('Salvar medida'));
+    await tester.pumpAndSettle();
+    expect(server.measurementBodies.single['weight_kg'], 72.4);
+  });
+
   testWidgets('registra o peso e a cintura; a tendência aparece', (
     tester,
   ) async {

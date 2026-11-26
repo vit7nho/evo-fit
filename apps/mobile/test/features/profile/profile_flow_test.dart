@@ -313,6 +313,9 @@ void main() {
       final server = await _pumpSignedIn(tester, onboarded: true);
       await openProfile(tester);
       await _tapText(tester, 'Rotina');
+      // O 1 vai no singular (achado do piloto da 5.7).
+      expect(find.bySemanticsLabel('1 dia por semana'), findsOneWidget);
+      expect(find.bySemanticsLabel('1 dias por semana'), findsNothing);
 
       // Dois toques no TalkBack disparam a ação "tap" do nó, não um toque na tela.
       tester.semantics.tap(find.semantics.byLabel('6 dias por semana'));

@@ -258,7 +258,7 @@ class EvoNumberPicker extends StatelessWidget {
     required this.max,
     required this.value,
     required this.onChanged,
-    required this.semanticsSuffix,
+    required this.semanticsLabel,
   });
 
   final int min;
@@ -266,8 +266,8 @@ class EvoNumberPicker extends StatelessWidget {
   final int? value;
   final ValueChanged<int> onChanged;
 
-  /// Completa o rótulo lido por leitores de tela (ex.: "dias por semana").
-  final String semanticsSuffix;
+  /// Rótulo lido por leitores de tela para cada número (ex.: "1 dia por semana").
+  final String Function(int n) semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -280,7 +280,7 @@ class EvoNumberPicker extends StatelessWidget {
             child: Semantics(
               button: true,
               selected: value == n,
-              label: '$n $semanticsSuffix',
+              label: semanticsLabel(n),
               excludeSemantics: true,
               onTap: () => onChanged(n),
               child: EvoFocusRing(

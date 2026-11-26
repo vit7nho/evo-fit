@@ -304,7 +304,8 @@ class RoutineEditor extends StatelessWidget {
           min: 1,
           max: 7,
           value: draft.daysPerWeek,
-          semanticsSuffix: 'dias por semana',
+          semanticsLabel: (n) =>
+              n == 1 ? '1 dia por semana' : '$n dias por semana',
           onChanged: (value) {
             HapticFeedback.selectionClick();
             draft.daysPerWeek = value;
