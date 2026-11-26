@@ -132,6 +132,7 @@ lib/
 - Motion apenas em transições pontuais (hero, revelação de seções), respeitando `prefers-reduced-motion`.
 - Mockups do app renderizados como componentes com dados **marcados como exemplo**.
 - Lista de interesse (opcional): um endpoint `POST /api/v1/waitlist` com consentimento e *rate limit*; caso contrário, o CTA leva ao repositório/demo.
+- **Implementado na 5.5 (ADR-062):** página inicial com as seções, `/privacidade`, 404 própria, `opengraph-image`, `manifest`, `sitemap`, `robots` e JSON-LD; cabeçalho e rodapé em `components/site-chrome.tsx`, telas do app em `components/phone.tsx`, perguntas frequentes em `lib/content.ts`. Sem lista de interesse: o projeto não está publicado.
 
 ## 6. Modelo multimodal de atividades
 

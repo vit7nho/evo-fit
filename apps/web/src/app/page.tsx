@@ -2,9 +2,19 @@ import Link from "next/link";
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 
 import { Reveal } from "@/components/motion";
-import { HistoryScreen, RecordsScreen, SessionScreen } from "@/components/phone";
+import {
+  BodyScreen,
+  CoachScreen,
+  HistoryScreen,
+  NutritionScreen,
+  RecordsScreen,
+  SessionScreen,
+  WeightScreen,
+} from "@/components/phone";
 import { ZoomablePhone } from "@/components/phone-zoom";
+import { SiteFooter, SiteHeader, SkipLink } from "@/components/site-chrome";
 import AnimatedGradient from "@/components/spell/animated-gradient";
+import { faq, homeJsonLd, jsonLdScript } from "@/lib/content";
 import { site } from "@/lib/site";
 
 /** Cores do mapa de estímulo do app (pouco, médio, muito): a paleta do site. */
@@ -15,27 +25,14 @@ const techniques = [
   "Supersérie",
   "Drop set",
   "Rest-pause",
-  "Até a falha",
-  "Aquecimento",
+  "Corrida",
+  "Caminhada",
+  "Meu Corpo",
   "Recordes pessoais",
-  "1RM estimado",
-  "Descanso automático",
-  "Histórico por exercício",
+  "Metas nutricionais",
+  "Peso e medidas",
+  "IA com seus dados",
 ];
-
-/** Marca: monograma com a seta de evolução (mesma arte do ícone do app). */
-function Logo() {
-  return (
-    <span className="inline-flex items-center gap-sm">
-      <span className="grid size-9 place-items-center rounded-[11px] bg-white text-black">
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5" fill="currentColor">
-          <path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5z" />
-        </svg>
-      </span>
-      <span className="font-display text-title-sm font-bold tracking-tight">{site.name}</span>
-    </span>
-  );
-}
 
 /** Título que entra palavra por palavra. */
 function Words({ text, delay = 0 }: { text: string; delay?: number }) {
@@ -61,11 +58,31 @@ function Eyebrow({ children }: { children: ReactNode }) {
   );
 }
 
-function Soon() {
+/** Cabeçalho de seção: rótulo, título (h2) e texto opcional. */
+function SectionTitle({
+  id,
+  eyebrow,
+  title,
+  children,
+}: {
+  id: string;
+  eyebrow: string;
+  title: ReactNode;
+  children?: ReactNode;
+}) {
   return (
-    <span className="rounded-pill border border-white/15 px-sm py-[2px] text-[0.6875rem] font-semibold text-site-muted">
-      Em breve
-    </span>
+    <Reveal className="max-w-[48rem]">
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <h2
+        id={id}
+        className="mt-md font-display text-[2.25rem] leading-[1.02] font-bold tracking-[-0.035em] sm:text-[3.5rem]"
+      >
+        {title}
+      </h2>
+      {children && (
+        <p className="mt-lg max-w-[42rem] text-body leading-relaxed text-site-muted">{children}</p>
+      )}
+    </Reveal>
   );
 }
 
@@ -74,14 +91,12 @@ function Feature({
   eyebrow,
   title,
   description,
-  soon = false,
   delay = 0,
   children,
 }: {
   eyebrow: string;
   title: string;
   description: string;
-  soon?: boolean;
   delay?: number;
   children: ReactNode;
 }) {
@@ -95,10 +110,7 @@ function Feature({
           {children}
         </div>
         <div className="border-t border-white/10 p-xl">
-          <div className="flex flex-wrap items-center gap-sm">
-            <Eyebrow>{eyebrow}</Eyebrow>
-            {soon && <Soon />}
-          </div>
+          <Eyebrow>{eyebrow}</Eyebrow>
           <h3 className="mt-sm font-display text-title font-semibold tracking-tight">{title}</h3>
           <p className="mt-sm text-body-sm leading-relaxed text-site-muted">{description}</p>
         </div>
@@ -124,7 +136,7 @@ function BisetDemo() {
   );
 }
 
-/** Ritmo de uma corrida (linha) — recurso das próximas fases. */
+/** Ritmo semana a semana de quem corre (linha). */
 function PaceDemo() {
   return (
     <svg viewBox="0 0 300 120" className="w-full max-w-[20rem]" fill="none">
@@ -144,7 +156,7 @@ function PaceDemo() {
         strokeLinecap="round"
       />
       <text x="0" y="116" fill="rgba(255,255,255,0.5)" fontSize="11">
-        5 km · 5:42 /km
+        Plano de 5 km · semana 4 de 8 · 5:42 /km
       </text>
     </svg>
   );
@@ -185,6 +197,58 @@ function BodyDemo() {
   );
 }
 
+/** O dia contra a meta (barras) e o peso caindo semana a semana. */
+function NutritionDemo() {
+  const bars: Array<[string, number]> = [
+    ["Calorias", 0.69],
+    ["Proteína", 0.44],
+    ["Carboidratos", 0.78],
+  ];
+  return (
+    <div className="w-full max-w-[20rem] space-y-md">
+      {bars.map(([label, ratio]) => (
+        <div key={label}>
+          <div className="flex justify-between text-caption text-site-muted">
+            <span>{label}</span>
+            <span>{Math.round(ratio * 100)}% da meta</span>
+          </div>
+          <div className="mt-xs h-2 rounded-pill bg-white/10">
+            <div
+              className="h-full rounded-pill"
+              style={{ width: `${ratio * 100}%`, background: STIMULUS }}
+            />
+          </div>
+        </div>
+      ))}
+      <p className="text-caption text-site-muted">Peso: 80 → 77,6 kg em 4 semanas</p>
+    </div>
+  );
+}
+
+/** Metas medidas pelos registros. */
+function GoalsDemo() {
+  const goals: Array<[string, string, number]> = [
+    ["Supino 70 kg × 5", "62,5 kg", 0.89],
+    ["Correr 10 km", "6 km", 0.6],
+    ["Chegar a 72 kg", "77,6 kg", 0.3],
+  ];
+  return (
+    <ul className="w-full max-w-[20rem] space-y-md">
+      {goals.map(([title, now, ratio]) => (
+        <li key={title}>
+          <div className="flex justify-between text-body-sm">
+            <span className="font-semibold">{title}</span>
+            <span className="text-site-muted">{now}</span>
+          </div>
+          <div className="mt-xs h-1.5 rounded-pill bg-white/10">
+            <div className="h-full rounded-pill bg-white" style={{ width: `${ratio * 100}%` }} />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** Conversa com a IA a partir dos dados do treino. */
 function AiDemo() {
   return (
@@ -193,49 +257,137 @@ function AiDemo() {
         Como foi meu supino este mês?
       </p>
       <p className="w-fit rounded-[18px] rounded-bl-[6px] bg-white/[0.08] px-md py-sm">
-        Sua carga subiu de 60 para 62,5 kg em 8 repetições — um recorde no dia 3. O volume
-        semanal ficou estável.
+        Sua maior carga em 8 repetições subiu de 60 para 62,5 kg — um recorde no dia 3. O 1RM
+        estimado ficou em cerca de 79 kg.
       </p>
-      <p className="text-caption text-site-muted">Baseado nos seus registros · fatos, não palpites</p>
+      <p className="text-caption text-site-muted">Consultou: histórico do exercício</p>
     </div>
   );
 }
 
+const screens: Array<{ title: string; text: string; label: string; screen: ReactNode }> = [
+  {
+    title: "Registro em tabela",
+    text: "A, 1, F, D, RP: aquecimento, válida, falha, drop e rest-pause no número da série.",
+    label: "Tela do treino com a tabela de séries.",
+    screen: <SessionScreen />,
+  },
+  {
+    title: "Histórico",
+    text: "Cada treino com duração, séries, volume e os recordes que caíram.",
+    label: "Tela do histórico com treinos concluídos e selo de recordes.",
+    screen: <HistoryScreen />,
+  },
+  {
+    title: "Recordes",
+    text: "Maior carga, 1RM estimado e a melhor carga para cada número de repetições.",
+    label: "Tela de recordes de um exercício com a melhor carga por repetições.",
+    screen: <RecordsScreen />,
+  },
+  {
+    title: "Meu Corpo",
+    text: "O estímulo de cada músculo no período, em cores e numa lista acessível.",
+    label:
+      "Tela do Meu Corpo: silhueta com os músculos coloridos pela faixa de estímulo e a lista de séries por semana.",
+    screen: <BodyScreen />,
+  },
+  {
+    title: "Nutrição",
+    text: "As calorias e os macronutrientes do dia contra as metas que você definiu.",
+    label: "Tela da nutrição: total do dia contra a meta de calorias, macronutrientes e uma refeição.",
+    screen: <NutritionScreen />,
+  },
+  {
+    title: "Peso e medidas",
+    text: "A tendência das semanas, não o susto de um dia: variação, ritmo e gráfico.",
+    label: "Tela de peso e medidas: último peso, variação, ritmo por semana e gráfico das pesagens.",
+    screen: <WeightScreen />,
+  },
+  {
+    title: "Assistente",
+    text: "Responde com os seus registros, mostra o que consultou e pede confirmação.",
+    label:
+      "Tela do assistente: resposta sobre a semana de treinos, o que foi consultado e uma proposta com os botões Confirmar e Recusar.",
+    screen: <CoachScreen />,
+  },
+];
+
+const steps: Array<[string, string]> = [
+  [
+    "Registre",
+    "Séries no treino, corridas, refeições e pesagens — em poucos toques, com a última vez ao lado.",
+  ],
+  [
+    "Acompanhe",
+    "Painel pelo seu objetivo, Meu Corpo, recordes, comparativos e metas medidas pelos registros.",
+  ],
+  [
+    "Pergunte",
+    "O assistente consulta os seus dados para responder e só altera uma ficha ou meta depois do seu sim.",
+  ],
+];
+
+const aiRules: Array<[string, string]> = [
+  [
+    "Consulta antes de responder",
+    "Cada número vem de uma consulta aos seus registros, feita pelo servidor com a sua conta — nunca com dados de outra pessoa.",
+  ],
+  [
+    "Mostra o que consultou",
+    "Embaixo de cada resposta: “Consultou: treinos e atividades”. Números que não estão nos dados são contados e registrados.",
+  ],
+  [
+    "Pede confirmação",
+    "Sugestões para a ficha ou para as metas aparecem como proposta, com Confirmar e Recusar. Nada muda sozinho.",
+  ],
+  [
+    "Conhece os limites",
+    "Não faz diagnósticos nem monta dietas: diante de dor, sintomas ou dieta restritiva, recomenda um profissional.",
+  ],
+];
+
+const privacy: Array<[string, string]> = [
+  [
+    "Consentimentos separados",
+    "Termos no cadastro; dados de saúde e análises com IA só com autorização própria, que você desliga quando quiser.",
+  ],
+  [
+    "Dados de saúde protegidos",
+    "Peso, medidas, alimentação e frequência cardíaca exigem consentimento específico; revogar apaga esses dados.",
+  ],
+  [
+    "Cada um vê só o seu",
+    "Todas as consultas usam a conta autenticada, com testes automáticos que tentam ler dados de outra pessoa.",
+  ],
+  [
+    "A IA recebe o mínimo",
+    "Só os registros ligados à pergunta, sem nome nem e-mail, para o provedor nomeado no consentimento.",
+  ],
+];
+
+const working = [
+  "Fichas com bi-set, supersérie, drop set e rest-pause",
+  "Treino em tabela, histórico, recordes e 1RM estimado",
+  "Corrida, caminhada, ciclismo e natação, com planos progressivos",
+  "Painel pelo objetivo, Meu Corpo, Evolução e comparativos",
+  "Nutrição com metas, peso e medidas com tendência",
+  "Assistente com propostas e modo demonstração",
+];
+
+const next = [
+  "Exportação dos dados e exclusão da conta pelo app (LGPD)",
+  "Testes de usabilidade com 3 a 5 pessoas",
+];
+
 export default function Home() {
   return (
     <div className="site overflow-x-clip">
-      <a
-        href="#conteudo"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-md focus:left-md focus:z-50 focus:rounded-pill focus:bg-white focus:px-lg focus:py-sm focus:text-black"
-      >
-        Pular para o conteúdo
-      </a>
-
-      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/[0.06] bg-black/40 backdrop-blur-xl">
-        <nav
-          aria-label="Principal"
-          className="mx-auto flex max-w-6xl items-center justify-between gap-lg px-lg py-md sm:px-xl"
-        >
-          <Link href="/" aria-label={`${site.name}, início`}>
-            <Logo />
-          </Link>
-          <ul className="hidden items-center gap-xl text-body-sm text-site-muted md:flex">
-            <li>
-              <a className="transition-colors hover:text-white" href="#app">
-                O app
-              </a>
-            </li>
-            <li>
-              <a className="transition-colors hover:text-white" href="#recursos">
-                Recursos
-              </a>
-            </li>
-          </ul>
-          <span className="rounded-pill border border-white/15 px-md py-xs text-caption text-site-muted">
-            Projeto de TCC em desenvolvimento
-          </span>
-        </nav>
-      </header>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(homeJsonLd()) }}
+      />
+      <SkipLink />
+      <SiteHeader />
 
       <main id="conteudo">
         <section
@@ -347,9 +499,7 @@ export default function Home() {
         <div aria-hidden="true" className="site-marquee border-y border-white/10 py-lg">
           <div className="site-marquee-track flex w-max flex-nowrap">
             {/* Duas cópias iguais lado a lado, cada item com o próprio espaço à direita:
-                a trilha anda exatamente uma cópia (−50%) e a volta não pula. Cada cópia
-                repete a lista duas vezes para ser mais larga que qualquer tela (senão
-                sobra um vão no fim). */}
+                a trilha anda exatamente uma cópia (−50%) e a volta não pula. */}
             {[0, 1].map((copy) => (
               <div key={copy} className="flex shrink-0 flex-nowrap">
                 {[...techniques, ...techniques].map((t, i) => (
@@ -366,47 +516,15 @@ export default function Home() {
           </div>
         </div>
 
-        <section
-          aria-labelledby="app-title"
-          id="app"
-          className="mx-auto max-w-6xl px-lg py-[7rem] sm:px-xl"
-        >
-          <Reveal className="max-w-[48rem]">
-            <Eyebrow>O app</Eyebrow>
-            <h2
-              id="app-title"
-              className="mt-md font-display text-[2.25rem] leading-[1.02] font-bold tracking-[-0.035em] sm:text-[3.5rem]"
-            >
-              Feito para a academia, não para a planilha.
-            </h2>
-            <p className="mt-lg max-w-[42rem] text-body leading-relaxed text-site-muted">
-              Cada série com a última vez ao lado, um toque para confirmar, o tipo da série no
-              próprio número e o descanso começando sozinho. Depois, o histórico mostra o que
-              evoluiu.
-            </p>
-          </Reveal>
-          <div className="mt-3xl flex flex-wrap items-start justify-center gap-2xl lg:justify-between">
-            {[
-              {
-                title: "Registro em tabela",
-                text: "A, 1, F, D, RP: aquecimento, válida, falha, drop e rest-pause no número da série.",
-                screen: <SessionScreen />,
-                label: "Tela do treino com a tabela de séries.",
-              },
-              {
-                title: "Histórico",
-                text: "Cada treino com duração, séries, volume e os recordes que caíram.",
-                screen: <HistoryScreen />,
-                label: "Tela do histórico com treinos concluídos e selo de recordes.",
-              },
-              {
-                title: "Recordes",
-                text: "Maior carga, 1RM estimado e a melhor carga para cada número de repetições.",
-                screen: <RecordsScreen />,
-                label: "Tela de recordes de um exercício com a melhor carga por repetições.",
-              },
-            ].map((item, i) => (
-              <Reveal key={item.title} delay={i * 120}>
+        <section aria-labelledby="app-title" id="app" className="mx-auto max-w-6xl px-lg py-[7rem] sm:px-xl">
+          <SectionTitle id="app-title" eyebrow="O app" title="Feito para a academia, não para a planilha.">
+            Cada série com a última vez ao lado, um toque para confirmar e o descanso começando
+            sozinho. Depois, o histórico, o Meu Corpo e o assistente mostram o que evoluiu. As
+            telas abaixo são ilustrativas, com dados de exemplo — toque para ampliar.
+          </SectionTitle>
+          <div className="mt-3xl grid justify-items-center gap-x-2xl gap-y-3xl sm:grid-cols-2 lg:grid-cols-3">
+            {screens.map((item, i) => (
+              <Reveal key={item.title} delay={(i % 3) * 120}>
                 <figure className="flex max-w-[260px] flex-col items-center">
                   <ZoomablePhone title={item.title} label={item.label}>
                     {item.screen}
@@ -423,33 +541,20 @@ export default function Home() {
           </div>
         </section>
 
-        <section
-          aria-labelledby="recursos-title"
-          id="recursos"
-          className="mx-auto max-w-6xl px-lg pb-[7rem] sm:px-xl"
-        >
-          <Reveal className="max-w-[48rem]">
-            <Eyebrow>Recursos</Eyebrow>
-            <h2
-              id="recursos-title"
-              className="mt-md font-display text-[2.25rem] leading-[1.02] font-bold tracking-[-0.035em] sm:text-[3.5rem]"
-            >
-              O que o {site.name} reúne
-            </h2>
-          </Reveal>
+        <section aria-labelledby="recursos-title" id="recursos" className="mx-auto max-w-6xl px-lg pb-[7rem] sm:px-xl">
+          <SectionTitle id="recursos-title" eyebrow="Recursos" title={`O que o ${site.name} reúne`} />
           <div className="mt-3xl grid gap-lg md:grid-cols-2">
             <Feature
               eyebrow="Musculação"
               title="Fichas com técnicas de verdade"
-              description="Bi-sets, superséries, tri-sets, drop set, rest-pause e aquecimento planejados na ficha e registrados no treino, com histórico e recordes por exercício."
+              description="Bi-sets, superséries, tri-sets, drop set, rest-pause e aquecimento planejados na ficha e registrados no treino, com histórico, recordes e 1RM estimado por exercício."
             >
               <BisetDemo />
             </Feature>
             <Feature
               eyebrow="Cardio"
-              title="Corrida, caminhada e mais"
-              description="Distância, duração, ritmo e esforço percebido, com planos progressivos para quem está começando ou buscando os primeiros 5 km."
-              soon
+              title="Corrida, caminhada, ciclismo e natação"
+              description="Distância, duração, pace ou velocidade e esforço percebido, com planos progressivos de caminhada, primeiros 5 km e 10 km marcados pelas suas atividades."
               delay={90}
             >
               <PaceDemo />
@@ -457,16 +562,29 @@ export default function Home() {
             <Feature
               eyebrow="Evolução"
               title="Meu Corpo"
-              description="Um mapa muscular que mostra como o estímulo registrado se distribuiu no período, com uma metodologia transparente e configurável."
-              soon
+              description="Um mapa muscular de frente e de costas com o estímulo registrado no período, por uma metodologia transparente e versionada — referência, não diagnóstico."
             >
               <BodyDemo />
             </Feature>
             <Feature
+              eyebrow="Nutrição e corpo"
+              title="Alimentação, metas, peso e medidas"
+              description="Refeições com calorias e macronutrientes, metas diárias com limites de segurança e a tendência do peso e das medidas, semana a semana."
+              delay={90}
+            >
+              <NutritionDemo />
+            </Feature>
+            <Feature
+              eyebrow="Metas"
+              title="Metas medidas pelos registros"
+              description="Força, corrida, frequência, hipertrofia e peso: o progresso vem do que você registrou, sem número inventado, e o painel do Início se organiza pelo seu objetivo."
+            >
+              <GoalsDemo />
+            </Feature>
+            <Feature
               eyebrow="IA contextual"
               title="Respostas a partir dos seus dados"
-              description="Pergunte sobre o seu treino, a sua corrida ou a sua alimentação. A IA consulta seus registros, separa fatos de hipóteses e pede confirmação antes de alterar algo."
-              soon
+              description="Pergunte sobre o treino, a corrida, a alimentação ou o peso. A IA consulta seus registros, mostra o que consultou e pede confirmação antes de alterar algo."
               delay={90}
             >
               <AiDemo />
@@ -474,17 +592,100 @@ export default function Home() {
           </div>
         </section>
 
-        <section
-          aria-labelledby="fim-title"
-          className="relative isolate overflow-hidden border-t border-white/10"
-        >
+        <section aria-labelledby="como-title" id="como-funciona" className="mx-auto max-w-6xl px-lg pb-[7rem] sm:px-xl">
+          <SectionTitle id="como-title" eyebrow="Como funciona" title="Três passos, todos os dias." />
+          <ol className="mt-3xl grid gap-lg md:grid-cols-3">
+            {steps.map(([title, text], i) => (
+              <li key={title}>
+                <Reveal delay={i * 90} className="h-full">
+                  <div className="h-full rounded-[28px] border border-white/10 bg-white/[0.03] p-xl">
+                    <span
+                      aria-hidden="true"
+                      className="font-display text-[3rem] leading-none font-bold"
+                      style={{ backgroundImage: STIMULUS, WebkitBackgroundClip: "text", color: "transparent" }}
+                    >
+                      {i + 1}
+                    </span>
+                    <h3 className="mt-md font-display text-title font-semibold">{title}</h3>
+                    <p className="mt-sm text-body-sm leading-relaxed text-site-muted">{text}</p>
+                  </div>
+                </Reveal>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section aria-labelledby="ia-title" id="ia" className="mx-auto max-w-6xl px-lg pb-[7rem] sm:px-xl">
+          <SectionTitle id="ia-title" eyebrow="A IA" title="Fatos dos seus registros, não palpites.">
+            O assistente funciona com um provedor de IA escolhido pelo servidor ou, sem internet
+            e sem custo, num modo demonstração que monta as respostas por regras — e avisa
+            quando é ele que responde.
+          </SectionTitle>
+          <ul className="mt-3xl grid gap-lg sm:grid-cols-2">
+            {aiRules.map(([title, text], i) => (
+              <li key={title}>
+                <Reveal delay={(i % 2) * 90} className="h-full">
+                  <div className="h-full rounded-[28px] border border-white/10 p-xl">
+                    <h3 className="font-display text-title-sm font-semibold">{title}</h3>
+                    <p className="mt-sm text-body-sm leading-relaxed text-site-muted">{text}</p>
+                  </div>
+                </Reveal>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section aria-labelledby="privacidade-title" id="privacidade" className="mx-auto max-w-6xl px-lg pb-[7rem] sm:px-xl">
+          <SectionTitle id="privacidade-title" eyebrow="Privacidade" title="Seus dados de saúde, sob seu controle.">
+            O projeto segue a LGPD desde o desenho: peso, medidas, alimentação e frequência
+            cardíaca são dados sensíveis.
+          </SectionTitle>
+          <ul className="mt-3xl grid gap-lg sm:grid-cols-2">
+            {privacy.map(([title, text], i) => (
+              <li key={title}>
+                <Reveal delay={(i % 2) * 90} className="h-full">
+                  <div className="h-full rounded-[28px] border border-white/10 p-xl">
+                    <h3 className="font-display text-title-sm font-semibold">{title}</h3>
+                    <p className="mt-sm text-body-sm leading-relaxed text-site-muted">{text}</p>
+                  </div>
+                </Reveal>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-xl text-body-sm">
+            <Link className="font-semibold underline underline-offset-4 hover:text-site-muted" href="/privacidade">
+              Leia o aviso de privacidade completo
+            </Link>
+          </p>
+        </section>
+
+        <section aria-labelledby="perguntas-title" id="perguntas" className="mx-auto max-w-6xl px-lg pb-[7rem] sm:px-xl">
+          <SectionTitle id="perguntas-title" eyebrow="Perguntas" title="Perguntas frequentes" />
+          <div className="mt-3xl divide-y divide-white/10 border-y border-white/10">
+            {faq.map((item) => (
+              <details key={item.question} className="site-faq group py-lg">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-lg font-display text-title-sm font-semibold">
+                  {item.question}
+                  <span aria-hidden="true" className="text-site-muted transition-transform group-open:rotate-45">
+                    +
+                  </span>
+                </summary>
+                <p className="mt-md max-w-[48rem] text-body-sm leading-relaxed text-site-muted">
+                  {item.answer}
+                </p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        <section aria-labelledby="fim-title" className="relative isolate overflow-hidden border-t border-white/10">
           <div
             aria-hidden="true"
             className="absolute inset-0 -z-10 opacity-40 blur-3xl"
             style={{ background: "radial-gradient(circle at 50% 120%, #3D7BFF 0%, transparent 55%)" }}
           />
-          <div className="mx-auto max-w-6xl px-lg py-[7rem] text-center sm:px-xl">
-            <Reveal>
+          <div className="mx-auto max-w-6xl px-lg py-[7rem] sm:px-xl">
+            <Reveal className="text-center">
               <h2
                 id="fim-title"
                 className="mx-auto max-w-4xl font-display text-[2.5rem] leading-[1] font-bold tracking-[-0.045em] text-balance sm:text-[4.5rem]"
@@ -495,24 +696,39 @@ export default function Home() {
                 </span>
               </h2>
               <p className="mx-auto mt-lg max-w-[36rem] text-body leading-relaxed text-site-muted">
-                O {site.name} está em desenvolvimento como Trabalho de Conclusão de Curso: o
-                registro de treinos já funciona no app Android; cardio, Meu Corpo, nutrição e IA
-                vêm nas próximas fases.
+                O {site.name} é um Trabalho de Conclusão de Curso em desenvolvimento, com o app
+                Android funcionando contra a API real.
               </p>
             </Reveal>
+            <div className="mx-auto mt-3xl grid max-w-4xl gap-lg md:grid-cols-2">
+              <div className="rounded-[28px] border border-white/10 p-xl">
+                <h3 className="font-display text-title-sm font-semibold">O que já funciona</h3>
+                <ul className="mt-md space-y-sm text-body-sm text-site-muted">
+                  {working.map((item) => (
+                    <li key={item} className="flex gap-sm">
+                      <span aria-hidden="true">✓</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-[28px] border border-white/10 p-xl">
+                <h3 className="font-display text-title-sm font-semibold">Próximos passos</h3>
+                <ul className="mt-md space-y-sm text-body-sm text-site-muted">
+                  {next.map((item) => (
+                    <li key={item} className="flex gap-sm">
+                      <span aria-hidden="true">→</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-white/10">
-        <div className="mx-auto flex max-w-6xl flex-col gap-md px-lg py-xl text-caption text-site-muted sm:flex-row sm:items-center sm:justify-between sm:px-xl">
-          <Logo />
-          <p>
-            O {site.name} não substitui o acompanhamento de profissionais de saúde, Educação
-            Física ou Nutrição.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

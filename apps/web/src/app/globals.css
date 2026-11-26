@@ -39,6 +39,17 @@ body {
   outline-offset: 3px;
 }
 
+/* As seções ficam abaixo do cabeçalho fixo ao seguir uma âncora do menu. */
+section[id] {
+  scroll-margin-top: 5.5rem;
+}
+
+/* Menu do celular e perguntas frequentes: <details> sem o triângulo padrão. */
+.site-menu summary::-webkit-details-marker,
+.site-faq summary::-webkit-details-marker {
+  display: none;
+}
+
 /* --- Movimento ---
    Só transform e opacity (baratos e sem piscar). Nada de desfoque em texto com
    gradiente, que pisca no Chrome e no Safari. Tudo para com "reduzir movimento". */

@@ -5,8 +5,8 @@ import { useRef, useState, type ReactNode } from "react";
 import { Phone } from "./phone";
 import { TiltCard } from "./spell/tilt-card";
 
-/** Altura da moldura do celular (tela de 540px + borda). */
-const PHONE_HEIGHT = 562;
+/** Altura do celular: o rótulo "Dados de exemplo" (24px) e a moldura (tela de 540px + borda). */
+const PHONE_HEIGHT = 586;
 
 /**
  * Celular que, ao ser clicado, abre a tela ampliada numa janela por cima do site.
@@ -47,23 +47,30 @@ export function ZoomablePhone({
 
   return (
     <>
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        aria-label={`Ampliar a tela: ${title}`}
-        onClick={open}
-        className="group block cursor-zoom-in rounded-[42px] text-left"
-      >
+      {/* O botão é uma camada transparente por cima do celular, sem texto dentro: o
+          nome dele ("Ampliar a tela: …") é tudo o que o leitor de tela ouve (achado no
+          Lighthouse: com o celular dentro do botão, o texto visível não batia com o
+          nome). Fica dentro do cartão que inclina, para o mouse continuar inclinando. */}
+      <div className="group">
         <TiltCard tiltLimit={tiltLimit} scale={1.02} effect="gravitate" className="rounded-[42px]">
-          <Phone label={label}>{children}</Phone>
+          <div className="relative">
+            <Phone label={label}>{children}</Phone>
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-label={`Ampliar a tela: ${title}`}
+              onClick={open}
+              className="absolute inset-0 cursor-zoom-in rounded-[42px]"
+            />
+          </div>
         </TiltCard>
         <span
           aria-hidden="true"
-          className="pointer-events-none mt-sm block text-center text-caption text-site-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+          className="pointer-events-none mt-sm block text-center text-caption text-site-muted opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
         >
           Clique para ampliar
         </span>
-      </button>
+      </div>
 
       <dialog
         ref={dialogRef}
