@@ -73,6 +73,16 @@ npm run dev
 
 Abra <http://localhost:3000>.
 
+## Conta de demonstração (para apresentar)
+
+Com o banco ligado, na pasta `evofit\services\api`:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.demo_seed
+```
+
+Cria (ou recria) a conta `demo@evofit.local` com 8 semanas de treinos, corridas, plano, metas, refeições e peso, **terminando hoje** — rode na manhã da apresentação. A senha aparece no fim (anote) ou pode ser escolhida com `--password "quatro palavras quaisquer"`. Só a conta de demonstração é apagada e recriada; as outras não mudam. Para o assistente responder sem IA externa, deixe `AI_PROVIDER=demo` no `.env`.
+
 ## Antes de um commit
 
 Roda todas as verificações (tokens, API, app e site), na pasta `evofit`:

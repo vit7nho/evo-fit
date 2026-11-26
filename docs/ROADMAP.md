@@ -113,7 +113,13 @@ O aceite encontrou um bug da 2.9: no aparelho, a série concluída às vezes apa
 | 5.7 🟡 | Testes de usabilidade com 3–5 pessoas (protocolo, piloto e resumo prontos em `USABILIDADE.md`, ADR-064; faltam as sessões) | P1 |
 
 ## Fase 6 — Preparação para a demonstração
-Dados de demonstração identificados (`scripts/seed_demo.py`, usuário `demo@evofit.local`), correção de erros, testes de integração dos fluxos críticos, build APK de release (assinatura de debug ou chave local), documentação final, limitações conhecidas.
+| # | Tarefa | Prio |
+|---|---|---|
+| 6.1 ✅ | Conta de demonstração identificada (`python -m app.demo_seed`, usuário `demo@evofit.local`, 8 semanas até hoje) (ADR-065) | P0 |
+| 6.2 | Testes de integração dos fluxos críticos (app + API reais) | P0 |
+| 6.3 | APK de release (assinatura local, endereço da API configurável) | P0 |
+| 6.4 | Correção de erros (achados do piloto da 5.7 e da revisão final) | P1 |
+| 6.5 | Documentação final e limitações conhecidas | P0 |
 
 ---
 
