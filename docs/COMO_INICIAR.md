@@ -83,6 +83,16 @@ Com o banco ligado, na pasta `evofit\services\api`:
 
 Cria (ou recria) a conta `demo@evofit.local` com 8 semanas de treinos, corridas, plano, metas, refeições e peso, **terminando hoje** — rode na manhã da apresentação. A senha aparece no fim (anote) ou pode ser escolhida com `--password "quatro palavras quaisquer"`. Só a conta de demonstração é apagada e recriada; as outras não mudam. Para o assistente responder sem IA externa, deixe `AI_PROVIDER=demo` no `.env`.
 
+## Testes de integração (app no emulador + API real)
+
+Com a API rodando (`AI_PROVIDER=demo` no `.env`) e o emulador ligado, na pasta `evofit`:
+
+```powershell
+.\scripts\test-e2e.ps1
+```
+
+Cria uma conta de teste, faz a jornada inteira (cadastro, ficha, treino com drop set, caminhada, peso, assistente) e exclui a conta no fim; leva uns 2 minutos. Com `-DemoPassword "senha da demo"`, confere também a conta de demonstração. A API aceita 5 cadastros por hora: para rodar mais vezes, reinicie a API.
+
 ## Antes de um commit
 
 Roda todas as verificações (tokens, API, app e site), na pasta `evofit`:

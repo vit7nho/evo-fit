@@ -137,9 +137,12 @@ class _SessionViewState extends ConsumerState<_SessionView> {
     );
     if (!(confirmed ?? false) || !mounted) return;
     final router = GoRouter.of(context);
+    // Lidos antes do await: ao descartar, a tela pode sair da árvore no meio do caminho.
+    final session = ref.read(sessionProvider.notifier);
+    final rest = ref.read(restTimerProvider.notifier);
     await _run(() async {
-      await ref.read(sessionProvider.notifier).discard();
-      ref.read(restTimerProvider.notifier).skip();
+      await session.discard();
+      rest.skip();
       router.go(AppRoutes.home);
     });
   }
@@ -154,14 +157,16 @@ class _SessionViewState extends ConsumerState<_SessionView> {
     if (result == null || !mounted) return;
     final router = GoRouter.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    // Lidos antes do await: quando o treino termina, a tela sai da árvore e o `ref`
+    // não pode mais ser usado (achado pelo teste de integração da 6.2).
+    final session = ref.read(sessionProvider.notifier);
+    final rest = ref.read(restTimerProvider.notifier);
     await _run(() async {
-      final finished = await ref
-          .read(sessionProvider.notifier)
-          .finish(
-            effort: result.$1,
-            notes: result.$2.isEmpty ? null : result.$2,
-          );
-      ref.read(restTimerProvider.notifier).skip();
+      final finished = await session.finish(
+        effort: result.$1,
+        notes: result.$2.isEmpty ? null : result.$2,
+      );
+      rest.skip();
       final minutes = (finished.elapsedS / 60).round();
       final sets = finished.setCount == 1
           ? '1 série'

@@ -638,3 +638,15 @@ Formato curto: contexto → decisão → consequências. Status: **Aceita** (pad
 - **Senha:** `--password`, `DEMO_PASSWORD` ou uma frase de 4 palavras gerada e mostrada uma vez; nada no repositório.
 - **Testes** (`tests/test_demo_seed.py`, no banco de testes): perfil e consentimentos, 22 treinos terminando na última semana, recordes, Meu Corpo, plano sem sessão atrasada, refeições perto da meta, 8 pesagens, metas, painel; rodar de novo troca só a conta de demonstração; produção recusada.
 - **Achado na verificação:** uma sessão do plano pulada de propósito virava a “próxima” no Início (“Semana 1 de 8”); o plano ficou sem faltas e as faltas ficaram na musculação.
+
+### ADR-066 — Testes de integração: o app no emulador com a API real
+**Status:** Aceita · Fase 6.2
+**Contexto:** os 282 testes do app usam um servidor falso, e os da API usam um cliente em processo. Nada conferia o caminho inteiro — o app compilado, no Android, falando com a API de verdade e o banco — que é o que a banca vai ver.
+**Decisões:**
+- **`integration_test` do próprio SDK do Flutter** (sem pacote de terceiros), em `apps/mobile/integration_test/critical_flows_test.dart`, rodado com `flutter test integration_test -d emulator-5554` ou `scripts/test-e2e.ps1` (que confere antes se a API e o banco respondem).
+- **Jornada crítica num teste só**, na ordem em que uma pessoa usaria: cadastro com o perfil completo → ficha com bi-set → treino com duas séries e um drop set, finalizado, conferido no resumo → caminhada → peso, passando pela autorização de dados de saúde → pergunta ao assistente no modo demonstração, passando pela autorização de IA → exclusão da conta pelo Perfil, conferindo na API que o login passa a dar 401.
+- **Conta descartável:** `e2e.<instante>@evofit.local`, criada e excluída pelo próprio app; se o teste parar no meio, o `tearDown` exclui a conta pela API. Antes de começar, o armazenamento seguro do aparelho é limpo (sem sessão nem rascunho de antes).
+- **Conta de demonstração (6.1):** um segundo teste entra com `demo@evofit.local` e confere o Início, o plano, as metas e o Meu Corpo. Roda só com `--dart-define=DEMO_PASSWORD=…`, para a senha não ficar no repositório.
+- **Sem `pumpAndSettle`:** o treino tem um cronômetro na tela, então as esperas são por elemento, com limite (20 s; 40 s para o assistente) e mensagem dizendo o que faltou.
+- **Achado — erro real corrigido:** ao finalizar (e ao descartar) um treino, `session_page.dart` usava o `ref` do Riverpod depois do `await`, quando a tela já podia ter saído da árvore (“Using ref when a widget is about to or has been unmounted”). Dependendo do tempo, o resumo do treino não abria. Os notifiers agora são lidos antes do `await`.
+- **Limite de cadastro:** a API aceita 5 cadastros por hora por IP (proteção da 2.1), e cada execução cria uma conta. Para rodar mais vezes na mesma hora, reinicie a API (o limite fica na memória dela); o limite não foi afrouxado para os testes.
