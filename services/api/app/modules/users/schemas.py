@@ -165,3 +165,11 @@ class ProfileUpdate(BaseModel):
     onboarding_completed: Literal[True] | None = Field(
         default=None, description="Marca o onboarding como concluído (não volta atrás)."
     )
+
+
+class DeleteAccountIn(BaseModel):
+    """Exclusão da conta (5.6): a senha confirma que é a própria pessoa."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    password: Annotated[str, StringConstraints(min_length=1, max_length=128)]

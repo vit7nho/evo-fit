@@ -372,12 +372,10 @@ const working = [
   "Painel pelo objetivo, Meu Corpo, Evolução e comparativos",
   "Nutrição com metas, peso e medidas com tendência",
   "Assistente com propostas e modo demonstração",
+  "Exportação de todos os dados e exclusão da conta pelo app (LGPD)",
 ];
 
-const next = [
-  "Exportação dos dados e exclusão da conta pelo app (LGPD)",
-  "Testes de usabilidade com 3 a 5 pessoas",
-];
+const next = ["Testes de usabilidade com 3 a 5 pessoas"];
 
 export default function Home() {
   return (

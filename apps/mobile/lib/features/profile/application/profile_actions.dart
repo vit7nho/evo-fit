@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/platform/file_saver.dart';
 import '../../activities/application/activities_controller.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../goals/application/goals_controller.dart';
@@ -42,6 +43,21 @@ class ProfileActions {
         ..invalidate(planProvider)
         ..invalidate(planTemplatesProvider);
     }
+  }
+
+  /// Baixa todos os dados (JSON) e abre o "Salvar como" do aparelho. Verdadeiro se
+  /// salvou, falso se a pessoa cancelou. Lança ApiException ou FileSaveException.
+  Future<bool> exportData() async {
+    final export = await _api.exportData();
+    return _ref
+        .read(fileSaverProvider)
+        .saveText(fileName: export.fileName, content: export.content);
+  }
+
+  /// Exclui a conta no servidor e sai do aparelho (os tokens não existem mais).
+  Future<void> deleteAccount(String password) async {
+    await _api.deleteAccount(password);
+    await _auth.accountDeleted();
   }
 
   /// Envia as respostas do onboarding e o marca como concluído.

@@ -40,8 +40,8 @@ Registrados em `user_consents` (tipo, versão do texto, data, revogação):
 
 ## 4. Direitos do titular
 
-- **Acesso/portabilidade:** `GET /api/v1/me/export` (JSON com todos os dados do usuário).
-- **Exclusão de conta:** `DELETE /api/v1/me` com reautenticação → exclusão física em cascata dos dados pessoais; logs técnicos mantêm só IDs pseudônimos até expirarem.
+- **Acesso/portabilidade:** `GET /api/v1/me/export` (JSON com todos os dados do usuário). ✅ 5.6 (ADR-063): tabela por tabela, de uma lista conferida por teste contra o banco; sem o hash da senha e os tokens; até 10 por hora; no app, salvo pelo “Salvar como” do Android.
+- **Exclusão de conta:** `DELETE /api/v1/me` com reautenticação → exclusão física em cascata dos dados pessoais; logs técnicos mantêm só IDs pseudônimos até expirarem. ✅ 5.6 (ADR-063): a senha é conferida com o mesmo limite de erros do login; no app, uma tela com a lista do que some, a senha e uma confirmação explícita.
 - **Correção:** edição normal pelos endpoints de cada módulo.
 - **Revogação de consentimento:** revogar `ai_processing` bloqueia novas chamadas; revogar `health_data` oferece a exclusão dos dados sensíveis. **(5.1)** Refeições exigem `health_data` e são apagadas na revogação; os alimentos próprios (valores de embalagem) não são dado de saúde e ficam. Os logs das refeições levam só os ids. **(5.2)** **(5.3)** Peso e medidas exigem `health_data`, são apagados na revogação e os logs levam só os ids. As metas nutricionais também exigem `health_data` e são apagadas na revogação; metas fora dos limites de segurança (ADR-059 — calorias muito baixas ou altas, macronutrientes extremos, calorias para menores de 18 anos) são recusadas com a orientação de procurar um nutricionista ou médico.
 

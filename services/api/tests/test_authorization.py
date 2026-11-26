@@ -56,6 +56,9 @@ PROTECTED: dict[tuple[str, str], dict | None] = {
     ("PATCH", "/api/v1/me"): {"display_name": "Outra"},
     ("PUT", "/api/v1/me/consents/{kind}"): None,
     ("DELETE", "/api/v1/me/consents/{kind}"): None,
+    ("GET", "/api/v1/me/export"): None,
+    # Com a senha certa da Ana: um token falso não pode apagar a conta (o retrato confere).
+    ("DELETE", "/api/v1/me"): {"password": "cavalo bateria grampo"},
     ("GET", "/api/v1/goals"): None,
     ("POST", "/api/v1/goals"): STRENGTH,
     ("GET", "/api/v1/goals/{goal_id}"): None,

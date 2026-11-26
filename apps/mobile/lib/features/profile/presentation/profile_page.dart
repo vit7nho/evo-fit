@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/routes.dart';
 import '../../../app/theme/tokens.g.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/platform/file_saver.dart';
 import '../../../shared/widgets/evo_button.dart';
 import '../../../shared/widgets/evo_card.dart';
 import '../../../shared/widgets/evo_entrance.dart';
@@ -66,6 +67,8 @@ class ProfilePage extends ConsumerWidget {
               delay: EvoEntrance.stagger(sections.length + 1),
               child: const _AiConsentCard(),
             ),
+            const SizedBox(height: EvoSpace.x2xl),
+            const _YourDataSection(),
             const SizedBox(height: EvoSpace.x2xl),
             EvoButton(
               label: 'Sair da conta',
@@ -314,6 +317,119 @@ class _AiConsentCardState extends ConsumerState<_AiConsentCard> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Direitos do titular (5.6, ADR-063): baixar uma cópia de tudo e excluir a conta.
+class _YourDataSection extends ConsumerStatefulWidget {
+  const _YourDataSection();
+
+  @override
+  ConsumerState<_YourDataSection> createState() => _YourDataSectionState();
+}
+
+class _YourDataSectionState extends ConsumerState<_YourDataSection> {
+  bool _exporting = false;
+
+  Future<void> _export() async {
+    setState(() => _exporting = true);
+    final messenger = ScaffoldMessenger.of(context);
+    String? message;
+    try {
+      final saved = await ref.read(profileActionsProvider).exportData();
+      message = saved
+          ? 'Arquivo salvo com todos os seus dados.'
+          : 'Exportação cancelada: nenhum arquivo foi salvo.';
+    } on ApiException catch (error) {
+      message = 'Não foi possível exportar. ${error.message}';
+    } on FileSaveException catch (error) {
+      message = error.message;
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+    messenger.showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 6)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          header: true,
+          child: Text('Seus dados', style: theme.textTheme.titleMedium),
+        ),
+        const SizedBox(height: EvoSpace.md),
+        EvoCard(
+          onTap: _exporting ? null : _export,
+          child: Row(
+            children: [
+              const Icon(Icons.download_rounded),
+              const SizedBox(width: EvoSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Exportar meus dados',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    Text(
+                      _exporting
+                          ? 'Preparando o arquivo…'
+                          : 'Um arquivo JSON com tudo o que você registrou.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              if (_exporting)
+                const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: EvoSpace.md),
+        EvoCard(
+          onTap: () => context.push(AppRoutes.deleteAccount),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.delete_forever_outlined,
+                color: EvoColors.danger,
+              ),
+              const SizedBox(width: EvoSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Excluir minha conta',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: EvoColors.danger,
+                      ),
+                    ),
+                    Text(
+                      'Apaga a conta e todos os dados, sem volta.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: EvoColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

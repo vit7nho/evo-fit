@@ -111,8 +111,16 @@ export default function Privacy() {
         <Block id="direitos" title="Seus direitos (LGPD)">
           <p>
             Você pode corrigir os dados no próprio app, revogar os consentimentos a qualquer
-            momento e apagar conversas com o assistente. A exportação de todos os dados e a
-            exclusão da conta pelo app estão em desenvolvimento (próxima etapa do projeto).
+            momento e apagar conversas com o assistente.
+          </p>
+          <p>
+            Em <strong className="text-white">Perfil › Seus dados</strong>:{" "}
+            <strong className="text-white">Exportar meus dados</strong> gera um arquivo JSON
+            com tudo o que você registrou (fora o hash da senha e os tokens de sessão), salvo
+            onde você escolher; <strong className="text-white">Excluir minha conta</strong>{" "}
+            apaga a conta e todos os dados do servidor, de forma definitiva, depois de
+            confirmar a senha. Os registros técnicos guardam só um identificador, sem o
+            e-mail.
           </p>
         </Block>
 

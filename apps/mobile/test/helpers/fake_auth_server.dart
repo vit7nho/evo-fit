@@ -185,6 +185,42 @@ class FakeAuthServer {
   /// Erros de campo que o próximo PUT devolve (422), como a API.
   List<Map<String, String>>? targetsRejection;
 
+  // --- direitos do titular (5.6) ---
+
+  /// Senha da conta para a exclusão; quantas exportações; se a conta foi apagada.
+  String accountPassword = 'senha da conta';
+  int exportCalls = 0;
+  bool accountDeleted = false;
+
+  ResponseBody _export() {
+    exportCalls++;
+    return ResponseBody.fromString(
+      '{"format":"evofit-export","version":1,"data":{}}',
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+        'content-disposition': [
+          'attachment; filename="evofit-dados-2026-11-26.json"',
+        ],
+      },
+    );
+  }
+
+  ResponseBody _deleteAccount(Map<String, Object?> body) {
+    if (body['password'] != accountPassword) {
+      return _problem(
+        422,
+        'validation_error',
+        'Verifique os campos informados.',
+        errors: [
+          {'field': 'password', 'message': 'Senha incorreta.'},
+        ],
+      );
+    }
+    accountDeleted = true;
+    return ResponseBody.fromString('', 204);
+  }
+
   // --- peso e medidas (5.3) ---
 
   /// Medidas guardadas (como a API devolve) e os corpos enviados.
@@ -1071,6 +1107,12 @@ class FakeAuthServer {
       ('POST', '/auth/refresh') => _refresh(body['refresh_token']),
       ('POST', '/auth/logout') => _logout(),
       ('GET', '/me') => _authorized(options) ? _me() : _invalidToken(),
+      ('GET', '/me/export') =>
+        _authorized(options) ? _export() : _invalidToken(),
+      ('DELETE', '/me') =>
+        _authorized(options)
+            ? _deleteAccount(body.cast<String, Object?>())
+            : _invalidToken(),
       ('PATCH', '/me') =>
         _authorized(options)
             ? _patch(body.cast<String, Object?>())

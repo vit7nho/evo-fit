@@ -11,6 +11,9 @@ abstract final class AppRoutes {
   /// Edição de uma seção do perfil (ver ProfileSection).
   static String profileEdit(String section) => '/perfil/$section';
 
+  /// Exclusão da conta (5.6).
+  static const deleteAccount = '/perfil/excluir-conta';
+
   static const goals = '/metas';
   static const goalNew = '/metas/nova';
 

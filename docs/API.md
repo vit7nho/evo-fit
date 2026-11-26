@@ -88,8 +88,8 @@
 ### Privacidade
 | Método | Caminho | Descrição |
 |---|---|---|
-| GET | `/me/export` | exportação completa (JSON) |
-| DELETE | `/me` | exclusão da conta (exige a senha) |
+| GET ✅ | `/me/export` | exportação completa (JSON, como arquivo `evofit-dados-AAAA-MM-DD.json`): `account` e `data`, tabela por tabela; sem o hash da senha e os tokens; até 10 por hora (ADR-063) |
+| DELETE ✅ | `/me` | exclusão da conta e de todos os dados, física e em cascata: `{password}`; senha errada 422 (`password`), 5 erros em 15 min → 429; 204 (ADR-063) |
 
 ## Autenticação (implementada na etapa 2.1)
 

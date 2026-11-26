@@ -95,6 +95,13 @@ class AuthController extends AsyncNotifier<AuthState> {
     if (state.value is Authenticated) state = AsyncData(Authenticated(user));
   }
 
+  /// A conta foi excluída (5.6): os tokens já não existem no servidor, então só
+  /// limpa o aparelho e volta ao login.
+  Future<void> accountDeleted() async {
+    await _session.clear();
+    state = const AsyncData(Unauthenticated());
+  }
+
   /// Sai imediatamente no aparelho; avisar a API é melhor esforço (sem rede, o token
   /// expira sozinho no servidor).
   Future<void> logout() async {

@@ -27,6 +27,7 @@ import '../features/nutrition/presentation/food_picker_page.dart';
 import '../features/nutrition/presentation/meal_form_page.dart';
 import '../features/nutrition/presentation/nutrition_page.dart';
 import '../features/nutrition/presentation/targets_page.dart';
+import '../features/profile/presentation/delete_account_page.dart';
 import '../features/profile/presentation/edit_profile_section_page.dart';
 import '../features/profile/presentation/onboarding_page.dart';
 import '../features/profile/presentation/profile_page.dart';
@@ -140,6 +141,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.profile,
         pageBuilder: (context, state) => _page(state, const ProfilePage()),
         routes: [
+          // Literal antes de ":section": tem precedência.
+          GoRoute(
+            path: 'excluir-conta',
+            pageBuilder: (context, state) =>
+                _page(state, const DeleteAccountPage()),
+          ),
           GoRoute(
             path: ':section',
             pageBuilder: (context, state) => _page(

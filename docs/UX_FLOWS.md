@@ -24,6 +24,8 @@ Barra inferior com **5 destinos** (mais que isso fica apertado em telas pequenas
 
 **Exercícios** (etapa 2.4; vai para a aba Treino quando ela existir): cartão no Início → biblioteca com busca sem acentos, filtro por músculo, “Meus” e “Só o que tenho” (cruza o equipamento do exercício com o que a pessoa marcou no perfil; some quando ela tem academia completa ou não marcou nada). O detalhe mostra os músculos principais e secundários, as características e “Como fazer”, com o aviso de que é uma orientação geral. Exercícios próprios podem ser criados, editados e arquivados (e restaurados em “Meus”).
 
+**Perfil › Seus dados** (etapa 5.6): **Exportar meus dados** (o JSON com tudo, salvo pelo “Salvar como” do Android; avisos para salvo, cancelado e falha) e **Excluir minha conta** (tela própria: o que sai do servidor, a sugestão de exportar antes, a senha, a caixa “Entendo que a conta e os dados serão apagados para sempre” e o botão vermelho, desligado até marcar; ao concluir, volta ao login).
+
 **Nutrição** e **Perfil**: acesso pelo Início (card de nutrição + avatar no topo). Se o usuário marcar nutrição como módulo principal no onboarding, a aba **Atividades** pode ser trocada por **Nutrição** — a barra se adapta às modalidades escolhidas (configurável no Perfil). Módulos não usados não aparecem no dashboard.
 
 ## 2. Fluxos principais

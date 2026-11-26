@@ -32,6 +32,27 @@ class ProfileApi {
     return CurrentUser.fromJson(response.data!);
   });
 
+  /// Exportação completa (5.6): o JSON como veio (texto) e o nome do arquivo que a
+  /// API sugere.
+  Future<({String fileName, String content})> exportData() =>
+      guardApiCall(() async {
+        final response = await _dio.get<String>(
+          '/me/export',
+          options: Options(responseType: ResponseType.plain),
+        );
+        final disposition = response.headers.value('content-disposition') ?? '';
+        final name = RegExp(r'filename="([^"]+)"').firstMatch(disposition);
+        return (
+          fileName: name?.group(1) ?? 'evofit-dados.json',
+          content: response.data ?? '',
+        );
+      });
+
+  /// Exclui a conta e todos os dados (5.6). A senha confirma que é a própria pessoa.
+  Future<void> deleteAccount(String password) => guardApiCall(
+    () => _dio.delete<void>('/me', data: {'password': password}),
+  );
+
   Future<ProfileOptions> options() => guardApiCall(() async {
     final response = await _dio.get<Map<String, dynamic>>('/profile-options');
     return ProfileOptions.fromJson(response.data!);

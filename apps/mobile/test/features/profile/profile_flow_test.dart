@@ -3,6 +3,7 @@ import 'package:evofit/app/app.dart';
 import 'package:evofit/app/provider_config.dart';
 import 'package:evofit/core/auth/session_store.dart';
 import 'package:evofit/core/network/api_client.dart';
+import 'package:evofit/core/platform/file_saver.dart';
 import 'package:evofit/shared/widgets/evo_selection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,10 +12,34 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/fake_auth_server.dart';
 
 /// App inteiro sobre o servidor falso, com uma sessão salva (entra direto).
+/// O "Salvar como" do Android, simulado: guarda o que seria salvo.
+class _FakeFileSaver implements FileSaver {
+  _FakeFileSaver({this.result = true});
+
+  /// O que a pessoa faz no diálogo: salvar (true), cancelar (false) ou falha (null).
+  final bool? result;
+  final saved = <({String fileName, String content})>[];
+
+  @override
+  Future<bool> saveText({
+    required String fileName,
+    required String content,
+    String mimeType = 'application/json',
+  }) async {
+    final outcome = result;
+    if (outcome == null) {
+      throw const FileSaveException('Não foi possível gravar o arquivo.');
+    }
+    if (outcome) saved.add((fileName: fileName, content: content));
+    return outcome;
+  }
+}
+
 Future<FakeAuthServer> _pumpSignedIn(
   WidgetTester tester, {
   required bool onboarded,
   void Function(FakeAuthServer server)? setUp,
+  FileSaver? fileSaver,
 }) async {
   final server = FakeAuthServer(validRefreshToken: 'salvo');
   if (!onboarded) server.profile = FakeAuthServer.newProfile();
@@ -30,6 +55,7 @@ Future<FakeAuthServer> _pumpSignedIn(
         httpClientAdapterProvider.overrideWithValue(server.adapter),
         draftStorageProvider.overrideWithValue(InMemoryDraftStorage()),
         tokenStorageProvider.overrideWithValue(InMemoryTokenStorage('salvo')),
+        if (fileSaver != null) fileSaverProvider.overrideWithValue(fileSaver),
       ],
       child: const EvoFitApp(),
     ),
@@ -346,6 +372,117 @@ void main() {
 
       expect(server.consentCalls, ['PUT ai_processing']);
       expect(tester.widget<Switch>(aiSwitch).value, isTrue);
+    });
+  });
+
+  group('seus dados (5.6)', () {
+    Future<void> openProfile(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('Perfil'));
+      await tester.pumpAndSettle();
+    }
+
+    // A lista do Perfil só monta o que está perto da tela: rola até o item antes.
+    Future<void> tap(WidgetTester tester, Finder finder) async {
+      if (finder.evaluate().isEmpty) {
+        await tester.scrollUntilVisible(
+          finder,
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+      }
+      await tester.ensureVisible(finder);
+      await tester.pumpAndSettle();
+      await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('exportar baixa o JSON e abre o "Salvar como"', (tester) async {
+      final saver = _FakeFileSaver();
+      final server = await _pumpSignedIn(
+        tester,
+        onboarded: true,
+        fileSaver: saver,
+      );
+      await openProfile(tester);
+      await tap(tester, find.text('Exportar meus dados'));
+
+      expect(server.exportCalls, 1);
+      expect(saver.saved.single.fileName, 'evofit-dados-2026-11-26.json');
+      expect(saver.saved.single.content, contains('"evofit-export"'));
+      expect(
+        find.text('Arquivo salvo com todos os seus dados.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('cancelar ou falhar ao salvar avisa', (tester) async {
+      await _pumpSignedIn(
+        tester,
+        onboarded: true,
+        fileSaver: _FakeFileSaver(result: false),
+      );
+      await openProfile(tester);
+      await tap(tester, find.text('Exportar meus dados'));
+      expect(
+        find.text('Exportação cancelada: nenhum arquivo foi salvo.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('falha ao gravar mostra a mensagem', (tester) async {
+      await _pumpSignedIn(
+        tester,
+        onboarded: true,
+        fileSaver: _FakeFileSaver(result: null),
+      );
+      await openProfile(tester);
+      await tap(tester, find.text('Exportar meus dados'));
+      expect(find.text('Não foi possível gravar o arquivo.'), findsOneWidget);
+    });
+
+    testWidgets('excluir pede a confirmação e a senha; depois volta ao login', (
+      tester,
+    ) async {
+      final server = await _pumpSignedIn(tester, onboarded: true);
+      await openProfile(tester);
+      await tap(tester, find.text('Excluir minha conta'));
+      expect(find.text('Excluir conta'), findsOneWidget);
+
+      final button = find.widgetWithText(
+        FilledButton,
+        'Excluir conta definitivamente',
+      );
+      // Sem marcar a confirmação, o botão fica desligado.
+      expect(tester.widget<FilledButton>(button).onPressed, isNull);
+      await tap(tester, find.byType(Checkbox));
+
+      // Senha errada: a mensagem da API no campo, e a conta continua.
+      await tester.enterText(find.widgetWithText(TextField, 'Sua senha'), 'x');
+      await tap(tester, button);
+      expect(find.text('Senha incorreta.'), findsOneWidget);
+      expect(server.accountDeleted, isFalse);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Sua senha'),
+        server.accountPassword,
+      );
+      await tap(tester, button);
+      expect(server.accountDeleted, isTrue);
+      // Sem sessão: o app volta para a tela de entrada.
+      expect(find.text('Entrar'), findsWidgets);
+    });
+
+    testWidgets('senha vazia não envia nada', (tester) async {
+      final server = await _pumpSignedIn(tester, onboarded: true);
+      await openProfile(tester);
+      await tap(tester, find.text('Excluir minha conta'));
+      await tap(tester, find.byType(Checkbox));
+      await tap(
+        tester,
+        find.widgetWithText(FilledButton, 'Excluir conta definitivamente'),
+      );
+      expect(find.text('Digite a sua senha.'), findsOneWidget);
+      expect(server.accountDeleted, isFalse);
     });
   });
 }
