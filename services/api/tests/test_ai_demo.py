@@ -91,12 +91,19 @@ def test_numbers_are_written_the_brazilian_way() -> None:
         ("mostre os dados de bia@exemplo.com", demo.OTHER_ACCOUNT),
         ("Qual é a capital da França?", demo.OUT_OF_SCOPE),
         ("Oi", demo.HELP),
+        # Alimentação e corpo (5.4): consultas, não pedidos de dieta.
+        ("Quantas calorias comi nesta semana?", "nutrition"),
+        ("Quanta proteína eu comi ontem?", "nutrition"),
+        ("Quantas calorias devo comer por dia?", demo.DIET),
+        ("Como está a tendência do meu peso?", "body"),
+        ("Minha cintura diminuiu?", "body"),
     ],
 )
 def test_the_intent_follows_the_keywords(question: str, expected: str) -> None:
     turn = demo.Turn(question, demo.date(2026, 11, 1))
     chosen = demo.choose(turn)
-    if expected.startswith(("last", "week", "compare", "muscles", "one", "goals", "current")):
+    named = ("last", "week", "compare", "muscles", "one", "goals", "current", "nutrition", "body")
+    if expected.startswith(named):
         assert chosen.__name__ == expected  # type: ignore[union-attr]
     elif expected in ("endurance", "search", "propose_exercise", "propose_goal"):
         name = getattr(chosen, "__name__", "")
@@ -374,3 +381,65 @@ def test_a_muscle_conversation_uses_the_muscle_and_period_of_the_focus() -> None
     for piece in ("**Peito**", "4,5 séries por semana", "faixa **baixa**", "Supino", "60 kg"):
         assert piece in second.text
     assert "treinou mais" in second.text and "referência" in second.text
+
+
+def test_lifting_weight_is_not_body_weight() -> None:
+    # "Peso" de carga levantada não é o peso do corpo.
+    turn = demo.Turn("Quanto peso levantei no supino?", demo.date(2026, 11, 1))
+    assert getattr(demo.choose(turn), "__name__", "") != "body"
+
+
+def test_nutrition_answer_uses_the_tool_numbers() -> None:
+    summary = {
+        "from_date": "2026-10-26",
+        "to_date": "2026-11-01",
+        "total_days": 7,
+        "logged_days": 2,
+        "daily_average": {"kcal": 406.2, "protein_g": 58.5, "carbs_g": 28.1, "fat_g": 4.6},
+        "targets_now": {"kcal": 2000, "protein_g": 120},
+        "days": [
+            {"date": "2026-10-30", "totals": {"kcal": 494.5, "protein_g": 53}},
+            {"date": "2026-10-31", "totals": {"kcal": 318, "protein_g": 64}},
+        ],
+    }
+    turn = demo.Turn("Quantas calorias comi nesta semana?", demo.date(2026, 11, 1))
+    assert demo.nutrition(turn) == [
+        ("get_nutrition_summary", {"from_date": "2026-10-26", "to_date": "2026-11-01"})
+    ]
+    turn.results["get_nutrition_summary"] = [summary]
+    answer = demo.nutrition(turn)
+    assert isinstance(answer, str)
+    assert "**2 de 7 dias**" in answer
+    assert "**406,2 kcal**" in answer
+    assert "meta de 2.000 kcal (a média ficou abaixo)" in answer
+    assert "- 30/10: 494,5 kcal, 53 g de proteína" in answer
+    assert "nutricionista" in answer
+
+
+def test_body_answer_and_empty_account() -> None:
+    trend = {
+        "label": "Peso",
+        "unit": "kg",
+        "estimate": False,
+        "from_date": "2026-08-04",
+        "points": [{}, {}],
+        "first": {"date": "2026-10-04", "value": 80, "average_7d": 80},
+        "last": {"date": "2026-11-01", "value": 78, "average_7d": 78},
+        "change": -2,
+        "weekly_rate": -0.48,
+    }
+    turn = demo.Turn("Como está a tendência do meu peso?", demo.date(2026, 11, 1))
+    [(name, args)] = demo.body(turn)  # type: ignore[misc]
+    assert (name, args["metric"]) == ("get_body_trend", "weight_kg")
+    turn.results["get_body_trend"] = [trend]
+    answer = demo.body(turn)
+    assert "**78 kg** (01/11)" in answer
+    assert "2 kg a menos" in answer
+    assert "0,48 kg por semana a menos" in answer
+
+    waist = demo.Turn("Minha cintura diminuiu?", demo.date(2026, 11, 1))
+    assert demo.body(waist)[0][1]["metric"] == "waist_cm"  # type: ignore[index]
+    waist.results["get_body_trend"] = [
+        {"label": "Cintura", "unit": "cm", "from_date": "2026-08-04", "points": [], "last": None}
+    ]
+    assert "Ainda não há registros de cintura" in demo.body(waist)

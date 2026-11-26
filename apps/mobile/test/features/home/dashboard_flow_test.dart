@@ -246,6 +246,78 @@ void main() {
     expect(server.dashboardCalls, 2);
   });
 
+  testWidgets('quem quer emagrecer vê o peso e a alimentação no topo', (
+    tester,
+  ) async {
+    await _pumpSignedIn(
+      tester,
+      setUp: (server) {
+        server.consents.add('health_data');
+        server.dashboard = FakeAuthServer.emptyDashboard(
+          objective: 'lose_weight',
+          objectiveLabel: 'Emagrecer',
+          focus: [
+            {
+              'kind': 'weight',
+              'weight': {
+                'latest_kg': 78.4,
+                'measured_on': '2026-11-01',
+                'change_kg': -1.6,
+                'since': '2026-10-01',
+                'weekly_rate': -0.4,
+              },
+            },
+            {
+              'kind': 'nutrition',
+              'nutrition': {
+                'today': {
+                  'kcal': 1240.4,
+                  'protein_g': 53,
+                  'carbs_g': 120,
+                  'fat_g': 40,
+                  'fiber_g': null,
+                },
+                'meals_today': 2,
+                'targets': {
+                  'valid_from': '2026-10-30',
+                  'kcal': 1800,
+                  'protein_g': 120,
+                  'carbs_g': null,
+                  'fat_g': null,
+                  'macros_kcal': 480,
+                },
+                'logged_days_7': 3,
+              },
+            },
+          ],
+        );
+      },
+    );
+
+    // Tela alta: os dois cartões ficam montados ao mesmo tempo.
+    tester.view.physicalSize = const Size(1080, 9000);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('Peso')).dy,
+      lessThan(tester.getTopLeft(find.text('Alimentação · hoje')).dy),
+    );
+    expect(find.text('78,4 kg'), findsOneWidget);
+    expect(
+      find.text('−1,6 kg desde 01/10 · ritmo −0,4 kg por semana'),
+      findsOneWidget,
+    );
+    expect(find.text('1.240 de 1.800 kcal hoje'), findsOneWidget);
+    expect(
+      find.text('Proteína 53 de 120 g · refeições em 3 dos últimos 7 dias'),
+      findsOneWidget,
+    );
+
+    // O cartão do peso abre Peso e medidas.
+    await tester.tap(find.text('Peso'));
+    await tester.pumpAndSettle();
+    expect(find.text('Peso e medidas'), findsOneWidget);
+  });
+
   testWidgets('erro no painel: explica, tenta de novo, e os atalhos ficam', (
     tester,
   ) async {
@@ -340,6 +412,54 @@ void main() {
           ),
         ),
         '1000 m · ritmo 2:00 /100 m',
+      );
+    });
+
+    test('peso e alimentação (5.4)', () {
+      final once = WeightFocus.fromJson({
+        'latest_kg': 70,
+        'measured_on': '2026-11-01',
+        'change_kg': null,
+        'since': null,
+        'weekly_rate': null,
+      });
+      expect(weightHeadline(once), '70 kg');
+      expect(weightDetail(once), 'Registre de novo para ver a variação');
+
+      NutritionFocus food({int meals = 1, int? target}) =>
+          NutritionFocus.fromJson({
+            'today': {
+              'kcal': 950,
+              'protein_g': 40.5,
+              'carbs_g': 0,
+              'fat_g': 0,
+              'fiber_g': null,
+            },
+            'meals_today': meals,
+            'targets': target == null
+                ? null
+                : {
+                    'valid_from': '2026-11-01',
+                    'kcal': target,
+                    'protein_g': null,
+                    'carbs_g': null,
+                    'fat_g': null,
+                    'macros_kcal': null,
+                  },
+            'logged_days_7': 1,
+          });
+      expect(nutritionHeadline(food()), '950 kcal hoje');
+      expect(
+        nutritionHeadline(food(meals: 0, target: 2000)),
+        'Nenhuma refeição hoje · meta de 2.000 kcal',
+      );
+      expect(
+        nutritionDetail(food()),
+        'Proteína 40,5 g · refeições em 1 dos últimos 7 dias',
+      );
+      expect(
+        nutritionDetail(food(meals: 0)),
+        'refeições em 1 dos últimos 7 dias',
       );
     });
 

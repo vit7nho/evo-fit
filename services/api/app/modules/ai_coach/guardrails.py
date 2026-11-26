@@ -56,7 +56,8 @@ def _matches(value: float, decimals: int, known: list[float]) -> bool:
 
 
 def unverified_numbers(answer: str, sources: list[str]) -> list[str]:
-    known = [float(n) for s in sources for n in _JSON_NUMBER.findall(s)]
+    # Sem sinal: o texto escreve "1,5 kg a menos" para uma variação de -1.5 (5.4).
+    known = [abs(float(n)) for s in sources for n in _JSON_NUMBER.findall(s)]
     missing: list[str] = []
 
     def check_clock(match: re.Match[str]) -> str:

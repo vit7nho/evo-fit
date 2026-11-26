@@ -158,7 +158,7 @@ def test_last_session_is_answered_with_the_tool_data(
     # Registro da execução: metadados, nunca conteúdo.
     [run] = runs(db)
     assert (run.outcome, run.provider, run.model) == ("ok", "fake", "fake-v1")
-    assert (run.prompt_version, run.prompt_hash) == ("coach.v2", prompts.load().hash)
+    assert (run.prompt_version, run.prompt_hash) == ("coach.v3", prompts.load().hash)
     assert (run.input_tokens, run.output_tokens, run.iterations) == (250, 60, 2)
     assert [(t["name"], t["ok"]) for t in run.tool_calls] == [("get_workout_history", True)]
     assert run.unverified_numbers == 0
@@ -509,8 +509,9 @@ def test_conversations_are_private_and_deletable(
 
 def test_prompt_is_versioned() -> None:
     prompt = prompts.load()
-    assert prompt.version == "coach.v2"
-    assert prompts.load("coach.v1").hash != prompt.hash  # o v1 continua no repositório
+    assert prompt.version == "coach.v3"
+    assert prompts.load("coach.v2").hash != prompt.hash  # as versões antigas ficam no repositório
+    assert prompts.load("coach.v1").hash != prompt.hash
     assert len(prompt.hash) == 16
     for rule in ("somente", "ainda não há registros", "estimativa", "profissional de saúde"):
         assert rule in prompt.text
@@ -527,6 +528,8 @@ def test_prompt_is_versioned() -> None:
         ("Em 01/11/2026 foram 3 séries.", ["{}"], []),
         ("Você levantou 37 kg.", ['{"load_kg":40}'], ["37"]),
         ("Pace de 5:10/km.", ['{"pace_s_per_km":384}'], ["5:10"]),
+        # Variação com sinal nos dados, sem sinal no texto (5.4).
+        ("Você perdeu 1,5 kg.", ['{"change":-1.5}'], []),
     ],
 )
 def test_unverified_numbers(answer: str, sources: list[str], missing: list[str]) -> None:

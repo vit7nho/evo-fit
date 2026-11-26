@@ -415,9 +415,9 @@ def test_the_chat_shows_the_proposal_and_only_confirmation_applies(
     assert card["summary"] == "Acrescentar Mesa flexora à ficha “Treino A”"
     assert reply["answer"]["tools_used"] == ["get_templates", "prepare_change_proposal"]
     assert template_now(client, ana) == before
-    # O prompt v2 explica as propostas.
+    # O prompt (desde o v2) explica as propostas.
     assert "prepare_change_proposal" in provider.requests[0].system
-    assert prompts.load().version == "coach.v2"
+    assert prompts.load().version == "coach.v3"
 
     detail = ok(client.get(f"{API}/ai/conversations/{ana['chat']}", headers=ana["headers"]))
     assert [len(m["proposals"]) for m in detail["messages"]] == [0, 1]

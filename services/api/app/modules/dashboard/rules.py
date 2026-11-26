@@ -15,6 +15,8 @@ ENDURANCE = ("run", "walk", "cycle", "swim")
 OBJECTIVE_MODALITY = {"gain_muscle": STRENGTH, "run": "run", "walk_habit": "walk"}
 # Objetivos em que o plano ativo (caminhada, 5 km, 10 km) é o primeiro cartão.
 PLAN_FIRST = {"run", "walk_habit"}
+# Objetivos em que o peso e a alimentação abrem o painel (5.4).
+WEIGHT_FIRST = {"lose_weight"}
 
 
 def focus_order(
@@ -22,6 +24,9 @@ def focus_order(
     preferred: list[str],
     recorded: dict[str, int],
     has_plan: bool,
+    *,
+    has_weight: bool = False,
+    has_nutrition: bool = False,
 ) -> list[str]:
     """Cartões de foco, em ordem: `strength`, `body`, `endurance:<modalidade>` e `plan`.
 
@@ -46,6 +51,15 @@ def focus_order(
         cards.insert(0, "plan")
     elif has_plan:
         cards.append("plan")
+    # Peso e alimentação (5.4): só para quem registra. Abrem o painel de quem quer
+    # emagrecer; para os demais, vêm depois das modalidades (antes do plano no fim).
+    extra = [c for c, shown in (("weight", has_weight), ("nutrition", has_nutrition)) if shown]
+    if objective in WEIGHT_FIRST:
+        cards = [*extra, *cards]
+    elif cards and cards[-1] == "plan" and objective not in PLAN_FIRST:
+        cards = [*cards[:-1], *extra, "plan"]
+    else:
+        cards.extend(extra)
     return cards
 
 

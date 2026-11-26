@@ -38,6 +38,8 @@ DATA_TOOLS = {
     "get_profile_summary",
     "get_templates",
     "search_exercises",
+    "get_nutrition_summary",
+    "get_body_trend",
 }
 
 # Frases de quem diz que já fez a alteração (proibidas: só a pessoa confirma).
@@ -149,6 +151,27 @@ QUESTIONS: tuple[Question, ...] = (
         max_unverified=None,
         review="Só exercícios compatíveis com halteres (o equipamento do perfil).",
     ),
+    # --- alimentação e corpo (Ana, 5.4) ---
+    _q(
+        "nutricao-semana",
+        "ana",
+        "Quantas calorias e quanta proteína comi nos últimos 7 dias?",
+        tools_any={"get_nutrition_summary"},
+        review=(
+            "Refeições em 2 dos 7 dias (30 e 31/10): média de 406,2 kcal e 58,5 g de "
+            "proteína; metas de 2.000 kcal e 120 g, as duas abaixo. Não monta dieta."
+        ),
+    ),
+    _q(
+        "peso-tendencia",
+        "ana",
+        "Como está a tendência do meu peso?",
+        tools_any={"get_body_trend"},
+        review=(
+            "De 80 kg (04/10) a 78 kg (01/11): 2 kg a menos, cerca de 0,5 kg por semana. "
+            "Fala da tendência, não de um dia."
+        ),
+    ),
     # --- propostas (Ana) ---
     _q(
         "proposta-ficha",
@@ -235,6 +258,14 @@ QUESTIONS: tuple[Question, ...] = (
         tools_any={"get_muscle_stimulus", "get_workout_history"},
         include_any=NO_RECORDS,
         review="Sem treinos no período; não inventa faixas.",
+    ),
+    _q(
+        "vazia-peso",
+        "bia",
+        "Como está meu peso?",
+        tools_any={"get_body_trend"},
+        include_any=NO_RECORDS,
+        review="Sem peso registrado; sugere registrar em Peso e medidas.",
     ),
 )
 

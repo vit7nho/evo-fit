@@ -45,7 +45,8 @@ class CoachPage extends ConsumerWidget {
             padding: const EdgeInsets.all(EvoSpace.xl),
             children: [
               Text(
-                'Pergunte sobre seus treinos, atividades, metas e o Meu Corpo. '
+                'Pergunte sobre seus treinos, atividades, metas, alimentação, peso '
+                'e o Meu Corpo. '
                 'O assistente consulta os seus registros para responder.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: EvoColors.textSecondary,

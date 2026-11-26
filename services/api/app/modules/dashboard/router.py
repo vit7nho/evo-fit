@@ -36,16 +36,19 @@ from app.modules.dashboard.schemas import (
     LastRecordOut,
     LeastMuscleOut,
     NextPlanSessionOut,
+    NutritionFocusOut,
     PlanFocusOut,
     ProgressOut,
     StrengthFocusOut,
     WeekOut,
+    WeightFocusOut,
 )
 from app.modules.exercises.catalog import search_key
 from app.modules.exercises.models import Exercise
 from app.modules.goals import kinds
 from app.modules.goals.models import Goal, GoalStatus
 from app.modules.goals.service import GoalService
+from app.modules.nutrition.service import TargetService
 from app.modules.plans.models import TrainingPlan
 from app.modules.plans.service import PlanService, is_done
 from app.modules.plans.templates import TEMPLATES, describe, session_seconds
@@ -278,6 +281,39 @@ class GoalMeasurer:
         return self._weekly_sets
 
 
+def _weight(db: Session, user: User, day: date) -> WeightFocusOut | None:
+    """O peso dos últimos 90 dias (5.4); sem registro, sem cartão."""
+    trend = MeasurementService(db).trend(user, "weight_kg", day - timedelta(days=89), day)
+    last = trend.last
+    if last is None:
+        return None
+    # O ponto de partida: o último até 30 dias atrás; sem ele, o primeiro do período.
+    before = [p for p in trend.points if p.date <= day - timedelta(days=30)]
+    base = before[-1] if before else trend.points[0]
+    moved = base.date != last.date
+    return WeightFocusOut(
+        latest_kg=last.value,
+        measured_on=last.date,
+        change_kg=round(last.value - base.value, 2) if moved else None,
+        since=base.date if moved else None,
+        weekly_rate=trend.weekly_rate,
+    )
+
+
+def _nutrition(db: Session, user: User, day: date) -> NutritionFocusOut | None:
+    """Hoje contra a meta (5.4); só para quem registrou na semana ou tem metas."""
+    summary = TargetService(db).summary(user, day - timedelta(days=6), day)
+    today_row = summary.days[-1]
+    if summary.logged_days == 0 and today_row.targets is None:
+        return None
+    return NutritionFocusOut(
+        today=today_row.totals,
+        meals_today=today_row.meals,
+        targets=today_row.targets,
+        logged_days_7=summary.logged_days,
+    )
+
+
 def goal_card(goal: Goal, facts: rules.GoalFacts) -> GoalCardOut:
     measured = rules.progress(goal.kind, goal.target, facts, goal.start_date)
     return GoalCardOut(
@@ -337,12 +373,16 @@ def dashboard(user: CurrentUser, db: DbSession) -> DashboardOut:
     objective = profile.primary_objective if profile else None
     plan = next((p for p in PlanService(db).list(user) if p.status == "active"), None)
 
+    weight = _weight(db, user, day)
+    nutrition = _nutrition(db, user, day)
     focus: list[FocusOut] = []
     for card in rules.focus_order(
         objective,
         list(profile.preferred_modalities or []) if profile else [],
         dict(recorded),
         plan is not None,
+        has_weight=weight is not None,
+        has_nutrition=nutrition is not None,
     ):
         match card.split(":"):
             case ["strength"]:
@@ -356,6 +396,10 @@ def dashboard(user: CurrentUser, db: DbSession) -> DashboardOut:
                 )
             case ["plan"] if plan is not None:
                 focus.append(FocusOut(kind="plan", plan=_plan(plan)))
+            case ["weight"] if weight is not None:
+                focus.append(FocusOut(kind="weight", weight=weight))
+            case ["nutrition"] if nutrition is not None:
+                focus.append(FocusOut(kind="nutrition", nutrition=nutrition))
 
     week = _week(entries, day, user)
     this_week = _between(entries, week.from_date, day)

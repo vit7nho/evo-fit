@@ -87,9 +87,73 @@ sealed class FocusCard {
       'body' => BodyFocus.fromJson(part('body')),
       'endurance' => EnduranceFocus.fromJson(part('endurance')),
       'plan' => PlanFocus.fromJson(part('plan')),
+      'weight' => WeightFocus.fromJson(part('weight')),
+      'nutrition' => NutritionFocus.fromJson(part('nutrition')),
       final kind => throw FormatException('Cartão desconhecido: $kind'),
     };
   }
+}
+
+/// Peso (5.4): o último registro dos 90 dias e a variação de uns 30 dias.
+class WeightFocus extends FocusCard {
+  const WeightFocus({
+    required this.latestKg,
+    required this.measuredOn,
+    this.changeKg,
+    this.since,
+    this.weeklyRate,
+  });
+
+  factory WeightFocus.fromJson(Map<String, dynamic> json) => WeightFocus(
+    latestKg: (json['latest_kg'] as num).toDouble(),
+    measuredOn: DateTime.parse(json['measured_on'] as String),
+    changeKg: (json['change_kg'] as num?)?.toDouble(),
+    since: switch (json['since']) {
+      final String s => DateTime.parse(s),
+      _ => null,
+    },
+    weeklyRate: (json['weekly_rate'] as num?)?.toDouble(),
+  );
+
+  final double latestKg;
+  final DateTime measuredOn;
+
+  /// Nulo com um registro só.
+  final double? changeKg;
+  final DateTime? since;
+  final double? weeklyRate;
+}
+
+/// Alimentação (5.4): hoje contra a meta e os dias registrados na semana.
+class NutritionFocus extends FocusCard {
+  const NutritionFocus({
+    required this.kcal,
+    required this.proteinG,
+    required this.mealsToday,
+    required this.loggedDays7,
+    this.targetKcal,
+    this.targetProteinG,
+  });
+
+  factory NutritionFocus.fromJson(Map<String, dynamic> json) {
+    final today = json['today'] as Map<String, dynamic>;
+    final targets = json['targets'] as Map<String, dynamic>?;
+    return NutritionFocus(
+      kcal: (today['kcal'] as num).toDouble(),
+      proteinG: (today['protein_g'] as num).toDouble(),
+      mealsToday: json['meals_today'] as int,
+      loggedDays7: json['logged_days_7'] as int,
+      targetKcal: targets?['kcal'] as int?,
+      targetProteinG: targets?['protein_g'] as int?,
+    );
+  }
+
+  final double kcal;
+  final double proteinG;
+  final int mealsToday;
+  final int loggedDays7;
+  final int? targetKcal;
+  final int? targetProteinG;
 }
 
 /// Musculação: últimos 7 dias contra os 7 anteriores.

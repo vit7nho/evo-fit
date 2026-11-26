@@ -7,6 +7,9 @@ import '../../analytics/domain/analytics.dart';
 import '../../analytics/domain/compare.dart';
 import '../../goals/presentation/goal_format.dart';
 import '../../history/domain/history.dart';
+import '../../measurements/domain/measurements.dart'
+    show formatChange, formatMeasure;
+import '../../nutrition/domain/nutrition.dart' show formatGrams, formatInt;
 import '../domain/dashboard.dart';
 
 String _plural(int n, String one, String many) =>
@@ -85,6 +88,49 @@ String enduranceDetail(EnduranceFocus f) => f.previousDistanceM == 0
     ? 'Sem distância nos 7 dias anteriores'
     : '7 dias anteriores: '
           '${formatDistance(f.previousDistanceM, modality: f.modality)}';
+
+/// "78,4 kg".
+String weightHeadline(WeightFocus f) => formatMeasure(f.latestKg, 'kg');
+
+/// "−1,6 kg desde 01/10 · ritmo −0,5 kg por semana".
+String weightDetail(WeightFocus f) {
+  final change = f.changeKg;
+  final since = f.since;
+  if (change == null || since == null) {
+    return 'Registre de novo para ver a variação';
+  }
+  return [
+    '${formatChange(change, 'kg')} desde ${_dayMonth(since)}',
+    if (f.weeklyRate case final rate?)
+      'ritmo ${formatChange(rate, 'kg')} por semana',
+  ].join(' · ');
+}
+
+String _dayMonth(DateTime d) =>
+    '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+
+/// "1.200 de 2.000 kcal hoje", "Nenhuma refeição hoje · meta de 2.000 kcal".
+String nutritionHeadline(NutritionFocus f) {
+  final target = f.targetKcal;
+  if (f.mealsToday == 0) {
+    return target == null
+        ? 'Nenhuma refeição hoje'
+        : 'Nenhuma refeição hoje · meta de ${formatInt(target)} kcal';
+  }
+  final kcal = formatInt(f.kcal.round());
+  return target == null
+      ? '$kcal kcal hoje'
+      : '$kcal de ${formatInt(target)} kcal hoje';
+}
+
+/// "Proteína 53 de 120 g · refeições em 3 dos últimos 7 dias".
+String nutritionDetail(NutritionFocus f) => [
+  if (f.mealsToday > 0)
+    f.targetProteinG == null
+        ? 'Proteína ${formatGrams(f.proteinG)} g'
+        : 'Proteína ${formatGrams(f.proteinG)} de ${f.targetProteinG} g',
+  'refeições em ${f.loggedDays7} dos últimos 7 dias',
+].join(' · ');
 
 String planHeadline(PlanFocus f) =>
     'Semana ${f.currentWeek} de ${f.weeks} · '

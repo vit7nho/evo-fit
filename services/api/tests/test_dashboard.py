@@ -299,3 +299,64 @@ def test_dashboard_only_shows_the_owners_data(client: TestClient, signup, clock:
     assert bia["goals"] == []
     assert bia["last_record"] is None
     assert client.get(f"{API}/dashboard").status_code == 401
+
+
+# --- peso e alimentação (5.4) ---
+
+
+def test_weight_and_nutrition_cards_order() -> None:
+    # Para quem quer emagrecer, abrem o painel.
+    assert rules.focus_order(
+        "lose_weight", ["walk"], {}, False, has_weight=True, has_nutrition=True
+    ) == ["weight", "nutrition", "endurance:walk"]
+    # Para os demais, depois das modalidades e antes do plano no fim.
+    assert rules.focus_order(
+        "maintain", ["cycle"], {}, True, has_weight=True, has_nutrition=True
+    ) == ["endurance:cycle", "weight", "nutrition", "plan"]
+    # O plano que abre o painel continua no topo.
+    assert rules.focus_order("run", [], {}, True, has_nutrition=True) == [
+        "plan",
+        "endurance:run",
+        "nutrition",
+    ]
+    # Sem registro, sem cartão.
+    assert rules.focus_order("lose_weight", [], {}, False) == []
+
+
+def test_weight_and_nutrition_on_the_dashboard(
+    client: TestClient, signup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.modules.nutrition import service as nutrition_service
+    from tests.test_nutrition import FRANGO
+
+    headers = signup()
+    ok(client.put(f"{API}/me/consents/health_data", headers=headers))
+    profile(client, headers, primary_objective="lose_weight")
+    # Sem registro: nenhum dos dois cartões.
+    kinds = [c["kind"] for c in dashboard(client, headers)["focus"]]
+    assert "weight" not in kinds and "nutrition" not in kinds
+
+    for day, weight in (("2026-09-20", 81.0), ("2026-10-01", 80.0), ("2026-11-01", 78.4)):
+        body = {"measured_at": f"{day}T07:00:00", "weight_kg": weight}
+        ok(client.post(f"{API}/body-measurements", headers=headers, json=body), 201)
+    frango = ok(client.post(f"{API}/foods", headers=headers, json=FRANGO), 201)
+    for at in ("2026-10-29T12:00:00", "2026-11-01T12:00:00"):
+        meal = {
+            "eaten_at": at,
+            "meal_type": "lunch",
+            "items": [{"food_id": frango["id"], "quantity_g": 200}],
+        }
+        ok(client.post(f"{API}/meals", headers=headers, json=meal), 201)
+    monkeypatch.setattr(nutrition_service, "_today", lambda user: date(2026, 10, 30))
+    ok(client.put(f"{API}/nutrition/targets", headers=headers, json={"kcal": 1800}))
+
+    focus = dashboard(client, headers)["focus"]
+    assert [c["kind"] for c in focus][:2] == ["weight", "nutrition"]
+    weight = focus[0]["weight"]
+    # Base: o último até 30 dias antes de hoje (01/11 → 02/10): o de 01/10.
+    assert (weight["latest_kg"], weight["measured_on"]) == (78.4, "2026-11-01")
+    assert (weight["change_kg"], weight["since"]) == (-1.6, "2026-10-01")
+    nutrition = focus[1]["nutrition"]
+    assert (nutrition["today"]["kcal"], nutrition["meals_today"]) == (318, 1)
+    assert nutrition["targets"]["kcal"] == 1800
+    assert nutrition["logged_days_7"] == 2

@@ -17,6 +17,7 @@ from app.modules.users.models import User
 from tests.conftest import Clock
 from tests.test_analytics import activity, ok, strength_session
 from tests.test_exercises import CUSTOM
+from tests.test_nutrition import ARROZ, FRANGO
 from tests.test_sessions import start, template
 
 API = "/api/v1"
@@ -46,9 +47,44 @@ def data(db: Session, email: str, tool: str, **arguments) -> dict:
     return body
 
 
+def eat_and_weigh(client: TestClient, headers: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Refeições em 30 e 31/10, metas desde 25/10 e pesos semanais de 04/10 a 01/11 (5.4)."""
+    from app.modules.nutrition import service as nutrition_service
+
+    arroz = ok(client.post(f"{API}/foods", headers=headers, json=ARROZ), 201)
+    frango = ok(client.post(f"{API}/foods", headers=headers, json=FRANGO), 201)
+    for at, items in (
+        # 256 + 238,5 = 494,5 kcal; 5 + 48 = 53 g de proteína.
+        (
+            "2026-10-30T12:30:00",
+            [
+                {"food_id": arroz["id"], "quantity_g": 200},
+                {"food_id": frango["id"], "quantity_g": 150},
+            ],
+        ),
+        # 318 kcal; 64 g de proteína.
+        ("2026-10-31T13:00:00", [{"food_id": frango["id"], "quantity_g": 200}]),
+    ):
+        body = {"eaten_at": at, "meal_type": "lunch", "items": items}
+        ok(client.post(f"{API}/meals", headers=headers, json=body), 201)
+    monkeypatch.setattr(nutrition_service, "_today", lambda user: date(2026, 10, 25))
+    targets = {"kcal": 2000, "protein_g": 120}
+    ok(client.put(f"{API}/nutrition/targets", headers=headers, json=targets))
+    for day, weight, waist in (
+        ("2026-10-04", 80.0, 86),
+        ("2026-10-11", 79.5, None),
+        ("2026-10-18", 79.2, None),
+        ("2026-10-25", 78.6, None),
+        ("2026-11-01", 78.0, 84.5),
+    ):
+        body = {"measured_at": f"{day}T07:00:00", "weight_kg": weight, "waist_cm": waist}
+        ok(client.post(f"{API}/body-measurements", headers=headers, json=body), 201)
+
+
 @pytest.fixture
-def two_people(client: TestClient, signup, clock: Clock) -> dict:
-    """Ana com treino, corrida, meta, exercício próprio e perfil; Bia sem nada."""
+def two_people(client: TestClient, signup, clock: Clock, monkeypatch: pytest.MonkeyPatch) -> dict:
+    """Ana com treino, corrida, meta, exercício próprio, perfil, refeições, metas
+    nutricionais e pesos; Bia sem nada."""
     ana = signup("ana@exemplo.com", "Ana")
     signup("bia@exemplo.com", "Bia")
     ok(client.put(f"{API}/me/consents/health_data", headers=ana))
@@ -83,6 +119,7 @@ def two_people(client: TestClient, signup, clock: Clock) -> dict:
         201,
     )
     ok(client.post(f"{API}/exercises", headers=ana, json=CUSTOM), 201)
+    eat_and_weigh(client, ana, monkeypatch)
     return {"session_id": session["id"], "ana": ana}
 
 
@@ -91,7 +128,8 @@ def two_people(client: TestClient, signup, clock: Clock) -> dict:
 
 def test_every_tool_has_a_closed_schema_without_user_id() -> None:
     specs = registry.specs()
-    assert len(specs) == 13  # 11 de leitura (4.2), get_templates e a proposta (4.6)
+    assert len(specs) == 15  # 11 de leitura (4.2), get_templates e a proposta (4.6),
+    # nutrição e corpo (5.4)
     for spec in specs:
         assert spec.description and spec.description[0].isupper()
         assert spec.input_schema["type"] == "object"
@@ -267,11 +305,60 @@ def test_every_tool_returns_valid_json_for_an_empty_account(db: Session, two_peo
     }
     # get_templates vem na 4.6 (testada em test_ai_proposals); a proposta muda dados.
     calls["get_templates"] = {}
+    calls["get_nutrition_summary"] = {}
+    calls["get_body_trend"] = {}
     assert set(calls) | {"get_session_detail", "prepare_change_proposal"} == set(registry.TOOLS)
     for tool, arguments in calls.items():
         body, is_error = run(db, "bia@exemplo.com", tool, **arguments)
         assert not is_error, (tool, body)
         assert isinstance(body, dict)
+
+
+# --- alimentação, peso e medidas (5.4) ---
+
+
+def test_nutrition_summary_is_scoped_and_only_numbers(db: Session, two_people) -> None:
+    # Padrão: os últimos 7 dias até hoje (01/11).
+    week = data(db, "ana@exemplo.com", "get_nutrition_summary")
+    assert (week["from_date"], week["to_date"]) == ("2026-10-26", "2026-11-01")
+    assert (week["total_days"], week["logged_days"]) == (7, 2)
+    # (494,5 + 318) / 2 e (53 + 64) / 2.
+    assert week["daily_average"]["kcal"] == 406.2  # 406,25 arredondado
+    assert week["daily_average"]["protein_g"] == 58.5
+    assert week["targets_now"]["kcal"] == 2000
+    assert [d["date"] for d in week["days"]] == ["2026-10-30", "2026-10-31"]
+    assert week["days"][0]["totals"]["kcal"] == 494.5
+    assert week["days"][0]["targets"]["protein_g"] == 120
+    # Nada de nomes de alimentos (só números).
+    assert "Arroz" not in json.dumps(week) and "frango" not in json.dumps(week).lower()
+
+    empty = data(db, "bia@exemplo.com", "get_nutrition_summary")
+    assert (empty["logged_days"], empty["daily_average"], empty["targets_now"]) == (0, None, None)
+    assert empty["days"] == []
+
+    body, is_error = run(
+        db, "ana@exemplo.com", "get_nutrition_summary", from_date="2026-01-01", to_date="2026-11-01"
+    )
+    assert is_error and "92 dias" in body["error"]
+
+
+def test_body_trend_is_scoped(db: Session, two_people) -> None:
+    trend = data(db, "ana@exemplo.com", "get_body_trend")
+    assert (trend["label"], trend["unit"], trend["estimate"]) == ("Peso", "kg", False)
+    # Padrão: os últimos 90 dias até hoje.
+    assert trend["to_date"] == "2026-11-01"
+    assert [p["value"] for p in trend["points"]] == [80, 79.5, 79.2, 78.6, 78]
+    assert (trend["change"], trend["min"], trend["max"]) == (-2, 78, 80)
+    assert trend["weekly_rate"] == pytest.approx(-0.5, abs=0.05)
+    assert trend["recorded_metrics"] == ["weight_kg", "waist_cm"]
+
+    waist = data(db, "ana@exemplo.com", "get_body_trend", metric="waist_cm")
+    assert (waist["first"]["value"], waist["last"]["value"], waist["change"]) == (86, 84.5, -1.5)
+
+    empty = data(db, "bia@exemplo.com", "get_body_trend")
+    assert (empty["points"], empty["last"], empty["recorded_metrics"]) == ([], None, [])
+    body, is_error = run(db, "ana@exemplo.com", "get_body_trend", metric="height")
+    assert is_error and "metric" in body["error"]
 
 
 # Plano gratuito do provedor (ADR-056).

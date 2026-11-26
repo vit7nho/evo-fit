@@ -33,6 +33,8 @@ const toolLabels = {
   'get_activities': 'atividades',
   'get_endurance_progress': 'evolução de resistência',
   'get_templates': 'fichas de treino',
+  'get_nutrition_summary': 'alimentação',
+  'get_body_trend': 'peso e medidas',
   'prepare_change_proposal': 'proposta de alteração',
 };
 

@@ -398,6 +398,20 @@ class HomePage extends ConsumerWidget {
               : 'Próxima: ${card.nextSession!.summary}',
           onTap: () => go(AppRoutes.plan(card.id)),
         ),
+        WeightFocus() => FocusTile(
+          icon: Icons.monitor_weight_outlined,
+          title: 'Peso',
+          headline: weightHeadline(card),
+          detail: weightDetail(card),
+          onTap: () => go(AppRoutes.measurements),
+        ),
+        NutritionFocus() => FocusTile(
+          icon: Icons.restaurant_outlined,
+          title: 'Alimentação · hoje',
+          headline: nutritionHeadline(card),
+          detail: nutritionDetail(card),
+          onTap: () => go(AppRoutes.nutrition),
+        ),
       };
 
   static String _goalsSummary(List<Goal> goals) {

@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.modules.nutrition.schemas import Nutrients, Targets
+
 
 class WeekOut(BaseModel):
     """Semana em curso: de segunda até hoje (fuso do perfil)."""
@@ -82,14 +84,39 @@ class PlanFocusOut(BaseModel):
     next_session: NextPlanSessionOut | None
 
 
+class WeightFocusOut(BaseModel):
+    """Peso (5.4): o último registro dos 90 dias e a variação de uns 30 dias."""
+
+    latest_kg: float
+    measured_on: date
+    # Último menos o peso de 30 dias atrás (o último até lá; sem ele, o primeiro do
+    # período); nulo com um registro só.
+    change_kg: float | None
+    since: date | None
+    # Ritmo por semana nos 90 dias (nulo com poucos pontos).
+    weekly_rate: float | None
+
+
+class NutritionFocusOut(BaseModel):
+    """Alimentação (5.4): o dia de hoje contra a meta e a cobertura da semana."""
+
+    today: Nutrients
+    meals_today: int
+    targets: Targets | None
+    # Dias com refeição nos últimos 7 (hoje incluído).
+    logged_days_7: int
+
+
 class FocusOut(BaseModel):
     """Um cartão do foco; só o campo do tipo vem preenchido."""
 
-    kind: Literal["strength", "body", "endurance", "plan"]
+    kind: Literal["strength", "body", "endurance", "plan", "weight", "nutrition"]
     strength: StrengthFocusOut | None = None
     body: BodyFocusOut | None = None
     endurance: EnduranceFocusOut | None = None
     plan: PlanFocusOut | None = None
+    weight: WeightFocusOut | None = None
+    nutrition: NutritionFocusOut | None = None
 
 
 class ProgressOut(BaseModel):

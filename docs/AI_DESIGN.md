@@ -75,7 +75,7 @@ Todas são somente leitura, exceto `prepare_change_proposal`. Os nomes estão em
 
 Limites: máx. 6 chamadas de ferramenta por resposta; resultados truncados (ex.: 30 itens) com o indicador `truncated: true`; períodos limitados a 366 dias.
 
-**Implementado na 4.2** (`app/modules/ai_coach/tools/`, ADR-050): as 11 ferramentas de leitura das Fases 2 e 3 — `get_profile_summary`, `get_goals`, `get_workout_history`, `get_current_session`, `get_session_detail`, `get_exercise_history`, `get_muscle_stimulus`, `compare_periods`, `get_activities`, `get_endurance_progress` e `search_exercises`. Ficam para depois: `get_nutrition_summary` e `get_body_trend` (Fase 5, quando houver nutrição e medidas) e `prepare_change_proposal` (4.6). Os arquivos agrupam as ferramentas por módulo (perfil, metas, treinos, análises, atividades), cada uma com seu modelo de entrada; períodos opcionais (padrão: os últimos 30 dias até hoje, no fuso da pessoa).
+**Implementado na 4.2** (`app/modules/ai_coach/tools/`, ADR-050): as 11 ferramentas de leitura das Fases 2 e 3 — `get_profile_summary`, `get_goals`, `get_workout_history`, `get_current_session`, `get_session_detail`, `get_exercise_history`, `get_muscle_stimulus`, `compare_periods`, `get_activities`, `get_endurance_progress` e `search_exercises`. Ficaram para depois `get_nutrition_summary` e `get_body_trend` — **implementadas na 5.4** (ADR-061), só com números, sem nomes de alimentos nem observações — e `prepare_change_proposal` (4.6). Os arquivos agrupam as ferramentas por módulo (perfil, metas, treinos, análises, atividades), cada uma com seu modelo de entrada; períodos opcionais (padrão: os últimos 30 dias até hoje, no fuso da pessoa).
 
 ## 4. Modos de análise
 

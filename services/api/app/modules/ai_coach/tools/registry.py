@@ -23,7 +23,9 @@ from app.integrations.ai.provider import ToolCall, ToolResult, ToolSpec
 from app.modules.ai_coach.tools import (
     activities,
     analytics,
+    body,
     goals,
+    nutrition,
     profile,
     proposals,
     templates,
@@ -42,6 +44,8 @@ TOOLS: dict[str, Tool] = {
         *templates.TOOLS,
         *analytics.TOOLS,
         *activities.TOOLS,
+        *nutrition.TOOLS,
+        *body.TOOLS,
         *proposals.TOOLS,
     )
 }

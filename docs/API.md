@@ -314,9 +314,11 @@ Metodologia versionada (`stimulus_methodologies`, uma ativa; v1 no DATA_MODEL §
   - `strength` (últimos 7 dias contra os 7 anteriores: `sessions`, `sets`, `volume_kg`, `previous_sets`, `previous_volume_kg`);
   - `body` (30 dias: `least`, os músculos com o menor valor — empatados, até 4 —, e `untrained`, quantos ficaram sem série; omitido sem metodologia ativa);
   - `endurance` (por modalidade, últimos 7 dias: `sessions`, `duration_s`, `distance_m`, `previous_distance_m` e o ritmo como em `/analytics/endurance`);
-  - `plan` (o plano ativo: `title`, `current_week`, `weeks`, `completed_sessions`, `total_sessions` e `next_session` com `scheduled_date`, `summary` e `total_s`).
+  - `plan` (o plano ativo: `title`, `current_week`, `weeks`, `completed_sessions`, `total_sessions` e `next_session` com `scheduled_date`, `summary` e `total_s`);
+  - `weight` (5.4: `latest_kg` e `measured_on`, o último dos 90 dias; `change_kg` e `since`, a variação desde o peso de 30 dias atrás — ou o primeiro do período —, nulos com um registro só; `weekly_rate`) — só com peso registrado;
+  - `nutrition` (5.4: `today` com os totais de hoje, `meals_today`, `targets`, a meta de hoje, e `logged_days_7`) — só com refeição nos últimos 7 dias ou com metas.
 
-  Entram as modalidades preferidas do perfil (na ordem dele) e as registradas nos últimos 30 dias (as mais frequentes antes); o objetivo põe a modalidade dele no topo (`gain_muscle` → musculação, `run` → corrida, `walk_habit` → caminhada); musculação traz o `body` logo depois; o plano ativo vem primeiro para `run` e `walk_habit` e por último para os demais. Funcional não tem cartão.
+  Entram as modalidades preferidas do perfil (na ordem dele) e as registradas nos últimos 30 dias (as mais frequentes antes); o objetivo põe a modalidade dele no topo (`gain_muscle` → musculação, `run` → corrida, `walk_habit` → caminhada); musculação traz o `body` logo depois; o plano ativo vem primeiro para `run` e `walk_habit` e por último para os demais. `weight` e `nutrition` abrem o painel de `lose_weight`; para os demais, vêm depois das modalidades (antes do plano, quando ele fica no fim). Funcional não tem cartão.
 - `goals`: as 3 primeiras metas ativas (prioridade, prazo) e `active_goals`, o total. Cada uma com `summary` e `progress` — `current`, `target`, `unit` (`kg`, `km`, `s`, `sets_per_week`, `sessions`), `ratio` (0 a 1), `achieved`, `lower_is_better` e `basis` (de onde vem o número) —, medido desde o início da meta:
   - força: maior carga em séries (sem aquecimento) com pelo menos as repetições do alvo, no exercício cujo nome casa com o da meta (sem acentos nem maiúsculas; catálogo ou da pessoa);
   - hipertrofia: séries ponderadas por semana do grupo nos últimos 28 dias;

@@ -263,9 +263,13 @@ HELP = (
     "- Quanto corri nos últimos 30 dias?\n"
     "- Estou perto da minha meta?\n"
     "- Qual é o meu 1RM estimado no supino?\n"
+    "- Quantas calorias comi nesta semana?\n"
+    "- Como está a tendência do meu peso?\n"
     "- Adicione um exercício de posterior de coxa na minha ficha."
 )
-OUT_OF_SCOPE = "Só consigo ajudar com seus treinos, atividades, metas e hábitos.\n\n" + HELP
+OUT_OF_SCOPE = (
+    "Só consigo ajudar com seus treinos, atividades, alimentação, peso, metas e hábitos.\n\n" + HELP
+)
 
 
 # --- intenções: cada uma devolve as próximas ferramentas ou o texto final ---
@@ -535,6 +539,106 @@ def endurance(t: Turn, modality: tuple[str, str]) -> Step:
             "- Tendência da distância semanal: "
             + {"up": "subindo.", "down": "caindo.", "flat": "estável."}[trend]
         )
+    return "\n".join(lines)
+
+
+def nutrition(t: Turn) -> Step:
+    """O que a pessoa registrou de alimentação, contra as metas dela (5.4)."""
+    days = t.days(7)
+    if not t.has("get_nutrition_summary"):
+        return [("get_nutrition_summary", t.period(days))]
+    data = t.last("get_nutrition_summary")
+    if "error" in data:
+        return f"Não consegui consultar sua alimentação: {data['error']}"
+    if not data.get("logged_days"):
+        return (
+            f"Ainda não há refeições registradas nos últimos {days} dias. Registre na tela "
+            "Nutrição e eu acompanho as calorias e os macronutrientes com você."
+        )
+    avg = data["daily_average"]
+    lines = [
+        f"Nos últimos {days} dias ({day(data['from_date'])} a {day(data['to_date'])}), você "
+        f"registrou refeições em **{data['logged_days']} de {data['total_days']} dias**.",
+        "",
+        f"Média dos dias registrados: **{num(avg['kcal'])} kcal**, "
+        f"{num(avg['protein_g'])} g de proteína, {num(avg['carbs_g'])} g de carboidratos e "
+        f"{num(avg['fat_g'])} g de gordura.",
+    ]
+    goal = data.get("targets_now") or {}
+    if goal.get("kcal") or goal.get("protein_g"):
+        parts = []
+        if goal.get("kcal"):
+            side = "abaixo" if avg["kcal"] < goal["kcal"] else "acima"
+            parts.append(f"calorias: meta de {num(goal['kcal'])} kcal (a média ficou {side})")
+        if goal.get("protein_g"):
+            side = "abaixo" if avg["protein_g"] < goal["protein_g"] else "acima"
+            parts.append(f"proteína: meta de {num(goal['protein_g'])} g (a média ficou {side})")
+        lines += ["", "Suas metas — " + "; ".join(parts) + "."]
+    lines += ["", "Por dia:"]
+    lines += [
+        f"- {day(d['date'])}: {num(d['totals']['kcal'])} kcal, "
+        f"{num(d['totals']['protein_g'])} g de proteína"
+        for d in data["days"][-7:]
+    ]
+    lines += [
+        "",
+        "Os valores são os que você registrou. Para ajustar as metas com segurança, "
+        "converse com um **nutricionista**.",
+    ]
+    return "\n".join(lines)
+
+
+BODY_WORDS = {
+    "cintura": "waist_cm",
+    "quadril": "hip_cm",
+    "gordura": "body_fat_pct",
+    "braco": "arm_cm",
+    "coxa": "thigh_cm",
+    "panturrilha": "calf_cm",
+}
+
+
+def body(t: Turn) -> Step:
+    """Peso ou uma medida: o último valor, a variação e o ritmo (5.4)."""
+    metric = next((m for word, m in BODY_WORDS.items() if word in t.q), "weight_kg")
+    days = t.days(90)
+    if not t.has("get_body_trend"):
+        return [("get_body_trend", {**t.period(days), "metric": metric})]
+    data = t.last("get_body_trend")
+    if "error" in data:
+        return f"Não consegui consultar suas medidas: {data['error']}"
+    label, unit = data["label"].lower(), data["unit"]
+    last = data.get("last")
+    if not last:
+        return (
+            f"Ainda não há registros de {label} no período consultado (desde "
+            f"{day(data['from_date'])}). Registre em Peso e medidas e eu acompanho a "
+            "tendência com você."
+        )
+    lines = [f"Último registro de {label}: **{num(last['value'])} {unit}** ({day(last['date'])})."]
+    if len(data["points"]) > 1:
+        first, change = data["first"], data["change"]
+        direction = "a menos" if change < 0 else "a mais"
+        lines.append(
+            f"- Desde {day(first['date'])} ({num(first['value'])} {unit}): "
+            + (f"{num(abs(change))} {unit} {direction}." if change else "sem variação.")
+        )
+        if last["average_7d"] != last["value"]:
+            lines.append(f"- Média dos últimos 7 dias: {num(last['average_7d'])} {unit}.")
+        if data.get("weekly_rate") is not None:
+            rate = data["weekly_rate"]
+            lines.append(
+                f"- Ritmo: cerca de {num(abs(rate), 2)} {unit} por semana "
+                + ("a menos." if rate < 0 else "a mais." if rate > 0 else "(estável).")
+            )
+    else:
+        lines.append("Com mais registros, eu mostro a tendência.")
+    if data.get("estimate"):
+        lines.append("\nA gordura corporal é uma **estimativa** (balança ou dobras).")
+    lines.append(
+        "\nO peso varia de um dia para o outro: vale olhar a tendência das semanas, não "
+        "um dia isolado."
+    )
     return "\n".join(lines)
 
 
@@ -885,7 +989,11 @@ def choose(t: Turn) -> Callable[[Turn], Step] | str:
         return OTHER_ACCOUNT
     if re.search(r"\b(dor|dores|doi|doendo|lesao|lesionei|machuc|inflama|torci|estalo)", q):
         return PAIN
-    if re.search(r"\b(dieta|kcal|caloria|jejum|secar|emagrecer rapido)", q):
+    # Pedido de dieta (não a consulta do que foi registrado, que vem abaixo).
+    calories = re.search(r"\b(kcal|caloria)", q)
+    if re.search(r"\b(dieta|cardapio|jejum|secar|emagrecer rapido)", q) or (
+        calories and has_word(q, "devo", "deveria", "preciso", "ideal", "recomend", "mont")
+    ):
         return DIET
     if re.search(r"\b(hormon|esteroide|anaboliz|testosterona|bomba)", q):
         return HORMONE
@@ -908,6 +1016,15 @@ def choose(t: Turn) -> Callable[[Turn], Step] | str:
         return current_session
     if has_word(q, "1rm", "rm", "maxim", "recorde"):
         return one_rm
+    # Alimentação e corpo (5.4): o que foi registrado.
+    if calories or re.search(r"\b(proteina|carboidrato|macro|comi|comendo|aliment|refeic)", q):
+        return nutrition
+    lifting = has_word(q, "levant", "carga", "serie", "supino", "agach")
+    if not lifting and (
+        has_word(q, "peso", "pesando", "pesei", "emagreci", "engordei", "balanca")
+        or re.search(r"\b(cintura|quadril|gordura corporal|medidas?|circunferencia)\b", q)
+    ):
+        return body
     if has_word(q, "musculo", "estimulo", "grupo") or muscle_in(q):
         return muscles
     if (mod := modality_in(q)) or has_word(q, "pace", "ritmo"):
