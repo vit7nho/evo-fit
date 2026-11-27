@@ -202,8 +202,9 @@ PreviousSet? previousAt(SessionExercise entry, int index) {
 }
 
 /// Sugestão para a linha [index]: a da última vez na mesma linha; senão o plano;
-/// senão a linha de cima (o drop tira 20% da carga, múltiplo de 2,5 kg; o
-/// rest-pause repete a carga e não inventa repetições).
+/// senão a linha de cima (o drop tira 20% da carga, múltiplo de 2,5 kg, e repete
+/// as repetições de cima; o rest-pause repete a carga e não inventa repetições,
+/// porque depois da pausa curta elas variam demais).
 RowSuggestion suggestRow(
   SessionExercise entry,
   List<SetRowDraft> rows,
@@ -223,9 +224,13 @@ RowSuggestion suggestRow(
       if (load <= 0) load = null;
     }
     final sameKind = last != null && RowKind.fromSet(last.kind) == row.kind;
+    // Sem sugestão de repetições, o ✓ do drop só respondia "Informe as
+    // repetições" (achado do piloto da 5.7). O plano de um drop planejado vale
+    // para a cadeia inteira (é o da série de cima), por isso não entra aqui.
+    final fallbackReps = row.kind == RowKind.drop ? above?.reps : null;
     return (
-      reps: sameKind ? last.reps : null,
-      loadKg: sameKind ? last.loadKg ?? load : load,
+      reps: (sameKind ? last.reps : null) ?? fallbackReps,
+      loadKg: (sameKind ? last.loadKg : null) ?? load,
       durationS: null,
     );
   }

@@ -299,8 +299,11 @@ void main() {
         }
 
         expect(segment(60, RowKind.drop).loadKg, 47.5);
-        expect(segment(60, RowKind.drop).reps, isNull);
+        // O drop sugere as repetições de cima (antes vinha vazio e o ✓ só
+        // pedia "Informe as repetições": achado do piloto da 5.7).
+        expect(segment(60, RowKind.drop).reps, 10);
         expect(segment(60, RowKind.restPause).loadKg, 60);
+        expect(segment(60, RowKind.restPause).reps, isNull);
         // Carga pequena: tira ao menos 2,5 kg e nunca fica zerada.
         expect(segment(10, RowKind.drop).loadKg, 7.5);
         expect(segment(5, RowKind.drop).loadKg, 2.5);
@@ -365,7 +368,42 @@ void main() {
         ),
       ]);
       expect(session.liveSetCount, 1);
+      expect(session.liveSetLabel, '1 + 1 drop');
       expect(session.liveVolumeKg, 60 * 10 + 45 * 6);
+    });
+
+    test('o contador mostra os segmentos ao lado das séries válidas', () {
+      String label(List<Map<String, Object?>> sets) =>
+          _session([_exercise('a', sets: sets)]).liveSetLabel;
+
+      expect(label([]), '0');
+      expect(label([_set(0), _set(1)]), '2');
+      expect(
+        label([
+          _set(0),
+          _set(1, kind: 'drop', parent: 's0'),
+          _set(2, kind: 'drop', parent: 's1'),
+          _set(3),
+          _set(4, kind: 'rest_pause', parent: 's3'),
+        ]),
+        '2 + 2 drops + 1 rest-pause',
+      );
+    });
+
+    test('drop planejado na ficha: parte da sugestão da série de cima', () {
+      final entry = entryOf(
+        _exercise(
+          'a',
+          planned: [
+            {'kind': 'drop', 'reps_min': 8, 'load_kg': 40},
+          ],
+        ),
+      );
+      final rows = rowsOf(entry);
+      expect(rows[1].kind, RowKind.drop);
+      final s = suggest(entry, rows, 1);
+      // O plano (8 × 40 kg) é da série principal; o drop tira 20% dela.
+      expect((s.reps, s.loadKg), (8, 32.5));
     });
   });
 

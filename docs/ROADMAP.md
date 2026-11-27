@@ -118,7 +118,7 @@ O aceite encontrou um bug da 2.9: no aparelho, a série concluída às vezes apa
 | 6.1 ✅ | Conta de demonstração identificada (`python -m app.demo_seed`, usuário `demo@evofit.local`, 8 semanas até hoje) (ADR-065) | P0 |
 | 6.2 ✅ | Testes de integração dos fluxos críticos no emulador com a API real (`integration_test`, `scripts/test-e2e.ps1`) (ADR-066) | P0 |
 | 6.3 ✅ | APK de release assinado com chave local e endereço da API no build (`make-keystore.ps1`, `build-apk.ps1`) (ADR-067) | P0 |
-| 6.4 | Correção de erros (achados do piloto da 5.7 e da revisão final) | P1 |
+| 6.4 ✅ | Correção de erros do piloto da 5.7: repetições sugeridas no drop e contador de séries com os segmentos (ADR-068) | P1 |
 | 6.5 | Documentação final e limitações conhecidas | P0 |
 
 ---

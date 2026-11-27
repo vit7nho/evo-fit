@@ -336,6 +336,33 @@ void main() {
       expect(find.text('Descanso 01:30'), findsOneWidget);
     });
 
+    testWidgets('drop sem digitar usa a sugestão e aparece no contador', (
+      tester,
+    ) async {
+      final server = await _pumpSignedIn(tester);
+      await _startTemplate(tester);
+      await tester.enterText(_kg(0), '60');
+      await tester.enterText(_reps(0), '10');
+      await _tap(tester, _check(1));
+      expect(find.bySemanticsLabel('Séries: 1'), findsOneWidget);
+
+      await _setKind(tester, 'Série 2 de $_supino', 'Drop set');
+      // Achado do piloto da 5.7: antes o ✓ respondia "Informe as repetições".
+      await _tap(
+        tester,
+        find.byTooltip('Concluir drop set da série 1 de $_supino'),
+      );
+
+      expect(find.text('Informe as repetições'), findsNothing);
+      expect(server.setBodies.last, {
+        'kind': 'drop',
+        'reps': 10,
+        'load_kg': 47.5,
+        'parent_set_id': 'serie-1',
+      });
+      expect(find.bySemanticsLabel('Séries: 1 + 1 drop'), findsOneWidget);
+    });
+
     testWidgets('drop planejado na ficha emenda sem descanso', (tester) async {
       final server = await _pumpSignedIn(
         tester,

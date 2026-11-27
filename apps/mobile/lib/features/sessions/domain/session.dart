@@ -340,6 +340,30 @@ class WorkoutSession {
     (sum, e) => sum + e.mainSets.where((s) => !s.isWarmup).length,
   );
 
+  /// Segmentos feitos até agora, por tipo (`drop`, `rest_pause`): não somam
+  /// séries, mas aparecem ao lado do contador para não parecerem perdidos.
+  Map<String, int> get liveSegmentCounts {
+    final counts = <String, int>{};
+    for (final e in exercises) {
+      for (final s in e.sets.where((s) => s.isSegment)) {
+        counts[s.kind] = (counts[s.kind] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
+
+  /// O contador do topo: "2", "2 + 1 drop", "3 + 2 drops + 1 rest-pause".
+  String get liveSetLabel {
+    final segments = liveSegmentCounts;
+    final drops = segments['drop'] ?? 0;
+    final pauses = segments['rest_pause'] ?? 0;
+    return [
+      '$liveSetCount',
+      if (drops > 0) drops == 1 ? '1 drop' : '$drops drops',
+      if (pauses > 0) '$pauses rest-pause',
+    ].join(' + ');
+  }
+
   /// Volume até agora: carga × repetições das séries válidas e dos segmentos,
   /// só em exercício com carga externa (como a API calcula no resumo).
   double get liveVolumeKg {

@@ -147,8 +147,8 @@ Antes das sessões, o desenvolvedor fez as 7 tarefas no emulador, com a API real
 | Em **Registrar medida**, “Salvar medida” ficava no fim de uma lista de 9 campos; quem só registra o peso precisava rolar pelas medidas vazias, e nos outros formulários o botão fica fixo no rodapé. | **Corrigido:** o botão ficou fixo no rodapé (teste novo garante que ele não está dentro da lista). |
 | O leitor de tela lia “1 dias por semana” no cadastro. | **Corrigido:** “1 dia por semana” (teste novo). |
 | A tarefa original “qual músculo recebeu menos estímulo” tem várias respostas certas quando a conta tem um treino só. | **Roteiro ajustado:** “um músculo que você não treinou nos últimos 30 dias”. |
-| Ao virar drop set, a linha perde a sugestão de repetições; tocar no ✓ sem digitar mostra “Informe as repetições”. A mensagem é clara. | **Observar** nas sessões se atrapalha. |
-| Com o drop set, o contador “Séries” do treino mostra 2 (o drop set continua a série anterior); quem espera 3 pode estranhar. | **Observar.** |
+| Ao virar drop set, a linha perde a sugestão de repetições; tocar no ✓ sem digitar mostra “Informe as repetições”. A mensagem é clara. | **Corrigido na 6.4:** o drop sugere as repetições da série de cima; um toque no ✓ salva (ADR-068). |
+| Com o drop set, o contador “Séries” do treino mostra 2 (o drop set continua a série anterior); quem espera 3 pode estranhar. | **Corrigido na 6.4:** o contador mostra “2 + 1 drop” (a contagem de séries continua a mesma) (ADR-068). |
 | Com o emulador em UTC, a hora no formulário e na lista ficavam diferentes. | **Checklist:** acertar o fuso antes da sessão. |
 
 O piloto, feito por comandos e por quem conhece o app, levou cerca de 12 minutos; uma pessoa nova deve levar de 20 a 30.

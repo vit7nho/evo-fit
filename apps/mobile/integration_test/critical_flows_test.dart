@@ -177,8 +177,8 @@ void main() {
       await waitFor(tester, find.byTooltip('Desfazer série 2 de $supino'));
       await tapOn(tester, find.text('3'));
       await tapOn(tester, find.text('Drop set'));
+      // Só a carga: as repetições do drop vêm sugeridas da série de cima (6.4).
       await typeInto(tester, find.byType(TextField).at(4), '14');
-      await typeInto(tester, find.byType(TextField).at(5), '6');
       await tapOn(
         tester,
         find.byTooltip('Concluir drop set da série 2 de $supino'),
@@ -187,10 +187,12 @@ void main() {
         tester,
         find.byTooltip('Desfazer drop set da série 2 de $supino'),
       );
+      // O contador mostra o drop ao lado das séries válidas (6.4).
+      expect(find.bySemanticsLabel('Séries: 2 + 1 drop'), findsOneWidget);
       await tapOn(tester, find.text('Finalizar treino'));
       await tapOn(tester, find.text('Salvar treino'));
       // No resumo, cada série é lida pelo leitor de tela como "Série 1: 20 kg × 8".
-      await waitFor(tester, find.bySemanticsLabel('Drop set: 14 kg × 6'));
+      await waitFor(tester, find.bySemanticsLabel('Drop set: 14 kg × 8'));
       expect(find.bySemanticsLabel('Série 1: 20 kg × 8'), findsOneWidget);
       await back(tester);
 

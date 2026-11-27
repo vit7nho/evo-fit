@@ -416,7 +416,7 @@ class _SummaryStrip extends ConsumerWidget {
     final theme = Theme.of(context);
     final now = ref.watch(clockTickProvider).value ?? DateTime.now();
     final time = formatElapsed(session.elapsedAt(now));
-    final sets = session.liveSetCount;
+    final sets = session.liveSetLabel;
     Widget stat(String label, String value) => Semantics(
       container: true,
       label: '$label: $value',
@@ -444,7 +444,7 @@ class _SummaryStrip extends ConsumerWidget {
         children: [
           stat('Duração', session.isPaused ? 'Pausado · $time' : time),
           stat('Volume', '${formatDecimal(session.liveVolumeKg)} kg'),
-          stat('Séries', '$sets'),
+          stat('Séries', sets),
         ],
       ),
     );
