@@ -143,4 +143,4 @@ Nada precisa ser salvo: os dados ficam no banco, que continua no PC.
 | No app: “Não foi possível conectar” | A API não está rodando. Confira o passo 1 e toque em “Tentar novamente”. |
 | `/health` mostra `"database":"unavailable"` | O PostgreSQL está parado. Veja o passo 0. |
 
-Mais casos em [SETUP.md §9](SETUP.md#9-problemas-comuns).
+Mais casos em [SETUP.md §10](SETUP.md#10-problemas-comuns).

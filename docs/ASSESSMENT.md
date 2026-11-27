@@ -2,6 +2,15 @@
 
 > Data da inspeção: 2026-10-28 · Máquina: Windows 11 Pro (26H2) · Shells: PowerShell 5.1 e Git Bash
 
+> **Documento da Fase 0, mantido como registro.** O que mudou depois (situação em 2026-11-26):
+> - **Docker:** não conseguiu subir contêineres nesta máquina; o projeto usa o PostgreSQL 18 local (`DB_MODE=local`, ADR-021).
+> - **Provedor de IA:** em vez da recomendação abaixo, Groq e Google Gemini nos planos gratuitos, numa cadeia configurável, mais o modo demonstração por regras (ADR-056 a ADR-058). O risco de cota (R3) aconteceu e foi contornado assim.
+> - **Meu Corpo:** o 2D é desenhado com `CustomPainter`, sem pacote de SVG (ADR-045); o 3D virou uma prova de conceito com um manequim próprio no `model_viewer_plus`, como opção no Android (ADR-048).
+> - **Alimentos:** a licença da TACO foi aceita (ADR-055), mas o catálogo ainda não foi importado.
+> - **Plataformas:** o app tem só a plataforma Android; não roda no Chrome.
+> - **Versões:** fixadas na Fase 1 (ADR-019).
+> - Limitações atuais em [LIMITACOES](LIMITACOES.md).
+
 ## 1. Estado do repositório
 
 | Item | Situação |

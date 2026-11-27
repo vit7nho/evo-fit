@@ -85,7 +85,7 @@ O app usa `http://10.0.2.2:8000` por padrão (o computador visto de dentro do em
 flutter run --dart-define=API_BASE_URL=http://IP_DO_COMPUTADOR:8000
 ```
 
-HTTP sem TLS só é permitido no build de debug (`android/app/src/debug/AndroidManifest.xml`).
+HTTP sem TLS é permitido no build de debug (`android/app/src/debug/AndroidManifest.xml`). O APK de release aceita só HTTPS (e `localhost`, para o visualizador 3D), a não ser quando gerado com `build-apk.ps1 -AllowHttp` para a demonstração local (ADR-067).
 
 ## 5. Site (Next.js)
 
@@ -146,7 +146,11 @@ TEST_DATABASE_URL=postgresql+psycopg://evofit:evofit_dev_only@127.0.0.1:5433/evo
 
 `evofit_test` precisa ser exclusivo dos testes: o pytest apaga e recria as tabelas dele a cada execução. Os scripts `dev-api` e `test-all` funcionam normalmente nesse modo.
 
-## 9. Problemas comuns
+## 9. Demonstração, testes de integração e APK
+
+Os passos estão em [COMO_INICIAR](COMO_INICIAR.md): a conta de demonstração (`python -m app.demo_seed`, ADR-065), os testes de integração no emulador (`scripts/test-e2e.ps1`, ADR-066) e o APK de release (`scripts/make-keystore.ps1` e `scripts/build-apk.ps1`, ADR-067). Para a IA, o `.env.example` explica `AI_PROVIDER` (`fake`, `demo`, `groq`, `gemini` ou uma lista como `gemini,groq,demo`) e as chaves `AI_GROQ_API_KEY` e `AI_GEMINI_API_KEY`, que ficam só no `.env`. Para os testes de integração e a demonstração sem IA externa, use `AI_PROVIDER=demo`.
+
+## 10. Problemas comuns
 
 | Sintoma | Causa provável | Solução |
 |---|---|---|

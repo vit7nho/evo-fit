@@ -22,10 +22,10 @@
 - **Sessão:** access token JWT HS256 de 15 min (algoritmo fixo, `iss` e `typ` verificados); refresh opaco de 256 bits, 30 dias, guardado só como SHA-256, com rotação e detecção de reutilização; logout revoga a família de tokens. ✅ 2.1
 - **App:** refresh token no Android Keystore (`flutter_secure_storage`); access token só em memória; backup automático do Android desligado para o token não ir a outro aparelho. ✅ 2.1
 - **Segredos:** apenas em variáveis de ambiente; `.env` no `.gitignore`; `.env.example` sem valores reais. O app e o site não recebem nenhuma chave de IA.
-- **Logs:** JSON estruturado com uma lista de campos removidos (`password`, `token`, `authorization`, `notes`, `limitations`, `content` de mensagens). Os metadados de chamadas à IA registram tokens, latência e ferramentas usadas — **não** o conteúdo.
+- **Logs:** JSON estruturado com uma lista de campos removidos (senha e hash, tokens, `authorization`, chaves e segredos, notas, o texto livre das limitações e o conteúdo das mensagens; lista em `app/core/logging.py`). Os metadados de chamadas à IA registram tokens, latência e ferramentas usadas — **não** o conteúdo.
 - **Erros:** respostas sem *stack trace* fora de `development`.
 - **CORS:** só as origens configuradas (site e dev). O app mobile não depende de CORS.
-- **HTTPS** obrigatório fora do ambiente local (a definir junto com a hospedagem).
+- **HTTPS** obrigatório fora do ambiente local: o APK de release só aceita HTTPS, a não ser na variante de demonstração local gerada com `-AllowHttp` (ADR-067). A hospedagem não foi feita.
 - **Criptografia em repouso:** na v1, depende do disco/volume do provedor. Os tokens de integrações externas (futuras) serão criptografados na aplicação (Fernet/AES-GCM, chave em variável de ambiente).
 
 ## 3. Consentimentos
@@ -43,9 +43,9 @@ Registrados em `user_consents` (tipo, versão do texto, data, revogação):
 - **Acesso/portabilidade:** `GET /api/v1/me/export` (JSON com todos os dados do usuário). ✅ 5.6 (ADR-063): tabela por tabela, de uma lista conferida por teste contra o banco; sem o hash da senha e os tokens; até 10 por hora; no app, salvo pelo “Salvar como” do Android.
 - **Exclusão de conta:** `DELETE /api/v1/me` com reautenticação → exclusão física em cascata dos dados pessoais; logs técnicos mantêm só IDs pseudônimos até expirarem. ✅ 5.6 (ADR-063): a senha é conferida com o mesmo limite de erros do login; no app, uma tela com a lista do que some, a senha e uma confirmação explícita.
 - **Correção:** edição normal pelos endpoints de cada módulo.
-- **Revogação de consentimento:** revogar `ai_processing` bloqueia novas chamadas; revogar `health_data` oferece a exclusão dos dados sensíveis. **(5.1)** Refeições exigem `health_data` e são apagadas na revogação; os alimentos próprios (valores de embalagem) não são dado de saúde e ficam. Os logs das refeições levam só os ids. **(5.2)** **(5.3)** Peso e medidas exigem `health_data`, são apagados na revogação e os logs levam só os ids. As metas nutricionais também exigem `health_data` e são apagadas na revogação; metas fora dos limites de segurança (ADR-059 — calorias muito baixas ou altas, macronutrientes extremos, calorias para menores de 18 anos) são recusadas com a orientação de procurar um nutricionista ou médico.
+- **Revogação de consentimento:** revogar `ai_processing` bloqueia novas chamadas; revogar `health_data` apaga na hora os dados de saúde (o app avisa antes o que será apagado). **(5.1)** Refeições exigem `health_data` e são apagadas na revogação; os alimentos próprios (valores de embalagem) não são dado de saúde e ficam. Os logs das refeições levam só os ids. **(5.2)** **(5.3)** Peso e medidas exigem `health_data`, são apagados na revogação e os logs levam só os ids. As metas nutricionais também exigem `health_data` e são apagadas na revogação; metas fora dos limites de segurança (ADR-059 — calorias muito baixas ou altas, macronutrientes extremos, calorias para menores de 18 anos) são recusadas com a orientação de procurar um nutricionista ou médico.
 
-## 5. Retenção (proposta)
+## 5. Retenção (proposta, não automatizada)
 
 | Dado | Retenção |
 |---|---|
@@ -55,7 +55,7 @@ Registrados em `user_consents` (tipo, versão do texto, data, revogação):
 | Logs de aplicação | 30 dias |
 | Refresh tokens revogados/expirados | Removidos por limpeza periódica após 7 dias |
 
-⚖ Os prazos devem ser validados juridicamente.
+⚖ Os prazos devem ser validados juridicamente. Nenhuma rotina de limpeza foi implementada: hoje os dados ficam até a exclusão pela pessoa (ou da conta). Só as propostas da IA vencem sozinhas, em 7 dias. Ver [LIMITACOES](LIMITACOES.md).
 
 ## 6. Pendências antes de um lançamento real ⚖
 

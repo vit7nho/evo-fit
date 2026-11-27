@@ -42,7 +42,7 @@ Uma plataforma única de acompanhamento de **atividade física, nutrição e evo
 ## Fora do escopo do TCC (preparado na arquitetura)
 
 - GPS em tempo real, integração com Strava, Health Connect e wearables.
-- Modelo anatômico 3D com rotação de 360° (investigado; opcional se houver tempo — ver `ASSESSMENT.md` §6).
+- Modelo anatômico 3D com rotação de 360°. *Feito como prova de conceito na 3.9:* um manequim próprio, estilizado, como opção no Android; o 2D segue como padrão e um modelo anatômico de terceiros foi descartado pela licença (ADR-048).
 - Versão iOS (o código Flutter fica pronto para ela, mas não será testado/publicado).
 - Monetização, multi-idioma, social/feeds.
 

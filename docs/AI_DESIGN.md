@@ -26,7 +26,7 @@ integrations/ai/
 
 modules/ai_coach/
 ├── prompts/
-│   └── coach.v1.md      # prompt de sistema versionado (o hash e a versão vão para ai_run_logs)
+│   └── coach.v1.md … coach.v3.md  # prompts de sistema versionados; o em uso é o coach.v3 (o hash e a versão vão para ai_run_logs)
 ├── tools/               # uma ferramenta por arquivo: schema de entrada Pydantic + handler + schema de saída
 ├── context.py           # monta o cartão de contexto mínimo (objetivos, modalidades, limitações-tag, unidades)
 ├── orchestrator.py      # laço: modelo → tool calls → executor → modelo … (máx. N iterações)
@@ -48,7 +48,7 @@ Trocar de fornecedor = escrever um novo adaptador. Nenhum outro arquivo importa 
 
 **Groq e cadeia de provedores** (ADR-057): `providers/groq.py` fala o formato da OpenAI (`tools` com `parameters`, `tool_calls` com argumentos em texto JSON, mensagens `tool`); os `$ref` do Pydantic são resolvidos no lugar; nos `gpt-oss`, raciocínio `low` sem o texto do raciocínio e uma ferramenta por vez. `AI_PROVIDER=groq,gemini` monta um `FallbackProvider`: com 429/503 no primeiro pedido, a pergunta vai ao próximo provedor; depois da primeira ferramenta, fica no provedor que começou. Dentro do Groq a troca de modelo vale também no meio da pergunta (o limite de 8.000 tokens por minuto estoura na terceira chamada; o `gpt-oss-20b` tem a própria cota). O registro da execução guarda o provedor e o modelo que de fato responderam.
 
-**Implementado na 4.1** (`app/integrations/ai/`, ADR-049): `Message` (`user`, `assistant` com texto e/ou `tool_calls`, `tool` com `tool_results`; mensagens incoerentes são recusadas), `ToolSpec`, `ToolCall`, `ToolResult`, `Usage` e `Completion` (com `stop_reason` `end|tool_use|max_tokens` e o modelo que respondeu); o `FakeProvider` em dois modos — roteirizado (respostas, exceções ou funções do pedido; guarda cópia de cada pedido) e demonstração (texto fixo dizendo que é simulado, sem números); os erros com `code`, `transient` e `user_message`; `complete_with_retry` (só transitórios, 0,5 s e 1 s, `Retry-After` até 5 s); e `build_provider` (`fake` padrão; `anthropic` dá `ProviderNotConfigured` até a 4.4).
+**Implementado na 4.1** (`app/integrations/ai/`, ADR-049): `Message` (`user`, `assistant` com texto e/ou `tool_calls`, `tool` com `tool_results`; mensagens incoerentes são recusadas), `ToolSpec`, `ToolCall`, `ToolResult`, `Usage` e `Completion` (com `stop_reason` `end|tool_use|max_tokens` e o modelo que respondeu); o `FakeProvider` em dois modos — roteirizado (respostas, exceções ou funções do pedido; guarda cópia de cada pedido) e demonstração (texto fixo dizendo que é simulado, sem números); os erros com `code`, `transient` e `user_message`; `complete_with_retry` (só transitórios, 0,5 s e 1 s, `Retry-After` até 5 s); e `build_provider` (`fake` padrão; `anthropic` dá `ProviderNotConfigured` até a 4.4). *Depois:* a 4.4 escolheu o Gemini e o Groq (ADR-056, ADR-057) e acrescentou o modo `demo` (ADR-058); `anthropic` continua sem adaptador.
 
 **Implementado na 4.3** (`modules/ai_coach/`, ADR-051): `orchestrator.py` (laço com até 6 consultas e 5 chamadas ao modelo por resposta — a última sem ferramentas, para forçar o texto —; pedidos além do limite voltam como erro explicado), `prompts/coach.v1.md` (versão e hash de 16 caracteres no registro), `context.py` (data de hoje, dia da semana, fuso, foco do modo específico e unidades — nada pessoal), `guardrails.py` (resposta com até 4000 caracteres e a conferência heurística de números) e `service.py`/`router.py` (conversas, consentimento, limites, falhas e registro). Na v1 a conferência não bloqueia: os números não conferidos vão só para `ai_run_logs.unverified_numbers`.
 
@@ -81,7 +81,7 @@ Limites: máx. 6 chamadas de ferramenta por resposta; resultados truncados (ex.:
 
 - **Específico:** a conversa nasce com `scope` (`session`, `exercise`, `muscle`, `activity`, `period`) a partir de botões no app (“Perguntar à IA” no Meu Corpo, na sessão, etc.). O `scope_ref` entra no contexto inicial e orienta quais ferramentas usar primeiro.
 - **Global:** `scope = global`; o modelo combina ferramentas de vários módulos.
-- O usuário alterna entre os modos por um seletor no topo do chat; a troca cria uma nova conversa vinculada (o contexto fica limpo e explícito).
+- Uma conversa por foco: os atalhos **Perguntar à IA** abrem uma conversa específica, e “Perguntar sobre tudo” abre uma geral. O seletor no topo do chat foi descartado (ADR-052).
 
 ## 5. Prompt de sistema (resumo do `coach.v1.md`)
 
@@ -99,7 +99,7 @@ Limites: máx. 6 chamadas de ferramenta por resposta; resultados truncados (ex.:
 | Entrada | Tamanho máx. da mensagem; consentimento `ai_processing` ativo; limite diário por usuário (ex.: 30 mensagens) e por minuto. |
 | Ferramentas | Argumentos validados por Pydantic; erro de validação volta ao modelo como mensagem de ferramenta (1 nova tentativa). |
 | Propostas | Payload validado pelo serviço dono da entidade (exercício existe e é visível, séries dentro de limites, meta coerente). Regras de segurança nutricional: meta de kcal abaixo do mínimo configurado → rejeitada. |
-| Saída | Resposta não vazia; tamanho máx.; números citados checados de forma heurística contra os resultados das ferramentas da rodada (números ausentes nos resultados geram um alerta no log e, na v2, uma nova tentativa). |
+| Saída | Resposta não vazia; tamanho máx.; números citados checados de forma heurística contra os resultados das ferramentas da rodada (números ausentes nos resultados geram um alerta no log; a nova tentativa prevista não foi implementada). |
 | Falhas | Timeout (30 s), `429` e `5xx` do provedor → mensagem amigável + `outcome` registrado; *retry* com backoff só para erros transitórios (máx. 2). |
 
 ## 7. Fluxo de confirmação de alterações
@@ -127,10 +127,10 @@ Propostas expiram em 7 dias. Uma proposta aceita registra `decided_at` e o resul
 - **Unitários das ferramentas:** dados semeados para dois usuários; cada ferramenta retorna apenas os dados do usuário do contexto.
 - **Orquestrador com `FakeProvider` roteirizado:** sequência de tool calls → resposta; limites de iteração; tratamento de argumentos inválidos; indisponibilidade/timeout/rate limit.
 - **Segurança:** tentativa de passar `user_id` ou IDs de outro usuário → ignorada/negada; proposta inválida → rejeitada; meta nutricional extrema → rejeitada.
-- **Avaliação (opcional, manual):** um conjunto de ~20 perguntas de referência (as do enunciado do projeto) executadas contra o provedor real, com uma checklist (usou ferramentas? números corretos? admitiu falta de dados?). Resultado registrado em `docs/` — útil para a banca. **(4.7)** Implementada como roteiro de testes (`tests/coach_eval.py`, ADR-054): 21 perguntas, checagens automáticas e relatório com a revisão humana; método e perguntas em `AVALIACAO_IA.md`. O resultado com o provedor real fica para depois da 4.4.
+- **Avaliação (opcional, manual):** um conjunto de ~20 perguntas de referência (as do enunciado do projeto) executadas contra o provedor real, com uma checklist (usou ferramentas? números corretos? admitiu falta de dados?). Resultado registrado em `docs/` — útil para a banca. **(4.7)** Implementada como roteiro de testes (`tests/coach_eval.py`, ADR-054): 21 perguntas, checagens automáticas e relatório com a revisão humana; método e perguntas em `AVALIACAO_IA.md`. Com os provedores reais, a rodada completa ficou pendente por causa das cotas dos planos gratuitos (ADR-056, ADR-057; ver [LIMITACOES](LIMITACOES.md)).
 
 ## 10. Custos
 
-Custo ≈ (tokens de entrada + saída) × preço do modelo. Para conter os custos: cartão de contexto enxuto, resultados de ferramentas resumidos, limite diário por usuário, modelo econômico por padrão e histórico de conversa truncado (últimas N mensagens + resumo). Valores concretos dependem do provedor escolhido (ADR-012).
+Custo ≈ (tokens de entrada + saída) × preço do modelo. Para conter os custos: cartão de contexto enxuto, resultados de ferramentas resumidos, limite diário por usuário, modelo econômico por padrão e histórico de conversa truncado (últimas N mensagens + resumo). No TCC o custo é zero: Groq e Gemini nos planos gratuitos e o modo demonstração sem IA externa (ADR-056 a ADR-058); o limite por pessoa (`AI_DAILY_LIMIT`, `AI_PER_MINUTE_LIMIT`) e o máximo de tokens por resposta seguram o uso.
 
 **Modo demonstração** (ADR-058): `providers/demo.py` responde por regras, sem IA externa, mas pelo mesmo orquestrador e pelas mesmas ferramentas — os números vêm dos registros da pessoa e passam pela mesma conferência. Palavras-chave escolhem a intenção; a intenção escolhe as ferramentas (uma ou várias por passo) e o modelo de texto da resposta. Dor, dieta, hormônio e outra conta: respostas fixas com encaminhamento, sem consulta. No fim da cadeia (`gemini,groq,demo`), é a reserva quando a cota acaba; a resposta vem marcada (`demo: true`) e o app avisa. Passa nas 21 perguntas da avaliação (teste sem rede).

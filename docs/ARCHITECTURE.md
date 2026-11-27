@@ -9,8 +9,8 @@
 └────────────────────┘   JWT de acesso + refresh │                                           │
                                                  │  módulos de negócio ──▶ motor de análise  │
 ┌────────────────────┐                           │        │                     ▲            │
-│ Site Next.js       │ ── (só p/ lista de        │        ▼                     │            │
-│ (institucional)    │     interesse, se houver) │  PostgreSQL ◀── ferramentas da IA          │
+│ Site Next.js       │   (estático; não chama    │        ▼                     │            │
+│ (institucional)    │    a API)                 │  PostgreSQL ◀── ferramentas da IA          │
 └────────────────────┘                           │                     │                     │
                                                  │                     ▼                     │
                                                  │  integrations/ai ──▶ provedor LLM externo │
@@ -19,7 +19,7 @@
 
 - **Um único backend** (monólito modular). Nada de microsserviços.
 - O app e o site **nunca** falam diretamente com o provedor de IA; as chaves ficam somente no backend.
-- O site é estático/SSG na maior parte e só chama a API para a lista de interesse (opcional).
+- O site é estático e não chama a API: a lista de interesse não foi feita (ADR-062).
 
 ## 2. Estrutura do monorepositório
 
@@ -55,16 +55,19 @@ Ajustes em relação à proposta inicial (justificativas em `DECISIONS.md`):
 ```
 app/
 ├── main.py                 # cria o FastAPI, registra os routers e handlers de erro
-├── core/                   # config (pydantic-settings), segurança, erros, logging, paginação, tempo
+├── core/                   # config (pydantic-settings), erros, logging, middleware, contexto da requisição
 ├── db/                     # Base declarativa, engine/sessão, tipos comuns (UUID, timestamps)
 ├── api/v1/router.py        # agrega os routers dos módulos sob /api/v1
 ├── integrations/
 │   └── ai/                 # camada de LLM desacoplada (ver AI_DESIGN.md)
 └── modules/
-    ├── auth/               ├── users/        ├── goals/
-    ├── exercises/          ├── training/     ├── activities/
-    ├── nutrition/          ├── body_metrics/ ├── analytics/   # motor de indicadores + Meu Corpo
-    ├── ai_coach/           └── privacy/      # exportação e exclusão de dados (LGPD)
+    ├── auth/        ├── users/       # perfil, consentimentos, exportação e exclusão (account.py)
+    ├── goals/       ├── exercises/   ├── training/    # fichas
+    ├── sessions/    ├── history/     # treino em andamento, séries; histórico e recordes
+    ├── activities/  ├── plans/       # corrida, caminhada...; planos progressivos
+    ├── analytics/   ├── dashboard/   # indicadores e Meu Corpo; painel do Início
+    ├── nutrition/   ├── body/        # alimentos e refeições; peso e medidas
+    └── ai_coach/                     # conversas, ferramentas, propostas, prompts
 ```
 
 Estrutura interna de um módulo (só os arquivos necessários):
@@ -73,19 +76,18 @@ Estrutura interna de um módulo (só os arquivos necessários):
 modules/training/
 ├── models.py       # ORM SQLAlchemy
 ├── schemas.py      # Pydantic (entrada/saída da API)
-├── repository.py   # consultas — SEMPRE recebem user_id do contexto autenticado
-├── service.py      # regras de negócio, transações
+├── service.py      # regras de negócio, consultas e transações — SEMPRE filtram pelo usuário autenticado
 ├── router.py       # endpoints finos: validação → service → schema de saída
-└── rules.py        # (opcional) funções puras: cálculos e validações testáveis
+└── (opcional)      # módulos de funções puras: cálculos e validações testáveis (ex.: analytics/metrics.py)
 ```
 
 Regras de dependência:
 
-- `router → service → repository → models`. O router não acessa o banco diretamente.
-- Um módulo usa outro **pela camada de serviço** (nunca importa o repositório do outro).
-- `analytics` só lê (consome dados de `training`, `activities`, `body_metrics`, `nutrition`); não escreve nesses módulos.
+- `router → service → models`. O router não acessa o banco diretamente. A camada `repository` prevista no planejamento não foi criada: o serviço consulta o ORM e recebe o usuário do token, nunca do corpo.
+- Um módulo usa outro **pela camada de serviço**.
+- `analytics` só lê (consome dados de `training`, `sessions`, `activities`, `body`, `nutrition`); não escreve nesses módulos.
 - `ai_coach` usa `analytics` e os serviços de leitura através das **ferramentas** declaradas; alterações passam por `change_proposals`, aplicadas pelo serviço dono da entidade.
-- Cálculos (`rules.py`, `analytics/*`) são funções puras sempre que possível, para facilitar os testes.
+- Cálculos (`analytics/*` e os módulos de regras) são funções puras sempre que possível, para facilitar os testes.
 
 ### 3.2 Decisões transversais
 
@@ -96,7 +98,7 @@ Regras de dependência:
 | Datas | `timestamptz` em UTC no banco; o perfil guarda o fuso IANA (ex.: `America/Sao_Paulo`) para agregações “por dia/semana”. |
 | Unidades | Armazenamento em SI: kg, metros, segundos, kcal, gramas. A conversão para a unidade preferida acontece no cliente. |
 | Erros | Formato único (RFC 9457 *problem+json*): `type`, `title`, `status`, `detail`, `code`, `errors[]`. |
-| Paginação | Cursor (`?cursor=&limit=`) em listas cronológicas; `limit` máximo de 100. |
+| Paginação | `before` + `limit` em listas cronológicas, com `next_before` na resposta (ex.: atividades, até 50 por página). |
 | Autenticação | JWT de acesso curto (15 min) + refresh token opaco com rotação e detecção de reutilização (ADR-005). |
 | Autorização | O `user_id` vem **sempre** do token. Toda consulta de repositório filtra por `user_id`. Recurso de outro usuário → `404` (não revela existência). |
 | Config | `pydantic-settings` lendo variáveis de ambiente / `.env`; segredos nunca têm valor padrão em produção. |
@@ -111,11 +113,12 @@ lib/
 ├── main.dart
 ├── app/            # MaterialApp, roteamento (go_router), tema, injeção de providers raiz
 ├── core/           # cliente HTTP (dio + interceptors), armazenamento seguro, erros, formatação de unidades
-├── shared/         # design system: tokens, componentes (EvoCard, EvoButton, estados vazio/erro/carregando)
+├── shared/         # componentes (EvoCard, EvoButton, estados vazio/erro/carregando); tokens em app/theme/tokens.g.dart
 └── features/<feature>/
     ├── data/         # DTOs + repositório que chama a API
+    ├── application/  # controllers (Riverpod Notifier/AsyncNotifier)
     ├── domain/       # entidades e regras puras do cliente (ex.: cálculo de pace exibido)
-    └── presentation/ # telas, widgets, controllers (Riverpod Notifier/AsyncNotifier)
+    └── presentation/ # telas e widgets
 ```
 
 - **Riverpod 3** para estado e injeção de dependências: os providers podem ser substituídos nos testes sem mocks globais (ADR-006).
@@ -151,7 +154,7 @@ Corrida, caminhada e ciclismo compartilham `endurance_details` porque têm as me
 
 - `modules/analytics` expõe funções puras: `muscle_stimulus(sets, weights, period)`, `compare_periods(a, b)`, `personal_records(...)`, `endurance_trend(...)`, `consistency(...)`. **Implementado na 3.4** em `analytics/metrics.py` (`weekly`, `consistency`, `by_modality`, `endurance_weeks`, `rhythm`, `complete_weeks`, `trend`, `metric_value`, `compare`), sobre `Entry` montadas por `analytics/service.py` (a única parte que lê o banco). Os recordes continuam no módulo `history` (2.8).
 - A metodologia de estímulo é versionada (`methodology_version`) e parametrizada por configuração (ver `DATA_MODEL.md` §6).
-- O app recebe para o Meu Corpo uma lista `{muscle_id, weighted_sets, band}`, e o **renderer** (SVG 2D hoje, GLB 3D no futuro) só mapeia `muscle_id → região visual`. Trocar o renderer não altera os cálculos (ADR-010).
+- O app recebe para o Meu Corpo uma lista `{muscle_id, weighted_sets, band}`, e o **renderer** (2D em `CustomPainter`, o padrão; GLB 3D como opção no Android, ADR-045 e ADR-048) só mapeia `muscle_id → região visual`. Trocar o renderer não altera os cálculos (ADR-010).
 
 ## 8. Integrações externas (preparação)
 

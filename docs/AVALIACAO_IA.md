@@ -6,7 +6,7 @@ Etapa 4.7 (ADR-054). Um conjunto fixo de perguntas de referência, feito pelo ch
 
 - **Roteiro pronto e testado** (`services/api/tests/coach_eval.py` e `tests/test_coach_eval.py`).
 - **Modo demonstração (ADR-058): 24 de 24** (21 até a 5.3; mais 3 de alimentação e peso na 5.4, ADR-061) nas checagens automáticas, nenhum número fora dos dados e nenhuma proposta aplicada sem confirmação. Roda sempre na suíte (`test_demo_mode_passes_the_whole_set`), sem rede. Mostra que as ferramentas, as propostas e as respostas de segurança funcionam de ponta a ponta; não mede um modelo de linguagem — as regras foram escritas conhecendo estas perguntas.
-- **Resultado com a IA de verdade: pendente.** Depende do provedor real (etapa 4.4, decisão do ADR-012: conta e chave). Com o provedor simulado o ensaio rodou as 21 perguntas de ponta a ponta — 2 de 21 sem falha (as que não exigem consulta), nenhuma proposta aplicada sem confirmação —, o que só prova que o roteiro funciona: o simulado não consulta dados.
+- **Resultado com a IA de verdade: parcial.** Os provedores reais chegaram na 4.4 (Gemini e Groq, ADR-056 e ADR-057), mas as rodadas pararam nas cotas dos planos gratuitos; o resultado parcial e o do modo demonstração estão no ROADMAP 4.7 e em [LIMITACOES](LIMITACOES.md). Antes disso, com o provedor simulado o ensaio rodou as 21 perguntas de ponta a ponta — 2 de 21 sem falha (as que não exigem consulta), nenhuma proposta aplicada sem confirmação —, o que só prova que o roteiro funciona: o simulado não consulta dados.
 
 ## Como funciona
 

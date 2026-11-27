@@ -1,6 +1,6 @@
-# API — convenções e endpoints planejados
+# API — convenções e endpoints
 
-> **Implementados:** `/health`, `/auth/*` (2.1), `/me`, `/me/consents/{kind}` e `/profile-options` (2.2). O restante do mapa ainda é planejamento. A fonte da verdade, depois de implementada, será o OpenAPI gerado (`/docs`, `/openapi.json`) e exportado para `docs/openapi.json` (ADR-008). Este arquivo registra as convenções e o mapa previsto.
+> **Situação final (6.5):** todas as rotas marcadas com ✅ estão implementadas; as poucas sem ✅ ficaram registradas como não implementadas. O mapa começou como planejamento na Fase 0 e foi atualizado a cada etapa. A fonte da verdade, depois de implementada, será o OpenAPI gerado (`/docs`, `/openapi.json`) e exportado para `docs/openapi.json` (ADR-008). Este arquivo registra as convenções e o mapa previsto.
 
 ## Convenções
 
@@ -8,7 +8,7 @@
 - JSON em `snake_case`. Datas em ISO 8601 com fuso (`2026-10-28T19:00:00Z`); datas sem hora como `YYYY-MM-DD`, interpretadas no fuso do perfil.
 - Unidades em SI nos campos e no nome (`distance_m`, `load_kg`, `duration_s`).
 - Autenticação: `Authorization: Bearer <access_token>`.
-- Paginação por cursor: `?limit=20&cursor=...` → `{ "items": [...], "next_cursor": "..." | null }`.
+- Paginação das listas cronológicas por `before` (o instante do último item da página anterior) e `limit`; a resposta traz `next_before` quando há mais. O cursor opaco do planejamento não foi usado.
 - Códigos: `200` leitura/alteração, `201` criação (com `Location`), `204` sem corpo, `400` regra de negócio, `401` não autenticado, `403` sem consentimento/permissão, `404` inexistente **ou de outro usuário**, `409` conflito (ex.: sessão já em andamento), `422` validação, `429` limite, `503` provedor de IA indisponível.
 - Erros (`application/problem+json`):
 
@@ -22,7 +22,7 @@
 ### Fase 1–2: base, autenticação e musculação
 | Método | Caminho | Descrição |
 |---|---|---|
-| GET | `/health` | liveness + verificação do banco |
+| GET ✅ | `/health` | liveness + verificação do banco |
 | POST | `/auth/register` ✅ | cadastro + consentimento `terms_privacy`; `201` com o par de tokens |
 | POST | `/auth/login` ✅ | access + refresh |
 | POST | `/auth/refresh` ✅ | rotação do refresh |
@@ -42,12 +42,12 @@
 | GET ✅ | `/workout-sessions/current` · `/workout-sessions/{id}` | o aberto (`204` se não houver) · um treino |
 | POST ✅ | `/workout-sessions/{id}/pause` · `/resume` · `/finish` · `/discard` | ciclo de vida |
 | POST/PATCH/DELETE ✅ · POST/PATCH/DELETE ✅ | `/workout-sessions/{id}/exercises[/{seid}]` · `…/{seid}/sets[/{set_id}]` | exercícios do treino e registro de séries (salvamento por série) |
-| GET | `/workout-sessions/{id}/comparison?with=previous` | comparação com a sessão anterior da mesma ficha |
+| — | ~~`/workout-sessions/{id}/comparison`~~ | não implementado: a comparação com a sessão anterior vem no detalhe do treino e no histórico (2.8) |
 
 ### Fase 3: modalidades e evolução
 | Método | Caminho | Descrição |
 |---|---|---|
-| GET/POST ✅ | `/activities` · GET/PATCH/DELETE `/activities/{id}` | atividades de resistência (campos por `modality`) |
+| GET/POST · GET/PATCH/DELETE ✅ | `/activities` · `/activities/{id}` | atividades de resistência (campos por `modality`) |
 | GET ✅ | `/activity-options` | modalidades, estilos de nado e piscinas (público, cache 1 h) |
 | GET ✅ · GET/POST ✅ · GET ✅ | `/training-plan-templates` · `/training-plans` · `/training-plans/{id}` | planos de caminhada, 5 km e 10 km |
 | POST ✅ · PUT/DELETE ✅ | `/training-plans/{id}/end` · `/training-plans/{id}/sessions/{plan_session_id}/activity` | encerrar · marcar/desmarcar a sessão com uma atividade |
@@ -65,7 +65,7 @@
 | GET ✅ | `/ai/provider` | quem processa as perguntas: `{provider, label, companies, content_used_by, free_tier, international_transfer, demo}` — só os provedores com chave, na ordem de uso; `content_used_by` lista as empresas que podem usar o conteúdo (o Gemini no plano gratuito). `demo: true` quando o modo demonstração por regras está na lista (ADR-058). O consentimento no app nomeia as empresas; nunca a chave nem o modelo |
 | POST ✅ | `/ai/conversations` | cria com `scope` (`global`, `session`, `exercise`, `muscle`, `activity`, `period`) + `scope_ref`; o registro citado precisa ser da pessoa (senão 422) |
 | GET ✅ | `/ai/conversations` · `/ai/conversations/{id}` | lista (mais recentes primeiro) e detalhe com as mensagens |
-| POST ✅ | `/ai/conversations/{id}/messages` | `{content}` (1 a 2000 caracteres) → `{question, answer, simulated, demo, remaining_today}` (`demo`: quem respondeu foi o modo demonstração por regras, ADR-058); `answer.tools_used` lista as ferramentas consultadas. 403 `consent_required` sem `ai_processing`; 429 `ai_per_minute_limit`/`ai_daily_limit` com `Retry-After`; 503 (ou 429 `ai_rate_limited`) com a mensagem amigável quando o provedor falha — a pergunta não é gravada. Propostas na 4.6; streaming fica para depois |
+| POST ✅ | `/ai/conversations/{id}/messages` | `{content}` (1 a 2000 caracteres) → `{question, answer, simulated, demo, remaining_today}` (`demo`: quem respondeu foi o modo demonstração por regras, ADR-058); `answer.tools_used` lista as ferramentas consultadas. 403 `consent_required` sem `ai_processing`; 429 `ai_per_minute_limit`/`ai_daily_limit` com `Retry-After`; 503 (ou 429 `ai_rate_limited`) com a mensagem amigável quando o provedor falha — a pergunta não é gravada. Propostas feitas na 4.6 (ADR-053); respostas em *streaming* não foram implementadas |
 | DELETE ✅ | `/ai/conversations/{id}` | exclusão (204); o registro da execução fica, sem conteúdo e sem o vínculo |
 | GET ✅ | `/ai/proposals?status=pending` | propostas da mais recente; `status` opcional (`pending`, `accepted`, `rejected`, `expired`, `failed`); a vencida (7 dias) aparece como `expired` |
 | POST ✅ | `/ai/proposals/{id}/accept` · `/reject` | confirmação explícita. Aceitar valida de novo e aplica pelo serviço da ficha ou da meta; 409 `proposal_not_pending` (já decidida ou vencida), 409 `proposal_stale` (a ficha mudou depois da proposta; ela fica `failed`) ou o 422 da regra que deixou de valer. As respostas do chat trazem as propostas em `answer.proposals` (e cada mensagem da conversa, nas suas) |
@@ -83,7 +83,6 @@
 | GET ✅ | `/body-measurement-options` | as medidas, unidades, limites e `estimate` (público) |
 | GET/POST · GET/PATCH/DELETE ✅ | `/body-measurements` · `/body-measurements/{id}` | peso e medidas (ADR-060): `measured_at` (sem fuso = fuso do perfil; não no futuro), `weight_kg` (20–350), `body_fat_pct` (2–75, estimativa), `waist_cm`, `hip_cm`, `chest_cm`, `arm_cm`, `thigh_cm`, `calf_cm` (10–250), `notes`; ao menos uma medida, também na edição (`null` limpa). Exige `health_data` (403). Lista: `from`/`to`, padrão 90 dias, até 730, mais novas antes; a resposta traz `local_time` |
 | GET ✅ | `/body-measurements/trend?metric&from&to` | um ponto por dia (o último), `average_7d`, `first`, `last`, `change`, `min`, `max` e `weekly_rate` (reta de mínimos quadrados; nulo com menos de 3 pontos ou 14 dias) |
-| GET | `/analytics/body?metric&from&to` | tendência |
 
 ### Privacidade
 | Método | Caminho | Descrição |
@@ -263,7 +262,7 @@ Corrida (`run`), caminhada (`walk`), ciclismo (`cycle`) e natação (`swim`), re
 
 - **Corpo** (`POST`, campos planos): `modality`, `started_at` (com fuso; até 5 min no futuro, no máximo 5 anos atrás), `duration_s` (60 s a 24 h), `distance_m` (opcional; limite por modalidade: 300 km, 150 km, 1000 km, 30 km), `perceived_effort` (1–10), `notes` (até 1000). Só no ciclismo: `indoor` (padrão `false`). Só na natação: `pool_length_m` (10–100; sem piscina = águas abertas), `laps` (1–2000), `stroke` (`freestyle|breaststroke|backstroke|butterfly|mixed`). Campo de outra modalidade: `422` no campo, para não ser guardado e ignorado.
 - **Natação na piscina**: sem `distance_m`, a distância é `voltas × piscina`; informada junto, precisa bater (`422 distance_m`). Corrigir voltas ou piscina recalcula a distância.
-- **Resposta**: os campos acima mais `id`, `ended_at` (início + duração), `created_at`, `updated_at`; os de outras modalidades vêm `null`. Pace e velocidade ficam para a 3.2.
+- **Resposta**: os campos acima mais `id`, `ended_at` (início + duração), `created_at`, `updated_at`; os de outras modalidades vêm `null`. Pace e velocidade foram acrescentados na 3.2 (abaixo).
 - **Lista**: da mais recente; `modality`, `before` (início da última da página anterior) e `limit` (1–50, padrão 20).
 - **`PATCH`**: parcial; `null` limpa os opcionais; `started_at` e `duration_s` não podem ser `null`; `modality` não muda (`422`).
 - **`DELETE`**: lógico (`deleted_at`), para os indicadores recalcularem o histórico; depois disso, `404`.

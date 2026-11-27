@@ -1,6 +1,6 @@
-# Modelo de dados preliminar
+# Modelo de dados
 
-> Preliminar: será refinado durante a implementação de cada fase, sempre por migrações Alembic. Convenções: `id uuid` (v7) como PK; `created_at`/`updated_at timestamptz` em todas as tabelas mutáveis; unidades em SI; `user_id` com `ON DELETE CASCADE` em tudo o que pertence ao usuário.
+> Começou preliminar na Fase 0 e foi refinado em cada fase por migrações Alembic (17 ao todo). Onde o implementado difere do planejado, a seção traz uma nota “Implementado”; a fonte da verdade são os modelos em `services/api/app/modules/*/models.py` e as migrações. Convenções: `id uuid` (v7) como PK; `created_at`/`updated_at timestamptz` em todas as tabelas mutáveis; unidades em SI; `user_id` com `ON DELETE CASCADE` em tudo o que pertence ao usuário.
 
 ## 1. Visão geral (ER resumido)
 
@@ -16,7 +16,7 @@ users ─┬─ user_profiles (1:1)        ─ user_consents        ─ refresh_
        ├─ meals ─ meal_items ─ foods (globais ou do usuário)
        ├─ nutrition_targets
        ├─ body_measurements
-       ├─ ai_conversations ─ ai_messages ─ ai_tool_calls
+       ├─ ai_conversations ─ ai_messages (ai_run_logs guarda as consultas, sem conteúdo)
        ├─ ai_run_logs
        └─ change_proposals
 
@@ -26,7 +26,7 @@ stimulus_methodologies                              (configuração versionada, 
 
 ## 2. Usuários, perfil e metas
 
-**users**: `id`, `email` (único, citext), `password_hash`, `status` (`active|disabled`), `last_login_at`.
+**users**: `id`, `email` (único, `varchar(254)` sempre em minúsculas, garantido por CHECK), `password_hash`, `status` (`active|disabled`), `last_login_at`.
 
 **user_profiles** (1:1): `display_name`, `birth_year` (ano — em vez da data completa, por minimização), `sex_for_calculations` (opcional: `female|male|unspecified`; usado só se o usuário quiser estimativas de gasto), `timezone`, `unit_system` (`metric|imperial`), `experience_level` (`beginner|intermediate|advanced`), `weekly_availability` (JSONB: `{days_per_week, minutes_per_session}`), `preferred_modalities` (array de enum), `equipment` (array de enum: `gym|dumbbells|bands|bodyweight|bike|pool|...`), `dietary_preferences` (array: `vegetarian|vegan|lactose_free|...`), `limitations_note` (texto livre, **sensível**), `limitation_tags` (array controlado: `knee|lower_back|shoulder|cardiac_condition_reported|...`), `primary_objective` e `secondary_objectives` (motivação declarada no onboarding — as metas mensuráveis ficam em `goals`), `onboarding_completed_at` (migração 0002).
 
@@ -35,7 +35,7 @@ stimulus_methodologies                              (configuração versionada, 
 **refresh_tokens**: `user_id`, `family_id`, `token_hash` (único), `expires_at`, `rotated_at`, `revoked_at`, `user_agent` (truncado).
 
 **goals** (migração 0003): `user_id`, `kind` (texto com o código de `app/modules/goals/kinds.py`: `strength|hypertrophy|weight_loss|weight_maintenance|weight_gain|run_distance|run_time|frequency|habit|custom` — texto e não enum, para um tipo novo não exigir migração), `title`, `target` (JSONB validado pelos campos do `kind`, ex.: `{distance_km: 5}` ou `{sessions_per_week: 3, modality: "walk"}`), `start_date`, `target_date` (≥ `start_date`, CHECK), `status` (`active|achieved|abandoned`), `priority` (1–3, CHECK), `closed_at`. Índice `(user_id, status)`.
-> Um JSONB tipado por `kind` evita uma tabela por tipo de meta, que seriam todas pequenas. A validação é feita a partir de uma definição de campos por tipo (a mesma que o app usa para montar o formulário), em vez de uma classe Pydantic por tipo. Metas de peso são dado de saúde e saem junto com o consentimento `health_data`. O progresso automático depende dos registros de treino e de medidas (Fases 3 e 5).
+> Um JSONB tipado por `kind` evita uma tabela por tipo de meta, que seriam todas pequenas. A validação é feita a partir de uma definição de campos por tipo (a mesma que o app usa para montar o formulário), em vez de uma classe Pydantic por tipo. Metas de peso são dado de saúde e saem junto com o consentimento `health_data`. O progresso automático é calculado pelos registros de treino e de medidas no painel do Início (`GET /dashboard`, ADR-047 e ADR-060).
 
 ## 3. Musculação
 
@@ -49,7 +49,7 @@ stimulus_methodologies                              (configuração versionada, 
 
 **exercise_groups**: `id`, `template_id` **ou** `session_id` (exatamente um, via CHECK — a 2.6 acrescenta `session_id` e o CHECK), `position`, `kind` (`superset|biset|triset|giant_set`), `rest_after_s`. Agrupa itens consecutivos da ficha/sessão.
 
-**template_items**: `template_id`, `exercise_id`, `position`, `exercise_group_id` (nullable), `planned_sets` (JSONB com uma lista de séries planejadas `[{kind, reps_min, reps_max, duration_s, load_kg, rir_target}]`; `kind` em `warmup|working|drop|rest_pause` faz o papel da antiga `technique`), `rest_s`, `notes`. `exercise_id` com `ON DELETE CASCADE`: exercícios só saem na exclusão da conta.
+**template_items**: `template_id`, `exercise_id`, `position`, `group_id` (nullable), `planned_sets` (JSONB com uma lista de séries planejadas `[{kind, reps_min, reps_max, duration_s, load_kg, rir_target}]`; `kind` em `warmup|working|drop|rest_pause` faz o papel da antiga `technique`), `rest_s`, `notes`. `exercise_id` com `ON DELETE CASCADE`: exercícios só saem na exclusão da conta.
 > A prescrição fica em JSONB porque é um plano (lido e editado como um bloco, nunca agregado). O que é executado fica em tabelas normalizadas.
 
 **activities** (base multimodal): `user_id`, `modality` (`strength|run|walk|cycle|swim|other`), `started_at`, `ended_at`, `duration_s`, `perceived_effort` (RPE 1–10, opcional), `notes`, `source` (`manual|app_session|import:<provider>`), `external_id` (nullable; único por `user_id+source`), `deleted_at` (exclusão lógica para recalcular indicadores com histórico; exclusão de conta é física).
@@ -69,7 +69,7 @@ stimulus_methodologies                              (configuração versionada, 
 | `reps` | int null | |
 | `load_kg` | numeric(6,2) null | carga externa; para `assisted`, a assistência |
 | `duration_s` | int null | exercícios isométricos/por tempo |
-| `rir` / `rpe` | numeric null | opcionais |
+| `rir` / `rpe` | smallint / numeric(3,1) null | opcionais |
 | `to_failure` | bool | |
 | `completed_at` | timestamptz | |
 
@@ -164,5 +164,5 @@ Cache de indicadores (tabela ou Redis) só será criado se houver necessidade me
 - `activities (user_id, started_at DESC) WHERE deleted_at IS NULL`
 - `set_entries (session_exercise_id, position)`; `session_exercises (exercise_id)` + junção para histórico do exercício por usuário
 - `meals (user_id, eaten_at DESC)`; `body_measurements (user_id, measured_at DESC)`
-- `exercises (owner_user_id, slug)` único; busca por nome com `pg_trgm` (Fase 2)
+- `exercises (owner_user_id, slug)` único; busca por nome pela coluna `search_name` (sem acentos), sem extensões (ADR-029)
 - `refresh_tokens (token_hash)` único; `change_proposals (user_id, status)`
